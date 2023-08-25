@@ -1,0 +1,41 @@
+{
+  "name":"Xfer",
+  "argcount":3,
+  "cmdhelp":"hhl7 -t admit <hospnum> <patientClass> <ward^^bed>",
+  "segments": [
+    { "name":"MSH",
+      "fieldcount":11,
+      "fields": [
+        { "id":1,  "value":"^~\\&" },
+        { "id":6,  "value":"$NOW", "name":"Timestamp" },
+        { "id":8,  "value":"ADT^A02" },
+        { "id":9,  "value":"1" },
+        { "id":10, "value":"P" },
+        { "id":11, "value":"2.4" }
+      ]
+    },
+    { "name":"EVN",
+      "fieldcount":1,
+      "fields": [
+        { "id":1,  "value":"A02" }
+      ]
+    },
+    { "name":"PID",
+      "fieldcount":3,
+      "fields": [  
+        { "id":3,  "value":"$VAR", "name":"Hospital Number" }
+      ]
+    },
+    { "name":"PV1",
+      "fieldcount":3,
+      "fields": [
+        { "id":2,  "value":"$VAR", "name":"Patient Class", "default":"I", "options": [
+          { "id":1, "option":"A" },
+	  { "id":2, "option":"E" },
+	  { "id":3, "option":"I" }
+	]},
+        { "id":3,  "value":"$VAR", "name":"Ward (HL7)i^^Bed (HL7)" }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+TODO: Complete this file
+
+1) Make ssh keys:
+-----------------
+openssl genrsa -out server.key 1024
+openssl req -days 365 -out server.pem -new -x509 -key server.key
+
+2) Install prerequisites if required:
+-------------------------------------
+sudo apt-get install libmicrohttpd-dev
+sudo apt-get install libjson-c-dev
+sudo apt-get install make
+
+3) Build
+--------
+make
+
+NOTE: "make install" may or may not work properly - development is still in progress, please do not use it until it is added to this INSTALL file.
