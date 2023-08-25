@@ -71,6 +71,7 @@ int getJSONValue(char *jsonMsg, int type, char *key, char *resVal) {
 }
 
 
+// TODO - rewrite? Long function, maybe split in to parse segment/field functions?
 // TODO - make sure we're sending argc as optind args, maybe change variable name?
 void json2hl7(char *jsonMsg, char* hl7Msg, int argc, char *argv[]) {
   char *vStr = NULL;
@@ -136,12 +137,21 @@ void json2hl7(char *jsonMsg, char* hl7Msg, int argc, char *argv[]) {
       // If the json id matches the expected field index then process the value
       if (fid == f + 1) {
         json_object_object_get_ex(fieldObj, "value", &valObj);
-        vStr = (char *) json_object_get_string(valObj);
+        if (json_object_get_type(valObj) == json_type_string) {
+          vStr = (char *) json_object_get_string(valObj);
 
-        // Check if any of the values are variables, e.g: time now etc
-        parseopts(vStr, dt, &varc, argv[varc]);
+          // Check if any of the values are variables, e.g: time now etc
+          parseopts(vStr, dt, &varc, argv[varc]);
 
-        sprintf(hl7Msg + strlen(hl7Msg), "%s|", vStr);
+          sprintf(hl7Msg + strlen(hl7Msg), "%s|", vStr);
+
+        } else {
+          // TODO - process subfields here when we rewrite, call parseFields twice.
+          fprintf(stderr, "ERROR: Could not read value for field %d in segment %d (of %d) from json template\n", fid, s + 1, segCount);
+          exit(1);
+
+        }
+
         fIdx++;
 
       } else if (fid > f + 1) {

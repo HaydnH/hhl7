@@ -1,0 +1,4 @@
+*.o
+hhl7
+hhl7fifo
+gitHelp
