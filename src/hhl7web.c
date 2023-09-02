@@ -50,7 +50,6 @@ struct connection_info_struct {
   struct MHD_PostProcessor *postprocessor;
 };
 
-// TODO - do we have 2 isWeb variables?
 char webErrStr[256] = "";
 int webRunning = 0;
 int isListening = 0;
@@ -232,13 +231,16 @@ static enum MHD_Result getTemplateList(struct MHD_Connection *connection) {
   FILE *fp = 0;
   struct dirent *file;
   // TODO: Get templates from all possible directories...
-  char *tPath = "/usr/local/share/hhl7/templates/";
-  char *nOpt = "<option value=\"None\">None</option>\n";
-  char fName[50], tName[50], fullName[50+strlen(tPath)], *ext, *tempOpts;
+  const char *tPath = "/usr/local/share/hhl7/templates/";
+  const char *nOpt = "<option value=\"None\">None</option>\n";
+  char fName[50], tName[50], fullName[50+strlen(tPath)], *ext; //, *tempOpts;
+  char *tempOpts = malloc(36);
+  char *newPtr;
 
   // TODO - check pointers updated to new memory created with realloc
   // TODO is sizeof needed for char, should just be 36?
-  tempOpts = (char *) malloc(36 * sizeof(char));
+  //tempOpts = (char *) malloc(36 * sizeof(char));
+  //tempOpts = (char *) malloc(36);
   strcpy(tempOpts, nOpt);
 
   if (tempOpts == NULL) {
@@ -276,13 +278,16 @@ static enum MHD_Result getTemplateList(struct MHD_Connection *connection) {
             strcpy(tName, fName);
           }
 
-          // TODO - check realloc
-          tempOpts = (char *) realloc(tempOpts, (2*strlen(fName)) + strlen(tempOpts) + 34);
-          strcat(tempOpts, "<option value=\"");
-          strcat(tempOpts, fName);
-          strcat(tempOpts, ".json\">");
-          strcat(tempOpts, tName);
-          strcat(tempOpts, "</option>\n");
+          // Increase memory for tempOpts to allow file name etc
+          newPtr = realloc(tempOpts, (2*strlen(fName)) + strlen(tempOpts) + 37);
+          if (newPtr == NULL) {
+            fprintf(stderr, "ERROR: Can't allocatate memory\n");
+          } else {
+            tempOpts = newPtr;
+          }
+
+          sprintf(tempOpts + strlen(tempOpts), "%s%s%s%s%s", "<option value=\"",
+                                               fName, ".json\">", tName, "</option>\n");
         }
 
         // Free memory
@@ -305,27 +310,21 @@ static enum MHD_Result getTemplateList(struct MHD_Connection *connection) {
   return ret;
 }
 
-// TODO - function getting long, consider splitting off to functions
-static enum MHD_Result getTempForm(struct MHD_Connection *connection, const char *url) {
+static enum MHD_Result getTempFormNEW(struct MHD_Connection *connection, const char *url) {
   enum MHD_Result ret;
   struct MHD_Response *response;
   FILE *fp;
+
+  char *webForm = malloc(1024);
+  char *webHL7 = malloc(1024);
+  char *jsonReply = malloc(1);
+  webForm[0] = '\0';
+  webHL7[0] = '\0';
+  jsonReply[0] = '\0';
+
   // TODO: Get templates from all possible directories...
   char *tPath = "/usr/local/share/hhl7";
   char *fileName = malloc(strlen(tPath) + strlen(url) + 1);
-  char *formStr = malloc(1024);
-  // TODO - reduce this to 1 and add reallocs below
-  char *formHL7 = malloc(1024);
-  char *jsonReply = malloc(1);
-  formStr[0] = '\0';
-  formHL7[0] = '\0';
-  jsonReply[0] = '\0';
-  char dt[26] = "";
-  char *vStr = NULL, *oStr = NULL, *dStr = NULL;
-  int s, segCount = 0, f, fldCount = 0, fIdx = 0, fid = 0, o = 0;
-  struct json_object *rootObj= NULL, *segsObj = NULL, *segObj = NULL;
-  struct json_object *fieldsObj = NULL, *fieldObj = NULL, *valObj = NULL, *idObj = NULL;
-  struct json_object *optsObj = NULL, *optObj = NULL, *oObj = NULL, *defObj = NULL;
 
   strcpy(fileName, tPath);
   strcat(fileName, url);
@@ -334,178 +333,36 @@ static enum MHD_Result getTempForm(struct MHD_Connection *connection, const char
   int fSize = getFileSize(fileName); 
   char *jsonMsg = malloc(fSize + 1);
 
+  // Read the json template to jsonMsg
   readJSONFile(fp, fSize, jsonMsg);
-  rootObj = json_tokener_parse(jsonMsg);
 
-  json_object_object_get_ex(rootObj, "argcount", &valObj);
-  if (json_object_get_type(valObj) != json_type_int) {
-    fprintf(stderr, "ERROR: Could not read integer value for argcount from json template\n"
-);
-    exit(1);
-  }
+  // Generate HL7 based on the json template
+  //parseJSONTemp(jsonMsg, hl7Msg, argc - optind, argv + optind, 1);
+  parseJSONTemp(jsonMsg, webHL7, webForm, 0, NULL, 1);
 
-  // Get full segment section from the json template
-  json_object_object_get_ex(rootObj, "segments", &segsObj);
-  segCount = json_object_array_length(segsObj);
-
-  // Alloc enough space for the segment headers, first separator and end of line
-  //formHL7 = realloc(formHL7, 5 * segCount);
-
-  for (s = 0; s < segCount; s++) {
-    // Get individual segment as json
-    segObj = json_object_array_get_idx(segsObj, s);
-
-    // Add name and separator to HL7 message
-    json_object_object_get_ex(segObj, "name", &valObj);
-    vStr = (char *) json_object_get_string(valObj);
-    strcat(formHL7, vStr);
-    strcat(formHL7, "|");
-
-    // Get Fields object
-    json_object_object_get_ex(segObj, "fields", &fieldsObj);
-    json_object_object_get_ex(segObj, "fieldcount", &valObj);
-    fldCount = (int) json_object_get_int(valObj);
-
-    if (json_object_get_type(valObj) != json_type_int) {
-      fprintf(stderr, "ERROR: Could not read fieldcount (int) for segment %d (of %d) from json template\n", s + 1, segCount);
-      exit(1);
-    }
-
-    fIdx = 0;
-    for (f = 0; f < fldCount; f++) {
-      // Get individual field object from fields
-      fieldObj = json_object_array_get_idx(fieldsObj, fIdx);
-
-      // Get the ID of the current field value
-      json_object_object_get_ex(fieldObj, "id", &idObj);
-      fid = (int) json_object_get_int(idObj);
-
-      // If the json id matches the expected field index then process the value
-      if (fid == f + 1) {
-        json_object_object_get_ex(fieldObj, "value", &valObj);
-        vStr = (char *) json_object_get_string(valObj);
-
-        // Check if this is variable, date or just a value
-        // TODO: Add a HTML error message for template issues
-        if (strcmp(vStr, "$VAR") == 0) {
-          // Get the name, options list and default option for the variable
-          json_object_object_get_ex(fieldObj, "name", &valObj);
-          vStr = (char *) json_object_get_string(valObj);
-
-          // TODO - change to html error and not exit
-          if (!vStr) {
-            printf("ERROR: Template variable does not include a \"name\" field.\n");
-            exit(1);
-          }
-
-          json_object_object_get_ex(fieldObj, "options", &optsObj);
-          json_object_object_get_ex(fieldObj, "default", &defObj);
-          dStr = (char *) json_object_get_string(defObj);
-
-          //if (json_object_get_type(optsObj) != json_type_string) {
-            //TODO - error here
-          //}
-          // TODO - realloc error checks here and below
-          //formStr = realloc(formStr, strlen(formStr) + 143 + strlen(vStr));
-
-          strcat(formStr, "<div class='tempFormField'><div class='tempFormKey'>");
-          strcat(formStr, vStr);
-          strcat(formStr, ":</div><div class='tempFormValue'>");
-
-          strcat(formHL7, "<span id='HHL7_FL_");
-          strcat(formHL7, vStr);
-          strcat(formHL7, "_HL7'>");
-
-          // Create options list
-          if (optsObj) {
-            strcat(formStr, "<select id='HHL7_FL_");
-            strcat(formStr, vStr);
-            strcat(formStr, "' class='tempFormInput' onInput='updateHL7(this.id, this.value);' />");
-
-            for (o = 0; o < json_object_array_length(optsObj); o++) {
-              optObj = json_object_array_get_idx(optsObj, o);
-              json_object_object_get_ex(optObj, "option", &oObj);
-              oStr = (char *) json_object_get_string(oObj);
-              //formStr = realloc(formStr, strlen(formStr) + 98 + (2*strlen(oStr)));
-
-              strcat(formStr, "<option value='");
-              strcat(formStr, oStr);
-              if (strcmp(oStr, dStr) == 0) {
-                strcat(formStr, "' selected='selected'>");
-                strcat(formHL7, oStr);
-              } else {
-                strcat(formStr, "'>");
-              }
-              strcat(formStr, oStr);
-              strcat(formStr, "</option>");
-            }
-
-              strcat(formStr, "</select>");
-
-          } else {
-            strcat(formStr, "<input id='HHL7_FL_");
-            strcat(formStr, vStr);
-            strcat(formStr, "' class='tempFormInput' onInput='updateHL7(this.id, this.value);' />");
-
-          }
-
-          strcat(formHL7, "</span>");
-          strcat(formStr, "</div></div>");
-
-        } else if (strcmp(vStr, "$NOW") == 0) {
-          // Get the current time
-          timeNow(dt);
-          strcat(formHL7, dt);
-
-        } else {
-          // Escape slashes in any JSON strings from the template
-          char evStr[2 * strlen(vStr) + 1];
-          escapeSlash(evStr, vStr);
-          strcat(formHL7, evStr);
-
-        }
-        fIdx++;
-        strcat(formHL7, "|");
-
-      // Needed to avoid the last field hitting the else, but non-functional
-      } else if (fid > f + 1) {
-        strcat(formHL7, "|");
-
-        
-      } else {
-        // TODO - change this to a HTML error message
-        fprintf(stderr, "ERROR: Failed to process fields for segment %d (of %d) from json template\n", s + 1, segCount);
-
-      }
-    }
-    strcat(formHL7, "<br />");
-
-  }
+  // TODO - rework this... temp fix cos pub time! escapeSlash should malloc
+  char tmpBuf[2 * strlen(webHL7) + 1];
+  escapeSlash(tmpBuf, webHL7);
+  tmpBuf[strlen(tmpBuf)] = '\0';
 
   // Construct the JSON reply
-  jsonReply = realloc(jsonReply, strlen(formStr) + strlen(formHL7) + 53);
-
+  jsonReply = realloc(jsonReply, strlen(webForm) + strlen(webHL7) + 53);
   strcpy(jsonReply, "{ \"form\":\"");
-  strcat(jsonReply, formStr);
+  strcat(jsonReply, webForm);
   strcat(jsonReply, "\",\n\"hl7\":\"");
-  strcat(jsonReply, formHL7);
+  //strcat(jsonReply, webHL7);
+  strcat(jsonReply, tmpBuf);
   strcat(jsonReply, "\" }");
-
-  printf("HS:\n%s\n", jsonReply);
-
-  // Free memory
-  fclose(fp);
-  free(formStr);
-  free(formHL7);
-  free(jsonMsg);
-  json_object_put(rootObj);
 
   // Succesful template list response
   response = MHD_create_response_from_buffer(strlen(jsonReply), (void *) jsonReply,
              MHD_RESPMEM_MUST_COPY);
-             //MHD_RESPMEM_PERSISTENT);
 
-  // TODO - check mallocs above and add frees.
+  // Free memory
+  fclose(fp);
+  free(webForm);
+  free(webHL7);
+  free(jsonMsg);
   free(jsonReply);
 
   if (! response) return MHD_NO;
@@ -513,6 +370,7 @@ static enum MHD_Result getTempForm(struct MHD_Connection *connection, const char
   MHD_destroy_response(response);
   return ret;
 }
+
 
 static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
               const char *key, const char *filename, const char *content_type,
@@ -532,7 +390,6 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
     if ((size > 0) && (size <= MAXNAMESIZE)) {
       char newData[strlen(data) + 1];
       strcpy(newData, data);
-      //unix2hl7(newData);
       wrapMLLP(newData);
 
       char *answerstring;
@@ -585,7 +442,6 @@ static enum MHD_Result stopListenWeb(struct MHD_Connection *connection) {
 }
 
 
-// TODO - libmicrohttpd leaving processes open for some reason (ps -eLf |grep MHD)
 // Send the HL7 message to the web browser
 static enum MHD_Result sendHL72Web(struct MHD_Connection *connection, int fd) {
   enum MHD_Result ret;
@@ -745,7 +601,7 @@ static enum MHD_Result answer_to_connection(void *cls, struct MHD_Connection *co
       return getImage(connection, url);
 
     } else if (strstr(url, "/templates/")) {
-      return getTempForm(connection, url);
+      return getTempFormNEW(connection, url);
 
     } else if (strcmp(url, "/getTemplateList") == 0) {
       return getTemplateList(connection);
@@ -826,38 +682,13 @@ int listenWeb() {
   fclose(fpSKEY);
   fclose(fpSPEM);
 
-  // TODO - delete below, left in sa reminder for above line changes
-  //file2buf(key_pem, openFile(SKEY), keySize);
-  //file2buf(cert_pem, openFile(SPEM), pemSize);
-
   if ((key_pem == NULL) || (cert_pem == NULL)) {
     fprintf(stderr, "ERROR: The HTTPS key/certificate files could not be read.\n");
     exit(1);
   }
 
-//  daemon = MHD_start_daemon(MHD_USE_THREAD_PER_CONNECTION | MHD_USE_TLS, PORT, NULL,
-//                            NULL, &answer_to_connection, NULL,
-//                            MHD_OPTION_HTTPS_MEM_KEY, key_pem,
-//                            MHD_OPTION_HTTPS_MEM_CERT, cert_pem, MHD_OPTION_END);
-
-//  daemon = MHD_start_daemon(MHD_USE_INTERNAL_POLLING_THREAD | MHD_USE_EPOLL | 
-//                            MHD_USE_TURBO| MHD_USE_TLS,
-//                            PORT, NULL, NULL, &answer_to_connection, NULL,
-//                            MHD_OPTION_THREAD_POOL_SIZE, (unsigned int) 4,
-//                            MHD_OPTION_HTTPS_MEM_KEY, key_pem,
-//                            MHD_OPTION_HTTPS_MEM_CERT, cert_pem, MHD_OPTION_END);
-
-//  daemon = MHD_start_daemon(MHD_USE_INTERNAL_POLLING_THREAD | MHD_USE_ERROR_LOG | MHD_USE_POLL | MHD_USE_TCP_FASTOPEN |
-//                            MHD_USE_TLS,
-//                            PORT, NULL, NULL, &answer_to_connection, NULL,
-//                            MHD_OPTION_THREAD_POOL_SIZE, (unsigned int) 8,
-//                            MHD_OPTION_HTTPS_MEM_KEY, key_pem,
-//                            MHD_OPTION_HTTPS_MEM_CERT, cert_pem, MHD_OPTION_END);
-
-
   daemon = MHD_start_daemon(MHD_USE_INTERNAL_POLLING_THREAD | MHD_USE_EPOLL |
-                            MHD_USE_TCP_FASTOPEN |
-                            MHD_USE_TLS,
+                            MHD_USE_TCP_FASTOPEN | MHD_USE_TLS,
                             PORT, NULL, NULL, &answer_to_connection, NULL,
                             MHD_OPTION_THREAD_POOL_SIZE, (unsigned int) 4,
                             MHD_OPTION_HTTPS_MEM_KEY, key_pem,

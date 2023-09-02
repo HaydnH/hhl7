@@ -23,14 +23,14 @@
     { "name":"PID",
       "fieldcount":3,
       "fields": [  
-        { "id":3,  "value":"$VAR" }
+        { "id":3,  "value":"$VAR1" }
       ]
     },
     { "name":"PV1",
       "fieldcount":3,
       "fields": [
-        { "id":2,  "value":"$VAR" },
-        { "id":3,  "value":"$VAR" }
+        { "id":2,  "value":"$VAR2" },
+        { "id":3,  "value":"$VAR3" }
       ]
     }
   ]

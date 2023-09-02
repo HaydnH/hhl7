@@ -338,10 +338,15 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         }\n\
       }\n\
 \n\
+      /* TODO - WORKING - Changed ID to Class to support enumerated variables... get element by class.... */\n\
       function updateHL7(id, val) {\n\
         clrRes();\n\
-        var span = document.getElementById(id + \"_HL7\");\n\
-        span.innerHTML = val;\n\
+        //var span = document.getElementById(id + \"_HL7\");\n\
+        //span.innerHTML = val;\n\
+        var hl7Spans = document.getElementsByClassName(id + \"_HL7\");\n\
+        for (var i = 0; i < hl7Spans.length; ++i) {\n\
+          hl7Spans[i].innerHTML = val;\n\
+        }\n\
       }\n\
 \n\
       function closeErrWin() {\n\
@@ -424,6 +429,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
           }\n\
 \n\
         } catch(error) {\n\
+          console.log(error);\n\
           errHandler(\"ERROR: The hhl7 backend is not running.\");\n\
         }\n\
       }\n\
@@ -438,6 +444,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
             const htmlData = await response.text();\n\
 \n\
             if (response.ok) {\n\
+console.log(htmlData);\n\
               jsonData = JSON.parse(htmlData);\n\
               formHTML = jsonData[\"form\"];\n\
               var sel = document.getElementById(\"tempForm\");\n\
@@ -448,6 +455,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
             }\n\
 \n\
           } catch(error) {\n\
+            console.log(error);\n\
             errHandler(\"ERROR: The hhl7 backend is not running.\");\n\
           } \n\
 \n\
@@ -467,6 +475,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
           }\n\
 \n\
         } catch(error) {\n\
+          console.log(error);\n\
           errHandler(\"ERROR: The hhl7 backend is not running.\");\n\
         }\n\
       }\n\
@@ -494,6 +503,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
             document.getElementById(\"hl7Log\").innerHTML = \"Sorry, your browser does not support server-sent events.\";\n\
           }\n\
         } catch(error) {\n\
+          console.log(error);\n\
           errHandler(\"ERROR: The hhl7 backend is not running.\");\n\
         }\n\
       }\n\

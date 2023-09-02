@@ -1,10 +1,9 @@
 {
   "name":"Xfer",
-  "argcount":3,
-  "cmdhelp":"hhl7 -t admit <hospnum> <patientClass> <ward^^bed>",
+  "argcount":4,
+  "cmdhelp":"hhl7 -t admit <hospnum> <patientClass> <ward> <bed>",
   "segments": [
     { "name":"MSH",
-      "fieldcount":11,
       "fields": [
         { "id":1,  "value":"^~\\&" },
         { "id":6,  "value":"$NOW", "name":"Timestamp" },
@@ -15,26 +14,29 @@
       ]
     },
     { "name":"EVN",
-      "fieldcount":1,
       "fields": [
-        { "id":1,  "value":"A02" }
+        { "id":1,  "value":"A02" },
+        { "id":6,  "value":"$NOW" }
       ]
     },
     { "name":"PID",
-      "fieldcount":3,
       "fields": [  
-        { "id":3,  "value":"$VAR", "name":"Hospital Number" }
+        { "id":2,  "value":"$VAR1", "name":"Hospital Number" },
+        { "id":3,  "value":"$VAR1", "name":"Hospital Number" },
+        { "id":4,  "value":"$VAR1", "name":"Hospital Number" }
       ]
     },
     { "name":"PV1",
-      "fieldcount":3,
       "fields": [
-        { "id":2,  "value":"$VAR", "name":"Patient Class", "default":"I", "options": [
-          { "id":1, "option":"A" },
-	  { "id":2, "option":"E" },
-	  { "id":3, "option":"I" }
+        { "id":2,  "value":"$VAR2", "name":"Patient Class", "default":"I", "options": [
+          { "id":1,  "option":"A" },
+	  { "id":2,  "option":"E" },
+	  { "id":3,  "option":"I" }
 	]},
-        { "id":3,  "value":"$VAR", "name":"Ward (HL7)i^^Bed (HL7)" }
+        { "id":3,  "subfields": [
+          { "id":1, "value":"$VAR3", "name":"Ward (HL7)" },
+          { "id":3, "value":"$VAR4", "name":"Bed (HL7)" }
+        ]}
       ]
     }
   ]

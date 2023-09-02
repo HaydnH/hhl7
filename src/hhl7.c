@@ -160,11 +160,10 @@ int main(int argc, char *argv[]) {
 
     // Read the json template to jsonMsg
     readJSONFile(fp, fSize, jsonMsg);
-    // Generate HL7 based on the json template
-    // TODO check these argc/argv values before using them
-    json2hl7(jsonMsg, hl7Msg, argc - optind, argv + optind);
 
-    // TODO - add a wrap & send here.
+    // Generate HL7 based on the json template
+    parseJSONTemp(jsonMsg, hl7Msg, NULL, argc - optind, argv + optind, 0);
+
     // Wrap the packet as MLLP
     wrapMLLP(hl7Msg);
 
@@ -172,7 +171,6 @@ int main(int argc, char *argv[]) {
     sockfd = connectSvr(ip, port);
     sendPacket(sockfd, hl7Msg);
     listenACK(sockfd, NULL);
-
 
     // Free memory
     free(jsonMsg);

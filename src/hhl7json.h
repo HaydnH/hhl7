@@ -14,4 +14,4 @@ You should have received a copy of the GNU General Public License along with hhl
 void readJSONFile(FILE *fp, long int fileSize, char *jsonMsg);
 void parseopts(char *vStr);
 int getJSONValue(char *jsonMsg, int type, char *key, char *resVal);
-void json2hl7(char *jsonMsg, char* hl7Msg, int argc, char *argv[]);
+void parseJSONTemp(char *jsonMsg, char *hl7Msg, char *webForm, int argc, char *argv[], int isWeb);

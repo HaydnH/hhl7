@@ -285,7 +285,10 @@ char *str2base64(const char *message) {
 void escapeSlash(char *dest, char *src) {
   int s, d = 0;
   for (s = 0; s < strlen(src); s++) {
-    if (src[s] == '\\') {
+    if (src[s] == '\0') {
+      break;
+
+    } else if (src[s] == '\\') {
       dest[s + d] = '\\';
       d++;
       dest[s + d] = '\\';

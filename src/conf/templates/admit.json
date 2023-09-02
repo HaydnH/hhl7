@@ -23,18 +23,18 @@
     { "name":"PID",
       "fieldcount":3,
       "fields": [  
-        { "id":3,  "value":"$VAR", "name":"Hospital Number" }
+        { "id":3,  "value":"$VAR1", "name":"Hospital Number" }
       ]
     },
     { "name":"PV1",
       "fieldcount":3,
       "fields": [
-        { "id":2,  "value":"$VAR", "name":"Patient Class", "default":"I", "options": [
+        { "id":2,  "value":"$VAR2", "name":"Patient Class", "default":"I", "options": [
           { "id":1, "option":"A" },
 	  { "id":2, "option":"E" },
 	  { "id":3, "option":"I" }
 	]},
-        { "id":3,  "value":"$VAR", "name":"Ward (HL7)" }
+        { "id":3,  "value":"$VAR3", "name":"Ward (HL7)" }
       ]
     }
   ]
