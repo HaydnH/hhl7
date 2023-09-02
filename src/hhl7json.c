@@ -101,10 +101,6 @@ static void addVar2WebForm(char* hl7Msg, char *webForm, char *nStr,
       sprintf(webForm + strlen(webForm), "%s%s", wStr6, oStr);
       if (strcmp(oStr, dStr) == 0) {
         sprintf(webForm + strlen(webForm), "%s", wStr7);
-//        sprintf(hl7Msg + strlen(hl7Msg), "%s%s%s", "<span class='HHL7_FL_",
-//                                                    nStr, "_HL7'></span>");
-
-//        sprintf(hl7Msg + strlen(hl7Msg), "%s", dStr);
       } 
 
       sprintf(webForm + strlen(webForm), "%s%s%s", wStr8, oStr, wStr9);
@@ -216,22 +212,25 @@ static void parseJSONFields(struct json_object *fieldsObj, char* hl7Msg, int arg
     // Parse the value for this field
     json_object_object_get_ex(fieldObj, "value", &valObj);
     if (json_object_get_type(valObj) == json_type_string) {
+
       vStr = (char *) json_object_get_string(valObj);
 
       // Get the name of the field for use on the web form
       if (isWeb == 1) {
         json_object_object_get_ex(fieldObj, "name", &valObj);
         nStr = (char *) json_object_get_string(valObj);
+
+        if (json_object_get_type(valObj) == json_type_string) {
+          if (strlen(nStr) > 64) {
+            fprintf(stderr, "ERROR: JSON template name exceeds 64 character limit.\n");
+            exit(1);
+          } else {
+            strcpy(nameStr, nStr);
+          }
+        }
       }
 
-      // Parse the JSON value
-      if (json_object_get_type(valObj) == json_type_string) {
-        if (strlen(nStr) > 64) {
-          fprintf(stderr, "ERROR: JSON template name exceeds 64 character limit.\n");
-          exit(1);
-        }
-        strcpy(nameStr, nStr);
-      }
+      // Parse JSON values
       parseVals(hl7Msg, vStr, nameStr, fieldTok, argv, fieldCount - f, 
                 isWeb, webForm, fieldObj);
 

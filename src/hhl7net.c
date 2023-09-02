@@ -302,6 +302,7 @@ int startMsgListener(char *ip, char *port) {
   svrfd = createSession(ip, port);
 
   char *hhl7fifo = "hhl7fifo";
+  mkfifo(hhl7fifo, 0666);
   fd = open(hhl7fifo, O_WRONLY | O_NONBLOCK);
 
   for (;;) {

@@ -338,11 +338,8 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         }\n\
       }\n\
 \n\
-      /* TODO - WORKING - Changed ID to Class to support enumerated variables... get element by class.... */\n\
       function updateHL7(id, val) {\n\
         clrRes();\n\
-        //var span = document.getElementById(id + \"_HL7\");\n\
-        //span.innerHTML = val;\n\
         var hl7Spans = document.getElementsByClassName(id + \"_HL7\");\n\
         for (var i = 0; i < hl7Spans.length; ++i) {\n\
           hl7Spans[i].innerHTML = val;\n\
@@ -444,7 +441,6 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
             const htmlData = await response.text();\n\
 \n\
             if (response.ok) {\n\
-console.log(htmlData);\n\
               jsonData = JSON.parse(htmlData);\n\
               formHTML = jsonData[\"form\"];\n\
               var sel = document.getElementById(\"tempForm\");\n\
