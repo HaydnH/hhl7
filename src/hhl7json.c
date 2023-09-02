@@ -58,7 +58,9 @@ int getJSONValue(char *jsonMsg, int type, char *key, char *resVal) {
 
 
 // Add a JSON template object to the template web form
-static void addVar2WebForm(char *webForm, char *nStr, struct json_object *fieldObj) {
+static void addVar2WebForm(char* hl7Msg, char *webForm, char *nStr,
+                           struct json_object *fieldObj) {
+
   struct json_object *optsObj = NULL, *optObj = NULL, *oObj = NULL, *defObj = NULL;
   char *oStr = NULL, *dStr = NULL;
   int o = 0;
@@ -84,7 +86,7 @@ static void addVar2WebForm(char *webForm, char *nStr, struct json_object *fieldO
   json_object_object_get_ex(fieldObj, "default", &defObj);
   dStr = (char *) json_object_get_string(defObj);
 
-  // Add the value name to the web form
+  // Add the key name to the web form
   sprintf(webForm + strlen(webForm), "%s%s%s", wStr1, nStr, wStr2);
 
   // If this is variable is a select item, build the option list
@@ -99,7 +101,11 @@ static void addVar2WebForm(char *webForm, char *nStr, struct json_object *fieldO
       sprintf(webForm + strlen(webForm), "%s%s", wStr6, oStr);
       if (strcmp(oStr, dStr) == 0) {
         sprintf(webForm + strlen(webForm), "%s", wStr7);
-      }
+//        sprintf(hl7Msg + strlen(hl7Msg), "%s%s%s", "<span class='HHL7_FL_",
+//                                                    nStr, "_HL7'></span>");
+
+//        sprintf(hl7Msg + strlen(hl7Msg), "%s", dStr);
+      } 
 
       sprintf(webForm + strlen(webForm), "%s%s%s", wStr8, oStr, wStr9);
     }
@@ -111,6 +117,14 @@ static void addVar2WebForm(char *webForm, char *nStr, struct json_object *fieldO
 
   }
   sprintf(webForm + strlen(webForm), "%s", wStr13);
+
+  if (dStr) {
+    sprintf(hl7Msg + strlen(hl7Msg), "%s%s%s%s%s", "<span class='HHL7_FL_", nStr,
+                                                    "_HL7'>", dStr, "</span>");
+  } else {
+    sprintf(hl7Msg + strlen(hl7Msg), "%s%s%s", "<span class='HHL7_FL_", nStr,
+                                                    "_HL7'></span>");
+  }
 }
 
 
@@ -146,11 +160,12 @@ static void parseVals(char* hl7Msg, char *vStr, char *nStr, char fieldTok,
         // Add the variable to the webform if not already present
         sprintf(valSpan, "%s%s%s", "id='HHL7_FL_", nStr, "'");
         if (!strstr(webForm, valSpan)) {
-          addVar2WebForm(webForm, nStr, fieldObj);
-        }
+          addVar2WebForm(hl7Msg, webForm, nStr, fieldObj);
 
-        sprintf(hl7Msg + strlen(hl7Msg), "%s%s%s", "<span class='HHL7_FL_",
-                                                    nStr, "_HL7'></span>");
+        } else {
+          sprintf(hl7Msg + strlen(hl7Msg), "%s%s%s", "<span class='HHL7_FL_",
+                                                      nStr, "_HL7'></span>");
+        }
 
       } else {
         strcat(hl7Msg, argv[varNum]);
