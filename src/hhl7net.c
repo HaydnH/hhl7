@@ -153,6 +153,7 @@ void sendFile(FILE *fp, long int fileSize, int sockfd) {
   fclose(fp);
 
   // Send the data file to the server
+  unix2hl7(fileData);
   wrapMLLP(fileData);
   sendPacket(sockfd, fileData);
   listenACK(sockfd, resStr);
@@ -184,6 +185,7 @@ void sendAck(int sessfd, char *hl7msg) {
 
   // Get current time and control ID of incomming message
   timeNow(dt); 
+  // TODO - if we receive an invalid HL7 msg we can't read MSH-9 so should send reject
   getHL7Field(hl7msg, "MSH", 9, cid);
 
   sprintf(ackBuf, "%c%s%s%s%s%s%s%s%c%c", 0x0B, "MSH|^~\\&|||||", dt, "||ACK|", cid,

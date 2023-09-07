@@ -310,13 +310,15 @@ static enum MHD_Result getTemplateList(struct MHD_Connection *connection) {
   return ret;
 }
 
-static enum MHD_Result getTempFormNEW(struct MHD_Connection *connection, const char *url) {
+static enum MHD_Result getTempForm(struct MHD_Connection *connection, const char *url) {
   enum MHD_Result ret;
   struct MHD_Response *response;
   FILE *fp;
 
-  char *webForm = malloc(1024);
-  char *webHL7 = malloc(1024);
+  int webFormS = 1024;
+  int webHL7S = 1024;
+  char *webForm = malloc(webFormS);
+  char *webHL7 = malloc(webHL7S);
   char *jsonReply = malloc(1);
   webForm[0] = '\0';
   webHL7[0] = '\0';
@@ -337,8 +339,7 @@ static enum MHD_Result getTempFormNEW(struct MHD_Connection *connection, const c
   readJSONFile(fp, fSize, jsonMsg);
 
   // Generate HL7 based on the json template
-  //parseJSONTemp(jsonMsg, hl7Msg, argc - optind, argv + optind, 1);
-  parseJSONTemp(jsonMsg, webHL7, webForm, 0, NULL, 1);
+  parseJSONTemp(jsonMsg, &webHL7, &webHL7S, &webForm, &webFormS, 0, NULL, 1);
 
   // TODO - rework this... temp fix cos pub time! escapeSlash should malloc
   char tmpBuf[2 * strlen(webHL7) + 1];
@@ -346,6 +347,7 @@ static enum MHD_Result getTempFormNEW(struct MHD_Connection *connection, const c
   tmpBuf[strlen(tmpBuf)] = '\0';
 
   // Construct the JSON reply
+  // TODO add newPtr in case of memory allocation failure
   jsonReply = realloc(jsonReply, strlen(webForm) + strlen(webHL7) + 53);
   strcpy(jsonReply, "{ \"form\":\"");
   strcat(jsonReply, webForm);
@@ -601,7 +603,7 @@ static enum MHD_Result answer_to_connection(void *cls, struct MHD_Connection *co
       return getImage(connection, url);
 
     } else if (strstr(url, "/templates/")) {
-      return getTempFormNEW(connection, url);
+      return getTempForm(connection, url);
 
     } else if (strcmp(url, "/getTemplateList") == 0) {
       return getTemplateList(connection);

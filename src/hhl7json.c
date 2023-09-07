@@ -58,12 +58,11 @@ int getJSONValue(char *jsonMsg, int type, char *key, char *resVal) {
 
 
 // Add a JSON template object to the template web form
-static void addVar2WebForm(char* hl7Msg, char *webForm, char *nStr,
-                           struct json_object *fieldObj) {
-
-  struct json_object *optsObj = NULL, *optObj = NULL, *oObj = NULL, *defObj = NULL;
-  char *oStr = NULL, *dStr = NULL;
-  int o = 0;
+static void addVar2WebForm(char **webForm, int *webFormS, struct json_object *fieldObj) {
+  struct json_object *nameObj = NULL, *optsObj = NULL, *optObj = NULL, *oObj = NULL;
+  struct json_object *defObj = NULL;
+  char *oStr = NULL, *nStr = NULL, *dStr = NULL;
+  int o = 0, reqS = 0;
 
   // HTML strings to keep the code below tidy
   const char wStr1[]  = "<div class='tempFormField'><div class='tempFormKey'>";
@@ -79,69 +78,81 @@ static void addVar2WebForm(char* hl7Msg, char *webForm, char *nStr,
   const char wStr11[] = "<input id='HHL7_FL_";
   const char wStr12[] = "' class='tempFormInput'";
   const char wStr13[] = "</div></div>";
-
   
   // Try to obtain the options and default values from the JSON template
+  json_object_object_get_ex(fieldObj, "name", &nameObj);
   json_object_object_get_ex(fieldObj, "options", &optsObj);
   json_object_object_get_ex(fieldObj, "default", &defObj);
+  nStr = (char *) json_object_get_string(nameObj);
   dStr = (char *) json_object_get_string(defObj);
 
+  // Stop processing if this is not a named object or is already on the form
+  if (!nStr) return;
+  char valSpan[strlen(nStr) + 15];
+  sprintf(valSpan, "%s%s%s", "id='HHL7_FL_", nStr, "'");
+  if (strstr(*webForm, valSpan) != NULL) return;
+
+  // Increase memory, if required, for all strings outside the below for loop
+  reqS = strlen(*webForm) + (2 * strlen(nStr)) + 128;
+  if (reqS > *webFormS) *webForm = dblBuf(*webForm, webFormS, reqS);
+
   // Add the key name to the web form
-  sprintf(webForm + strlen(webForm), "%s%s%s", wStr1, nStr, wStr2);
+  sprintf(*webForm + strlen(*webForm), "%s%s%s", wStr1, nStr, wStr2);
 
   // If this is variable is a select item, build the option list
   if (optsObj) {
-    sprintf(webForm + strlen(webForm), "%s%s%s%s", wStr3, nStr, wStr4, wStr5);
+    sprintf(*webForm + strlen(*webForm), "%s%s%s%s", wStr3, nStr, wStr4, wStr5);
 
     for (o = 0; o < json_object_array_length(optsObj); o++) {
       optObj = json_object_array_get_idx(optsObj, o);
       json_object_object_get_ex(optObj, "option", &oObj);
       oStr = (char *) json_object_get_string(oObj);
 
-      sprintf(webForm + strlen(webForm), "%s%s", wStr6, oStr);
+      // Increase memory, if required, for all strings inside this for loop
+      reqS = reqS + (2 * strlen(oStr)) + 50;
+      if (reqS > *webFormS) *webForm = dblBuf(*webForm, webFormS, reqS);
+
+      sprintf(*webForm + strlen(*webForm), "%s%s", wStr6, oStr);
       if (strcmp(oStr, dStr) == 0) {
-        sprintf(webForm + strlen(webForm), "%s", wStr7);
+        sprintf(*webForm + strlen(*webForm), "%s", wStr7);
       } 
 
-      sprintf(webForm + strlen(webForm), "%s%s%s", wStr8, oStr, wStr9);
+      sprintf(*webForm + strlen(*webForm), "%s%s%s", wStr8, oStr, wStr9);
     }
 
-    sprintf(webForm + strlen(webForm), "%s", wStr10);
+    sprintf(*webForm + strlen(*webForm), "%s", wStr10);
 
   } else {
-    sprintf(webForm + strlen(webForm), "%s%s%s%s", wStr11, nStr, wStr12, wStr5);
+    sprintf(*webForm + strlen(*webForm), "%s%s%s%s", wStr11, nStr, wStr12, wStr5);
 
   }
-  sprintf(webForm + strlen(webForm), "%s", wStr13);
-
-  if (dStr) {
-    sprintf(hl7Msg + strlen(hl7Msg), "%s%s%s%s%s", "<span class='HHL7_FL_", nStr,
-                                                    "_HL7'>", dStr, "</span>");
-  } else {
-    sprintf(hl7Msg + strlen(hl7Msg), "%s%s%s", "<span class='HHL7_FL_", nStr,
-                                                    "_HL7'></span>");
-  }
+  sprintf(*webForm + strlen(*webForm), "%s", wStr13);
 }
 
 
 // Function turn json variables in to a value
-static void parseVals(char* hl7Msg, char *vStr, char *nStr, char fieldTok,
-                      char *argv[], int lastField, int isWeb, char *webForm,
+static void parseVals(char ***hl7Msg, int *hl7MsgS, char *vStr, char *nStr, char fieldTok,
+                      char *argv[], int lastField, int isWeb, char **webForm,
                       struct json_object *fieldObj) {
 
-  int varLen = strlen(vStr), varNum = 0;
+  struct json_object *defObj = NULL;
+  char *dStr = NULL;
+  int varLen = strlen(vStr), varNum = 0, reqS = 0;
   char varNumBuf[varLen];
-  char valSpan[strlen(nStr) + 124];
   char dt[26] = "";
+
 
   // Replace json value with the current datetime.
   if (strcmp(vStr, "$NOW") == 0) {
     if (dt[0] == '\0') timeNow(dt);
-    strcat(hl7Msg, dt);
+    reqS = strlen(**hl7Msg) + 28;
+    if (reqS > *hl7MsgS) **hl7Msg = dblBuf(**hl7Msg, hl7MsgS, reqS);
+    strcat(**hl7Msg, dt);
 
   // Replace json value with a command line argument
   } else if (nStr && strncmp(vStr, "$VAR", 4) == 0) {
     if (varLen == 4) {
+      // TODO use web friendly function for errors
       fprintf(stderr, "ERROR: No numeric value found after $VAR in JSON template\n");
       exit(1);
 
@@ -153,155 +164,156 @@ static void parseVals(char* hl7Msg, char *vStr, char *nStr, char fieldTok,
 
       // Add the variable to the web form and add spans to the HL7 message for linking
       if (isWeb == 1) {
-        // Add the variable to the webform if not already present
-        sprintf(valSpan, "%s%s%s", "id='HHL7_FL_", nStr, "'");
-        if (!strstr(webForm, valSpan)) {
-          addVar2WebForm(hl7Msg, webForm, nStr, fieldObj);
+        // Check if ths value has a default and add it to the JSON template
+        json_object_object_get_ex(fieldObj, "default", &defObj);
+        dStr = (char *) json_object_get_string(defObj);
+        
+        // Increase the memory allocated to hl7Msg if needed
+        reqS = strlen(**hl7Msg) + strlen(nStr) + 37;
+        if (dStr) reqS = reqS + strlen(dStr);
+        if (reqS > *hl7MsgS) **hl7Msg = dblBuf(**hl7Msg, hl7MsgS, reqS);
 
+        // Write the span to the HL7 message to link from web form
+        if (dStr) {
+          sprintf(**hl7Msg + strlen(**hl7Msg), "%s%s%s%s%s", "<span class='HHL7_FL_",
+                                                       nStr, "_HL7'>", dStr, "</span>");
         } else {
-          sprintf(hl7Msg + strlen(hl7Msg), "%s%s%s", "<span class='HHL7_FL_",
-                                                      nStr, "_HL7'></span>");
+          sprintf(**hl7Msg + strlen(**hl7Msg), "%s%s%s", "<span class='HHL7_FL_",
+                                                            nStr, "_HL7'></span>");
         }
 
       } else {
-        strcat(hl7Msg, argv[varNum]);
+        reqS = strlen(**hl7Msg) + strlen(argv[varNum]) + 2;
+        if (reqS > *hl7MsgS) **hl7Msg = dblBuf(**hl7Msg, hl7MsgS, reqS);
 
+        strcat(**hl7Msg, argv[varNum]);
       }
     }
 
   } else {
-    strcat(hl7Msg, vStr); 
+    reqS = strlen(**hl7Msg) + strlen(vStr) + 2;
+    if (reqS > *hl7MsgS) **hl7Msg = dblBuf(**hl7Msg, hl7MsgS, reqS);
+
+    strcat(**hl7Msg, vStr); 
 
   }
 
   if (lastField > 1) {
-    sprintf(hl7Msg + strlen(hl7Msg), "%c", fieldTok);
+    // No need to add mem with dblBuf, the above +N values handle it
+    sprintf(**hl7Msg + strlen(**hl7Msg), "%c", fieldTok);
   }
 }
 
 
-// Parse a JSON fields or subfields object and convert to HL7
-static void parseJSONFields(struct json_object *fieldsObj, char* hl7Msg, int argc,
-                            char *argv[], char fieldTok, char subFieldTok,
-                            int isWeb, char *webForm) {
+// Parse the JSON field
+static void parseJSONField(struct json_object *fieldObj, int *lastFid, int lastField, 
+                           char **hl7Msg, int *hl7MsgS, char *argv[], char fieldTok,
+                           int isWeb, char **webForm) {
 
-  struct json_object *fieldObj = NULL, *valObj = NULL, *idObj = NULL;
+  struct json_object *valObj = NULL, *idObj = NULL;
   char *vStr = NULL, *nStr = NULL;
   char nameStr[65] = "";
-  int f, c = 0, fid = 0, fieldCount = 0;
+  int f = 0, fid = 0, reqS = 0;
 
-  fieldCount = json_object_array_length(fieldsObj);
+  // Get the ID of the current field value
+  json_object_object_get_ex(fieldObj, "id", &idObj);
+  fid = (int) json_object_get_int(idObj);
 
-  // For each field
-  for (f = 0; f < fieldCount; f++) {
-    // Get individual segment as json
-    fieldObj = json_object_array_get_idx(fieldsObj, f);
-    // Get the ID of the current field value
-    json_object_object_get_ex(fieldObj, "id", &idObj);
-    fid = (int) json_object_get_int(idObj);
+  // Add memory to hl7Msg if needed
+  reqS = strlen(*hl7Msg) + (fid - *lastFid);
+  if (reqS > *hl7MsgS) *hl7Msg = dblBuf(*hl7Msg, hl7MsgS, reqS);
 
-    // TODO - could seg fault here if the buffer isn't long enough...
-    // Add a field separator until we reach the ID of this field
-    c++;
-    while (c < fid) {
-      sprintf(hl7Msg + strlen(hl7Msg), "%c", fieldTok);
-      c++;
-    }
+  while (f < fid - *lastFid - 1) {
+    sprintf(*hl7Msg + strlen(*hl7Msg), "%c", fieldTok);
+    f++;
+  }
 
-    // TODO - remove a value and/or name from a template and add error checking
-    // Parse the value for this field
-    json_object_object_get_ex(fieldObj, "value", &valObj);
-    if (json_object_get_type(valObj) == json_type_string) {
+  // TODO - remove a value and/or name from a template to test error checking
+  // Parse the value for this field
+  json_object_object_get_ex(fieldObj, "value", &valObj);
+  if (json_object_get_type(valObj) == json_type_string) {
+    vStr = (char *) json_object_get_string(valObj);
 
-      vStr = (char *) json_object_get_string(valObj);
+    // Get the name of the field for use on the web form
+    if (isWeb == 1) {
+      json_object_object_get_ex(fieldObj, "name", &valObj);
+      nStr = (char *) json_object_get_string(valObj);
 
-      // Get the name of the field for use on the web form
-      if (isWeb == 1) {
-        json_object_object_get_ex(fieldObj, "name", &valObj);
-        nStr = (char *) json_object_get_string(valObj);
-
-        if (json_object_get_type(valObj) == json_type_string) {
-          if (strlen(nStr) > 64) {
-            fprintf(stderr, "ERROR: JSON template name exceeds 64 character limit.\n");
-            exit(1);
-          } else {
-            strcpy(nameStr, nStr);
-          }
+      if (json_object_get_type(valObj) == json_type_string) {
+        // TODO - consider allowing longer names and malloc - or pointer to json object!
+        if (strlen(nStr) > 64) {
+          // TODO - update this to web error handling
+          fprintf(stderr, "ERROR: JSON template name exceeds 64 character limit.\n");
+          exit(1);
+        } else {
+          strcpy(nameStr, nStr);
         }
       }
-
-      // Parse JSON values
-      parseVals(hl7Msg, vStr, nameStr, fieldTok, argv, fieldCount - f, 
-                isWeb, webForm, fieldObj);
-
-    // If there's no value, check for and handle subfields
-    } else {
-      json_object_object_get_ex(fieldObj, "subfields", &valObj);
-      int subFieldCount = json_object_array_length(valObj);
-      if (subFieldCount > 0) {
-        parseJSONFields(valObj, hl7Msg, argc, argv, subFieldTok, subFieldTok,
-                        isWeb, webForm);
-
-      } else {
-        fprintf(stderr, "ERROR: Could not find a value or subfield flag for a field in json templatei.\n");
-        exit(1);
-
-      }
     }
+
+    // Parse JSON values
+    parseVals(&hl7Msg, hl7MsgS, vStr, nameStr, fieldTok, argv, lastField, 
+              isWeb, webForm, fieldObj);
+
   }
+  *lastFid = fid;
 }
 
 
-// Parse a JSON segments object and convert to HL7
-static void parseJSONSegs(struct json_object *segsObj, char* hl7Msg, int argc,
-                          char *argv[], char fieldTok, char subFieldTok,
-                          int isWeb, char *webForm) {
+// Parse the JSON segment
+static void parseJSONSegs(struct json_object *segObj, char **hl7Msg, int *hl7MsgS,
+                          char fieldTok) {
 
-  struct json_object *segObj = NULL, *fieldsObj = NULL, *valObj = NULL;
+  struct json_object *valObj = NULL;
   char *vStr = NULL;
-  int s, segCount = 0;
+  int reqS = 0;
 
-  segCount = json_object_array_length(segsObj);
+  // Get the name of this segment
+  json_object_object_get_ex(segObj, "name", &valObj);
+  vStr = (char *) json_object_get_string(valObj);
 
-  // For each individual segment
-  for (s = 0; s < segCount; s++) {
-
-    // Get individual segment as json
-    segObj = json_object_array_get_idx(segsObj, s);
-    // Get the name of this segment
-    json_object_object_get_ex(segObj, "name", &valObj);
-    vStr = (char *) json_object_get_string(valObj);
-
-    if (json_object_get_type(valObj) != json_type_string) {
-      fprintf(stderr, "ERROR: Could not read string name for segment %d (of %d) from json template\n", s + 1, segCount);
-      exit(1);
-    }
-    sprintf(hl7Msg + strlen(hl7Msg), "%s%c", vStr, fieldTok);
-
-    // Get full segment section from the json template and parse it
-    json_object_object_get_ex(segObj, "fields", &fieldsObj);
-    parseJSONFields(fieldsObj, hl7Msg, argc, argv, fieldTok, subFieldTok,
-                    isWeb, webForm);
-
-    if (isWeb == 1) {
-      sprintf(hl7Msg + strlen(hl7Msg), "%s", "<br />");
-    } else {
-      sprintf(hl7Msg + strlen(hl7Msg), "%c", '\r');
-    }
+  if (json_object_get_type(valObj) != json_type_string) {
+    fprintf(stderr, "ERROR: Could not read string name for segment from json template.\n");
+    exit(1);
   }
 
-  // TODO - check if the put from parseJSONTemp frees memory here
+  // Increase buffer size if needed
+  reqS = strlen(*hl7Msg) + strlen(vStr) + 1;
+  if (reqS > *hl7MsgS) *hl7Msg = dblBuf(*hl7Msg, hl7MsgS, reqS);
+
+  // Write the name of the segment and field separator to the message
+  sprintf(*hl7Msg + strlen(*hl7Msg), "%s%c", vStr, fieldTok);
+}
+
+
+// Add the termination character to the hl7Msg
+static void endJSONSeg(char **hl7Msg, int *hl7MsgS, int isWeb) {
+  int reqS = 0;
+
+  // Increase buffer size if needed and add segment terminator
+  reqS = strlen(*hl7Msg) + 7;
+  if (reqS > *hl7MsgS) *hl7Msg = dblBuf(*hl7Msg, hl7MsgS, reqS);
+  if (isWeb == 1) {
+    sprintf(*hl7Msg + strlen(*hl7Msg), "%s", "<br />");
+  } else {
+    sprintf(*hl7Msg + strlen(*hl7Msg), "%c", '\r');
+  }
 }
 
 
 // Parse a JSON template file
-void parseJSONTemp(char *jsonMsg, char *hl7Msg, char *webForm,
-                   int argc, char *argv[], int isWeb) {
+// Warning: This function can't change the pointer to hl7Msg, othrewise sub funtions
+// need updating to ***hl7Msg.
+void parseJSONTemp(char *jsonMsg, char **hl7Msg, int *hl7MsgS, char **webForm,
+                   int *webFormS, int argc, char *argv[], int isWeb) {
 
-  struct json_object *rootObj= NULL, *valObj = NULL, *segsObj = NULL;
+  struct json_object *rootObj= NULL, *valObj = NULL, *segsObj = NULL, *segObj = NULL;
+  struct json_object *fieldsObj = NULL, *fieldObj = NULL, *subFObj = NULL;
+
   // TODO - make these variable based on MSH segment for CLI (maybe not web?)
-  char fieldTok = '|', subFieldTok = '^';
-  int argcount = 0;
+  char fieldTok = '|', sfTok = '^';
+  int argcount = 0, segCount = 0, s = 0, fieldCount = 0, f = 0, lastFid = 0;
+  int subFCount = 0, sf = 0;
 
   rootObj = json_tokener_parse(jsonMsg);
   json_object_object_get_ex(rootObj, "argcount", &valObj);
@@ -311,6 +323,7 @@ void parseJSONTemp(char *jsonMsg, char *hl7Msg, char *webForm,
     fprintf(stderr, "ERROR: Could not read integer value for argcount from JSON template.\n");
     exit(1);
 
+  // TODO handle error when running as web
   } else if (isWeb == 0 && argc - argcount != 0) {
     fprintf(stderr, "ERROR: The number of arguments passed on the commmand line (%d) does not match the json template (%d)\n", argc, argcount);
     exit(1);
@@ -318,12 +331,43 @@ void parseJSONTemp(char *jsonMsg, char *hl7Msg, char *webForm,
 
   // Get this segment section from the json template and parse it
   json_object_object_get_ex(rootObj, "segments", &segsObj);
-  int segCount = json_object_array_length(segsObj);
+  segCount = json_object_array_length(segsObj);
 
   if (segCount > 0) {
-    // json_object_to_json_string_ext
-    parseJSONSegs(segsObj, hl7Msg, argc, argv, fieldTok, subFieldTok,
-                  isWeb, webForm);
+    // For each individual segment
+    for (s = 0; s < segCount; s++) {
+      // Get individual segment as json
+      segObj = json_object_array_get_idx(segsObj, s);
+      parseJSONSegs(segObj, hl7Msg, hl7MsgS, fieldTok);
+
+      // Loop through all fields
+      json_object_object_get_ex(segObj, "fields", &fieldsObj);
+      // TODO - error handle all the JSON template functions for temps with missing objs
+      fieldCount = json_object_array_length(fieldsObj);
+
+      for (f = 0; f < fieldCount; f++) {
+        // Get field and add it to the HL7 message and web form if appropriate
+        fieldObj = json_object_array_get_idx(fieldsObj, f);
+        if (isWeb == 1) addVar2WebForm(webForm, webFormS, fieldObj);
+        parseJSONField(fieldObj, &lastFid, fieldCount - f, hl7Msg, hl7MsgS, argv,
+                       fieldTok, isWeb, webForm);
+
+        json_object_object_get_ex(fieldObj, "subfields", &subFObj);
+        if (subFObj) {
+          subFCount = json_object_array_length(subFObj);
+
+          for (sf = 0; sf < subFCount; sf++) {
+            fieldObj = json_object_array_get_idx(subFObj, sf);
+            if (isWeb == 1) addVar2WebForm(webForm, webFormS, fieldObj);
+            parseJSONField(fieldObj, &lastFid, subFCount - sf, hl7Msg, hl7MsgS,
+                           argv, sfTok, isWeb, webForm);
+          }
+        }
+      }
+
+      // Add terminator to segment
+      endJSONSeg(hl7Msg, hl7MsgS, isWeb);
+    }
   }
 
   // Free memory

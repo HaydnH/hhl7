@@ -155,14 +155,15 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "INFO:  Using template file: %s\n", fileName);
 
     char *jsonMsg = malloc(fSize + 1);
-    // TODO - make this a variable buffer size
-    char hl7Msg[1024];
+    int hl7MsgS = 1024;
+    char *hl7Msg = malloc(hl7MsgS);
+    hl7Msg[0] = '\0';
 
     // Read the json template to jsonMsg
     readJSONFile(fp, fSize, jsonMsg);
 
     // Generate HL7 based on the json template
-    parseJSONTemp(jsonMsg, hl7Msg, NULL, argc - optind, argv + optind, 0);
+    parseJSONTemp(jsonMsg, &hl7Msg, &hl7MsgS, NULL, NULL, argc - optind, argv + optind, 0);
 
     // Wrap the packet as MLLP
     wrapMLLP(hl7Msg);
@@ -170,6 +171,7 @@ int main(int argc, char *argv[]) {
     // Connect to server, send & listen for ack
     sockfd = connectSvr(ip, port);
     sendPacket(sockfd, hl7Msg);
+
     listenACK(sockfd, NULL);
 
     // Free memory

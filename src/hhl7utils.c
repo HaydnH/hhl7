@@ -18,12 +18,14 @@ You should have received a copy of the GNU General Public License along with hhl
 #include <time.h>
 #include "hhl7extern.h"
 
+
 // DEBUG function to show ascii characters in a buffer, useful for seeing hidden chars
 void printChars(char *buf) {
   for (int c =0; c < strlen(buf); c++) {
     printf("%d\n", (int) buf[c]);
   }
 }
+
 
 // TODO - add log files here...
 // TODO - grep code for this function and create error code list, currently all fail = 1
@@ -42,6 +44,7 @@ void handleErr(char* message, int eCode, FILE* fStream) {
   }
 }
 
+
 // Check if we can open a file for reading and return FP
 FILE *openFile(char* fileName) {
 //int openFile(char* fileName) {
@@ -57,12 +60,14 @@ FILE *openFile(char* fileName) {
   return fp;
 }
 
+
 // Get the size of a file
 long int getFileSize(char* fileName) {
   struct stat st;
   stat(fileName, &st);
   return st.st_size;
 }
+
 
 // Load a file in to a buffer
 void file2buf(char *buf, FILE *fp, long int fsize) {
@@ -78,6 +83,7 @@ void file2buf(char *buf, FILE *fp, long int fsize) {
   free(tbuf);
 }
 
+
 // Get the current time on yyymmddhhmmss.ms+tz format
 // TODO - add support for millisenconds and timezone??
 void timeNow(char *dt) {
@@ -86,6 +92,7 @@ void timeNow(char *dt) {
 
   strftime(dt, 26, "%Y%m%d%H%M%S", tm);
 }
+
 
 // Strip MLLP parts of packet
 void stripMLLP(char *hl7msg) {
@@ -104,6 +111,7 @@ void stripMLLP(char *hl7msg) {
   tmpBuf[m - s] = '\0';
   strcpy(hl7msg, tmpBuf);
 }
+
 
 // Add MLLP wrapper to packet
 // TODO - is hl7msg a fixed length? May need to realloc it to grow by 3 
@@ -164,6 +172,7 @@ void getHL7Field(char *hl7msg, char *seg, int field, char *res) {
   }
 }
 
+
 // Get number of \n's in a string
 int numLines(char *buf) {
   int c = 0;
@@ -174,7 +183,8 @@ int numLines(char *buf) {
   return c;
 }
 
-// Convert a HL7 message to a unix format (e.g: /r -> /n)
+
+// Convert a HL7 message to a unix format (i.e: /r -> /n)
 void hl72unix(char *msg) {
   int c, ignore = 0;
   char msgUnix[strlen(msg)+1];
@@ -192,7 +202,27 @@ void hl72unix(char *msg) {
   //printf("%s", msgUnix);
 }
 
-// Change a unix hl7 message to web, \n -> <br />
+
+// Convert a unix HL7 message to a hl7 format (i.e: /n -> /r)
+void unix2hl7(char *msg) {
+  int c, ignore = 0;
+  char msgUnix[strlen(msg)+1];
+  for (c = 0; c < strlen(msg); c++) {
+    if (msg[c] == 10) {
+      msgUnix[c - ignore] = '\r';
+    } else if (msg[c] == 13 || msg[c] == 11 || msg[c] == 28) {
+      ignore++;
+    } else {
+      msgUnix[c - ignore] = msg[c];
+    }
+  }
+  msgUnix[c - ignore] = '\0';
+  strcpy(msg, msgUnix);
+  //printf("%s", msgUnix);
+}
+
+
+// Change a hl7 message to web, \r -> <br />
 void hl72web(char *msg) {
   // TODO need to realloc msg AND res once it's malloc'd 
   char res[1224] = "";
@@ -247,6 +277,8 @@ FILE *findTemplate(char* fileName, char* tName) {
 
 }
 
+
+// Encoding for web certs
 char *str2base64(const char *message) {
   const char *lookup = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
   unsigned long l;
@@ -282,6 +314,8 @@ char *str2base64(const char *message) {
   return tmp;
 }
 
+
+// Escape slashes in a buffer
 void escapeSlash(char *dest, char *src) {
   int s, d = 0;
   for (s = 0; s < strlen(src); s++) {
@@ -300,3 +334,28 @@ void escapeSlash(char *dest, char *src) {
 
   dest[s + d] = '\0';
 }
+
+
+// Double the memory allocation for a buffer
+char *dblBuf(char *buf, int *bufS, int reqS) {
+  char *tmpPtr;
+  int oldSize = *bufS;
+
+  // While the buffer size is less than the required size, double size
+  while (*bufS < reqS) {
+    *bufS = *bufS * 2;
+  }
+
+  // realloc memory to the new size
+  tmpPtr = realloc(buf, *bufS);
+  if (tmpPtr == NULL) {
+    // TODO - add error message on memor allocation failure
+    free(buf);
+    *bufS = oldSize;
+
+  } else {
+    buf = tmpPtr;
+  }
+  return buf;
+}
+

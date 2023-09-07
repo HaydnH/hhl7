@@ -7,7 +7,7 @@
       "fieldcount":11,
       "fields": [
         { "id":1,  "value":"^~\\&" },
-        { "id":6,  "value":"$NOW", "name":"Timestamp" },
+        { "id":6,  "value":"$NOW" },
         { "id":8,  "value":"ADT^A01" },
         { "id":9,  "value":"1" },
         { "id":10, "value":"P" },
