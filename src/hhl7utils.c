@@ -47,13 +47,9 @@ void handleErr(char* message, int eCode, FILE* fStream) {
 
 // Check if we can open a file for reading and return FP
 FILE *openFile(char* fileName) {
-//int openFile(char* fileName) {
   FILE *fp;
-  //int fp;
   fp = fopen(fileName, "r");
-  //fp = open(fileName, O_DSYNC | O_RSYNC);
   if (fp == NULL) {
-  //if (fp == -1) {
     fprintf(stderr, "ERROR: Cannot open file: %s\n", fileName);
     exit(1);
   }

@@ -34,13 +34,13 @@ int main(int argc, char *argv[]) {
   int sockfd, opt, option_index=0;
   int fSend = 0, fListen = 0, fSendTemplate = 0, fWeb = 0;
   FILE *fp;
-  // TODO IP length only allows IP addresses - allow hostnames?
-  char ip[16] = "127.0.0.1";
-  // TODO - malloc these?
-  char port[10] = "";
+
+  // TODO - error check for file names, hostnames > 256 etc
+  char ip[256] = "127.0.0.1";
+  char sPort[10] = "11011";
+  char lPort[10] = "22022";
   char tName[256] = "";
-  char fileName[4096] = "file.txt";
-  //char templateFile[255] = "\0";
+  char fileName[256] = "file.txt";
 
   // TODO: Check error message for unknown long options works properly
   // Parse command line options
@@ -49,11 +49,9 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-  while((opt = getopt_long(argc, argv, ":0Hslt:wh:p:f:", long_options, &option_index)) != -1) {
+  while((opt = getopt_long(argc, argv, ":0Hslt:wh:p:P:f:", long_options, &option_index)) != -1) {
     switch(opt) {
       case 0:
-        // TODO - Why did I put a yay?!? Catch all for unknown longopts?
-        printf("Yay!");
         exit(1);
 
       case 'H':
@@ -94,9 +92,18 @@ int main(int argc, char *argv[]) {
           fprintf(stderr, "ERROR: Option -p requires a value\n");
           exit(1);
         } 
-        if (optarg) strcpy(port, optarg);
+        if (optarg) strcpy(sPort, optarg);
         break;
 
+      case 'P':
+        if (*argv[optind-1] == '-') {
+          fprintf(stderr, "ERROR: Option -P requires a value\n");
+          exit(1);
+        }
+        if (optarg) strcpy(lPort, optarg);
+        break;
+
+// TODO - -f without an argument seems to try to connect to server 1st before failing
       case 'f':
         fSend = 1;
         if (*argv[optind-1] == '-') {
@@ -123,13 +130,14 @@ int main(int argc, char *argv[]) {
   }
 
 
+  // Set default ports if not set with -p or -P
+  //if (!strcmp(sPort, "")) strcpy(sPort, "11011");
+  //if (!strcmp(lPort, "")) strcpy(lPort, "22022");
+
   // TODO handle port/ip config etc instead of repeating in other flags.
   if (fSend == 1) {
-    // Set default port if not set with -p
-    if (!strcmp(port, "")) strcpy(port, "11011");
-    
     // Connect to the server
-    sockfd = connectSvr(ip, port);
+    sockfd = connectSvr(ip, sPort);
 
     // Send a file test
     fp = openFile(fileName);
@@ -138,17 +146,11 @@ int main(int argc, char *argv[]) {
   } 
 
   if (fListen == 1) {
-    // Set default port if not set with -p
-    if (!strcmp(port, "")) strcpy(port, "22022");
-
     // Listen for incomming messages
-    startMsgListener(ip, port);
+    startMsgListener(ip, sPort);
   }
 
   if (fSendTemplate == 1) {
-    // Set default port if not set with -p
-    if (!strcmp(port, "")) strcpy(port, "11011");
-
     // Find the template file
     fp = findTemplate(fileName, tName);
     int fSize = getFileSize(fileName);
@@ -169,7 +171,7 @@ int main(int argc, char *argv[]) {
     wrapMLLP(hl7Msg);
 
     // Connect to server, send & listen for ack
-    sockfd = connectSvr(ip, port);
+    sockfd = connectSvr(ip, sPort);
     sendPacket(sockfd, hl7Msg);
 
     listenACK(sockfd, NULL);
@@ -180,7 +182,7 @@ int main(int argc, char *argv[]) {
   }
 
   if (fWeb == 1) {
-    listenWeb();
+    listenWeb(ip, sPort, lPort);
 
   }
 

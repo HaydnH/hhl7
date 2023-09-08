@@ -249,8 +249,7 @@ static int handleMsg(int sessfd, int fd) {
 
 
 // Listen for incomming messages
-static int createSession(char *ip, char *port) {
-  //const char* ip = 0;
+static int createSession(char *ip, const char *port) {
   int svrfd, rv;
   struct addrinfo hints, *res = 0;
   char eBuf[256];
@@ -296,7 +295,7 @@ static int createSession(char *ip, char *port) {
 
 // TODO - WORKING - when main process exits, listening from web process remains open
 // Start listening for incomming messages
-int startMsgListener(char *ip, char *port) {
+int startMsgListener(char *ip, const char *port) {
   int svrfd = 0, sessfd = 0;
   int fd = 0;
   char eBuf[256];

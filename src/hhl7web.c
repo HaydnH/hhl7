@@ -41,13 +41,15 @@ You should have received a copy of the GNU General Public License along with hhl
 #define POST            1
 // TODO - allow more space if needed?
 #define MAXNAMESIZE     1024
-#define MAXANSWERSIZE  50 
-#define POSTBUFFERSIZE  1024
+#define MAXANSWERSIZE   50 
+#define POSTBUFFERSIZE  65536
 
 struct connection_info_struct {
   int connectiontype;
   char *answerstring;
   struct MHD_PostProcessor *postprocessor;
+  char sIP[256];
+  char sPort[10];
 };
 
 char webErrStr[256] = "";
@@ -61,10 +63,6 @@ pid_t wpid;
 static enum MHD_Result webErrXHR(struct MHD_Connection *connection) {
   enum MHD_Result ret;
   struct MHD_Response *response;
-  // TODO - check memory of res
-  //char *res = malloc(1124);
-
-  //sprintf(res, "event: rcvHL7\ndata: %s\nretry:100\n\n", webErrStr);
 
   response = MHD_create_response_from_buffer(strlen(webErrStr), (void *) webErrStr,
              MHD_RESPMEM_PERSISTENT);
@@ -77,7 +75,6 @@ static enum MHD_Result webErrXHR(struct MHD_Connection *connection) {
   ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
   MHD_destroy_response(response);
 
-  //webErrStr[0] = '\0';
   return ret;
 }
 
@@ -196,7 +193,6 @@ static enum MHD_Result getImage(struct MHD_Connection *connection, const char *u
       response = MHD_create_response_from_buffer(strlen(errorstr),
                                                  (void*) errorstr,
                                                  MHD_RESPMEM_PERSISTENT);
-                                                 // MHD_RESPMEM_MUST_COPY);
 
       if (response) {
         ret = MHD_queue_response(connection, MHD_HTTP_INTERNAL_SERVER_ERROR, response);
@@ -216,11 +212,9 @@ static enum MHD_Result getImage(struct MHD_Connection *connection, const char *u
   MHD_add_response_header(response, "Content-Type", "image/png");
   ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
   MHD_destroy_response(response);
-  // TODO: Closing the file breaks the next request for the image, needs to be fixed to avoi a mem leak 
-  //fclose(fp);
+
   free(serverURL);
   return ret;
-  //fclose(fp);
 }
 
 // Get a list of template files and return them as a set of <select> <option>s
@@ -233,20 +227,17 @@ static enum MHD_Result getTemplateList(struct MHD_Connection *connection) {
   // TODO: Get templates from all possible directories...
   const char *tPath = "/usr/local/share/hhl7/templates/";
   const char *nOpt = "<option value=\"None\">None</option>\n";
-  char fName[50], tName[50], fullName[50+strlen(tPath)], *ext; //, *tempOpts;
-  char *tempOpts = malloc(36);
+  char fName[128], tName[128], fullName[128+strlen(tPath)], *ext; //, *tempOpts;
   char *newPtr;
 
-  // TODO - check pointers updated to new memory created with realloc
-  // TODO is sizeof needed for char, should just be 36?
-  //tempOpts = (char *) malloc(36 * sizeof(char));
-  //tempOpts = (char *) malloc(36);
-  strcpy(tempOpts, nOpt);
-
+  // TODO - WORKING - check malloc here
+  char *tempOpts = malloc(36);
   if (tempOpts == NULL) {
     fprintf(stderr, "ERROR: Cannot cannot allocate memory for template list.\n");
     exit(1);
   }
+
+  strcpy(tempOpts, nOpt);
 
   dp = opendir(tPath); 
   if (dp == NULL) {
@@ -260,6 +251,7 @@ static enum MHD_Result getTemplateList(struct MHD_Connection *connection) {
       ext = strrchr(file->d_name, '.');
       if (strcmp(ext, ".json") == 0) {
         // Create a template name and full path to file from filename
+        // TODO - long template names (>128) will break - OK? At least error handle
         memcpy(fName, file->d_name, strlen(file->d_name) - strlen(ext));
         fName[strlen(file->d_name) - strlen(ext)] = '\0';
         strcpy(fullName, tPath);
@@ -399,8 +391,8 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
 
       if (!answerstring) return MHD_NO;
 
-      // TODO - change this to config based ip:port
-      sockfd = connectSvr("127.0.0.1", "11011");
+      // TODO - WORKING - change this to config based ip:port
+      sockfd = connectSvr(con_info -> sIP, con_info -> sPort);
       if (sockfd >= 0) {
         sendPacket(sockfd, newData);
         listenACK(sockfd, resStr);
@@ -418,7 +410,8 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
   return MHD_YES;
 }
 
-// Send the HL7 message to the web browser
+
+// Stop the backend listening for packets from hl7 server
 static enum MHD_Result stopListenWeb(struct MHD_Connection *connection) {
   enum MHD_Result ret;
   struct MHD_Response *response;
@@ -448,7 +441,6 @@ static enum MHD_Result stopListenWeb(struct MHD_Connection *connection) {
 static enum MHD_Result sendHL72Web(struct MHD_Connection *connection, int fd) {
   enum MHD_Result ret;
   struct MHD_Response *response;
-  // TODO - check memory of res and rBuf
   int fBufS = 2048, rBufS = 512;
   char *fBuf = malloc(fBufS);
   char *rBuf = malloc(rBufS);
@@ -502,12 +494,8 @@ static enum MHD_Result sendHL72Web(struct MHD_Connection *connection, int fd) {
     }
   }
 
-// TODO - WORKING - closing fd breaks listener, but leaves fd open if not present. :(
-//  close(fd);
-
   strcat(fBuf, "\nretry:500\n\n");
 
-  // TODO Rewrite this to be a normal page send to figure out why processes holding open
   if (p == 0) {
     strcpy(fBuf, "event: rcvHL7\ndata: HB\nretry:500\n\n");
   }
@@ -531,7 +519,7 @@ static enum MHD_Result sendHL72Web(struct MHD_Connection *connection, int fd) {
 }
 
 
-// TODO - Use this instead of all the individual functions for pages
+// TODO - Use this instead of all the individual functions for pages?
 static enum MHD_Result send_page(struct MHD_Connection *connection, const char* connectiontype, const char *page) {
   enum MHD_Result ret;
   struct MHD_Response *response;
@@ -559,11 +547,13 @@ static enum MHD_Result answer_to_connection(void *cls, struct MHD_Connection *co
                                             const char *version, const char *upload_data,
                                             size_t *upload_data_size, void **con_cls) {
 
-  (void) cls;               /* Unused. Silence compiler warning. */
-  (void) url;               /* Unused. Silence compiler warning. */
   (void) version;           /* Unused. Silence compiler warning. */
-  (void) upload_data;       /* Unused. Silence compiler warning. */
-  (void) upload_data_size;  /* Unused. Silence compiler warning. */
+
+  // Handle command line pass through array
+  const char **args = (const char **) cls;
+  const char *sIP   = args[0];
+  const char *sPort = args[1];
+  const char *lPort = args[2];
 
   // TODO change this to /use/local/share
   char *imagePath = "/images/";
@@ -576,6 +566,8 @@ static enum MHD_Result answer_to_connection(void *cls, struct MHD_Connection *co
     con_info = malloc(sizeof(struct connection_info_struct));
     if (con_info == NULL) return MHD_NO;
     con_info->answerstring = NULL;
+    strcpy(con_info->sIP, sIP);
+    strcpy(con_info->sPort, sPort);
 
     if (strcmp(method, "POST") == 0) {
       con_info->postprocessor = MHD_create_post_processor(connection, POSTBUFFERSIZE,
@@ -626,7 +618,7 @@ static enum MHD_Result answer_to_connection(void *cls, struct MHD_Connection *co
             exit(0);
           }
 
-          startMsgListener("127.0.0.1", "22022");
+          startMsgListener("127.0.0.1", lPort);
           _exit(0);
 
         } else {
@@ -666,7 +658,9 @@ static enum MHD_Result answer_to_connection(void *cls, struct MHD_Connection *co
   return send_page(connection, method, errorPage);
 }
 
-int listenWeb() {
+
+// Start the web interface
+int listenWeb(char *sIP, char *sPort, char *lPort) {
   struct MHD_Daemon *daemon;
 
   #define SKEY "server.key"
@@ -689,14 +683,16 @@ int listenWeb() {
     exit(1);
   }
 
+  // Create an array of command line arguments to pass to MHD daemon
+  char *args[] = {sIP, sPort, lPort};
+
+  // Start Daemon
   daemon = MHD_start_daemon(MHD_USE_INTERNAL_POLLING_THREAD | MHD_USE_EPOLL |
                             MHD_USE_TCP_FASTOPEN | MHD_USE_TLS,
-                            PORT, NULL, NULL, &answer_to_connection, NULL,
+                            PORT, NULL, NULL, &answer_to_connection, args, 
                             MHD_OPTION_THREAD_POOL_SIZE, (unsigned int) 4,
                             MHD_OPTION_HTTPS_MEM_KEY, key_pem,
                             MHD_OPTION_HTTPS_MEM_CERT, cert_pem, MHD_OPTION_END);
-
-
 
   if (NULL == daemon) {
     fprintf(stderr, "ERROR: Failed to start HTTPS daemon.\n");

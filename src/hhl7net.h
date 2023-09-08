@@ -17,4 +17,4 @@ void sendFile(FILE *fp, long int fileSize, int sockfd);
 void sendPacket(int sockfd, char *hl7msg);
 void sendAck(int sessfd, char *hl7msg);
 int listenServer(char *port, int isWeb);
-int startMsgListener(char *ip, char *port);
+int startMsgListener(char *ip, const char *port);
