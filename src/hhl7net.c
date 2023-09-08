@@ -156,6 +156,7 @@ void sendFile(FILE *fp, long int fileSize, int sockfd) {
   unix2hl7(fileData);
   wrapMLLP(fileData);
   sendPacket(sockfd, fileData);
+  // TODO - add timeout to listenAck?
   listenACK(sockfd, resStr);
 }
 
