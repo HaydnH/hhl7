@@ -1,5 +1,5 @@
 CC     = gcc
-CFLAGS = -O2 -Wall -fcommon
+CFLAGS = -O1 -Wall -fcommon -g
 INCDIR = -I/usr/include/json-c -I/usr/include/microhttpd
 DESTDIR= /usr
 MANDIR = /usr/share/man

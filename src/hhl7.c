@@ -12,6 +12,8 @@ You should have received a copy of the GNU General Public License along with hhl
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
+#include <time.h>
 #include <string.h>
 #include <getopt.h>
 #include "hhl7extern.h"
@@ -41,6 +43,15 @@ int main(int argc, char *argv[]) {
   char lPort[10] = "22022";
   char tName[256] = "";
   char fileName[256] = "file.txt";
+
+  // Seed RNG
+  struct timespec ts;
+  if (clock_gettime(CLOCK_MONOTONIC_RAW, &ts) == -1) {
+    // TODO - use error handle function
+    printf("ERROR: Failed to obtain system timestamp.\n");
+  }
+  srand((uint64_t) ts.tv_nsec);
+  //srand ((unsigned int) time (NULL));
 
   // TODO: Check error message for unknown long options works properly
   // Parse command line options
@@ -157,6 +168,7 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "INFO:  Using template file: %s\n", fileName);
 
     char *jsonMsg = malloc(fSize + 1);
+    // TODO - max hl7 size is 1024? Need to malloc here!
     int hl7MsgS = 1024;
     char *hl7Msg = malloc(hl7MsgS);
     hl7Msg[0] = '\0';

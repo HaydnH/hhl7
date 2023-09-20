@@ -9,6 +9,7 @@ openssl req -days 365 -out server.pem -new -x509 -key server.key
 -------------------------------------
 sudo apt-get install libmicrohttpd-dev
 sudo apt-get install libjson-c-dev
+sudo apt-get install libssl-dev
 sudo apt-get install make
 
 3) Build
