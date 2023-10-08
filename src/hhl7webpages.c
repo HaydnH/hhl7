@@ -15,6 +15,8 @@ You should have received a copy of the GNU General Public License along with hhl
 const char *mainPage = "<!DOCTYPE HTML>\n\
 <html>\n\
   <head>\n\
+    <title>HHL7</title>\n\
+    <link rel=\"icon\" type=\"image/x-icon\" href=\"/images/favicon.ico\">\n\
     <style>\n\
       html {\n\
       }\n\
@@ -57,7 +59,13 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
       #person {\n\
         position: absolute;\n\
         right: 24px;\n\
-        top: 15px;\n\
+        top: 10px;\n\
+        width: 50px;\n\
+        height: 50px;\n\
+        background-image: url(/images/person.png);\n\
+      }\n\
+      #person:hover {\n\
+        background-image: url(/images/person_hl.png);\n\
       }\n\
       #menuBar {\n\
         position: fixed;\n\
@@ -212,7 +220,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         font-family: Verdana, Helvetica, sans-serif;\n\
         font-size: 16px;\n\
       }\n\
-      #errDim {\n\
+      .popDim {\n\
         display: none;\n\
         position: fixed;\n\
         left: 0;\n\
@@ -221,18 +229,36 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         width: 100%;\n\
         background-color: rgba(0, 0, 0, 0.5);\n\
       }\n\
-      #errWindow {\n\
+      #loginDim {\n\
+        display: none;\n\
+      }\n\
+      #menuDim {\n\
+        display: none;\n\
+        background-color: rgba(0, 0, 0, 0);\n\
+      }\n\
+      .popWindow {\n\
         position: absolute;\n\
         left: 50%;\n\
         top: 50%;\n\
         transform: translate(-50%, -50%);\n\
         width: 25%;\n\
         height: 20%;\n\
+        background-color: #fff;\n\
         border-width: 2px;\n\
         border-style: solid;\n\
         border-color: #142248;\n\
       }\n\
-      #errTitle {\n\
+      #menuWindow {\n\
+        position: fixed;\n\
+        right: 49px;\n\
+        top: 35px;\n\
+        width: 25%;\n\
+        border-width: 2px;\n\
+        border-style: solid;\n\
+        border-color: #142248;\n\
+        outline: 1px solid #fff;\n\
+      }\n\
+      .popTitle {\n\
         font-family: Verdana, Helvetica, sans-serif;\n\
         font-size: 16px;\n\
         font-weight: bold;\n\
@@ -242,7 +268,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         line-height: 36px;\n\
         padding: 0px 15px;\n\
       }\n\
-      #errMsg {\n\
+      .popMsg {\n\
         display: flex;\n\
         flex-direction: row;\n\
         align-items: center;\n\
@@ -253,14 +279,17 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         bottom: 41px;\n\
         left: 0px;\n\
       }\n\
-      #errImg {\n\
+      .popImg {\n\
         height: 70px;\n\
         width: 70px;\n\
         background-image: url(/images/error.png);\n\
         background-repeat: no-repeat;\n\
         background-position: center center;\n\
       }\n\
-      #errTxt {\n\
+      #loginImg {\n\
+        background-image: url(/images/person_hl.png);\n\
+      }\n\
+      .popTxt {\n\
         flex: 1;\n\
         font-family: Verdana, Helvetica, sans-serif;\n\
         font-size: 16px;\n\
@@ -268,7 +297,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         text-align: justify;\n\
         text-justify: inter-word;\n\
       }\n\
-      #errFooter {\n\
+      .popFooter {\n\
         position: absolute;\n\
         bottom: 0px;\n\
         left: 0px;\n\
@@ -276,13 +305,123 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         height: 41px;\n\
         background-color: #fff;\n\
       }\n\
-      .okButton {\n\
-        position: absolute;\n\
-        right: 15px;\n\
-        bottom: 15px;\n\
-        height: 26px;\n\
-        width: 45px;\n\
+      .menuTitleText {\n\
+        float: left;\n\
+        width: 90%;\n\
+      }\n\
+      .menuTitleTogl {\n\
+        float: right;\n\
+        width: 10%;\n\
+        font-size: 26px;\n\
+        padding-top: 2px;\n\
+        margin-right: -8px;\n\
+        margin-bottom: -2px;\n\
+        text-align: right;\n\
+      }\n\
+      .menuHeader {\n\
+        box-sizing: border-box;\n\
+        display: inline-block;\n\
+        width: 100%;\n\
+        font-family: Verdana, Helvetica, sans-serif;\n\
+        font-size: 16px;\n\
+        font-weight: bold;\n\
+        background-color: #8a93ae;\n\
+        color: #fff;\n\
+        height: 36px;\n\
+        line-height: 36px;\n\
+        padding: 0px 15px;\n\
+        border-top: 1px solid #142248;\n\
+        border-bottom: 1px solid #142248;\n\
+      }\n\
+      .menuItem {\n\
+        display: flex;\n\
+        flex-direction: row;\n\
+        flex-wrap: nowrap;\n\
+        width: 100%;\n\
+      }\n\
+      .menuItemButton {\n\
+        box-sizing: border-box;\n\
+        display: inline-block;\n\
+        width: 100%;\n\
+        font-family: Verdana, Helvetica, sans-serif;\n\
+        font-size: 16px;\n\
+        font-weight: bold;\n\
+        color: #fff;\n\
+        height: 36px;\n\
+        line-height: 36px;\n\
+        padding: 0px 15px;\n\
+        text-align: center;\n\
+        border-width: 3px;\n\
+        border-style: double;\n\
+        border-color: #fff;\n\
+        background-color: #BBBBBB;\n\
+        cursor: default;\n\
+      }\n\
+      .menuItemButtonEnabled {\n\
+        background-color: #142248;\n\
+      }\n\
+      .menuItemButtonEnabled:hover {\n\
+        color: #eeb11e;\n\
+        cursor: pointer;\n\
+      }\n\
+      .menuSpacer {\n\
+        box-sizing: border-box;\n\
+        display: inline-block;\n\
+        width: 100%;\n\
+        height: 0px;\n\
+        background-color: #fff;\n\
+      }\n\
+      .menuSubHeader {\n\
+        display: inline-block;\n\
+        width: 23%;\n\
+        font-family: Verdana, Helvetica, sans-serif;\n\
+        font-size: 16px;\n\
+        font-weight: bold;\n\
+        background-color: #d4dcf1;\n\
+        color: #000;\n\
+        height: 36px;\n\
+        line-height: 36px;\n\
+        padding: 0px 15px;\n\
+      }\n\
+      .menuDataItem {\n\
+        display: inline-block;\n\
+        //width: 60%;\n\
+        flex-grow: 4;\n\
+        font-family: Verdana, Helvetica, sans-serif;\n\
+        font-size: 16px;\n\
+        font-weight: bold;\n\
+        background-color: #fff;\n\
+        color: #000;\n\
+        height: 36px;\n\
+        line-height: 36px;\n\
+      }\n\
+      .menuInput {\n\
+        box-sizing: border-box;\n\
+        font-family: Verdana, Helvetica, sans-serif;\n\
+        font-size: 16px;\n\
+        height: 100%;\n\
+        width: 100%;\n\
+        padding: 0px 15px;\n\
+        border: none;\n\
+      }\n\
+      .loginInfo {\n\
+        padding: 0px 0px 2px 0px;\n\
+      }\n\
+      #confPwordD {\n\
+        display: none;\n\
+      }\n\
+      .loginQ {\n\
+        float: left;\n\
+        height: 20px;\n\
         line-height: 28px;\n\
+        width: 30%;\n\
+      }\n\
+      .logFrm {\n\
+        float: left;\n\
+        width: 70%;\n\
+      }\n\
+      .button {\n\
+        position: absolute;\n\
         text-align: center;\n\
         font-family: Verdana, Helvetica, sans-serif;\n\
         font-size: 16px;\n\
@@ -293,9 +432,111 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         border-color: #fff;\n\
         background-color: #142248;\n\
       }\n\
+      .button:hover {\n\
+        color: #eeb11e;\n\
+        cursor: pointer;\n\
+      }\n\
+      .buttonInactive {\n\
+        text-align: center;\n\
+        color: #fff;\n\
+        padding: 0px 0px 0px 2px;\n\
+        background-color: #BBBBBB;\n\
+        border-width: 3px;\n\
+        border-style: double;\n\
+        border-color: #fff;\n\
+        cursor: default;\n\
+      }\n\
+      #ok {\n\
+        right: 15px;\n\
+        bottom: 15px;\n\
+        height: 26px;\n\
+        width: 45px;\n\
+        line-height: 28px;\n\
+      }\n\
+      #register {\n\
+        left: 15px;\n\
+        bottom: 15px;\n\
+        height: 26px;\n\
+        width: 92px;\n\
+        line-height: 28px;\n\
+      }\n\
+      #submit {\n\
+        position: absolute;\n\
+        right: 15px;\n\
+        bottom: 15px;\n\
+        height: 26px;\n\
+        width: 45px;\n\
+        line-height: 26px;\n\
+        padding: 0px 0px 0px 2px;\n\
+      }\n\
     </style>\n\
 \n\
     <script>\n\
+      function showLogin() {\n\
+        hideMenu();\n\
+        var login = document.getElementById(\"loginDim\");\n\
+        login.style.display = \"block\";\n\
+      }\n\
+\n\
+      function switchLogin() {\n\
+        var reg = document.getElementById(\"switchLogin\");\n\
+        var tit = document.getElementById(\"loginTitle\");\n\
+        var conf = document.getElementById(\"confPwordD\");\n\
+\n\
+        if (reg.innerText == \"Login\") {\n\
+          tit.innerText = \"Login:\";\n\
+          reg.innerText = \"Register\";\n\
+          conf.style.display = \"none\";\n\
+\n\
+        } else {\n\
+          tit.innerText = \"Register new account:\";\n\
+          reg.innerText = \"Login\";\n\
+          conf.style.display = \"block\";\n\
+        }\n\
+        validLogin();\n\
+      }\n\
+\n\
+      function validLogin() {\n\
+        var reg = document.getElementById(\"switchLogin\").innerText;\n\
+        var usr = document.getElementById(\"uname\").value;\n\
+        var pwd = document.getElementById(\"pword\").value;\n\
+        var cpw = document.getElementById(\"confPword\").value;\n\
+        var sub = document.getElementById(\"submit\");\n\
+\n\
+        /* TODO change min username & pw length to config file? */\n\
+        if (usr.length < 5 || pwd.length < 8) {\n\
+          sub.onClick = null;\n\
+          sub.classList.replace(\"button\", \"buttonInactive\");\n\
+          return false;\n\
+        }\n\
+        if (reg == \"Login\") {\n\
+          if (cpw.length < 8) {\n\
+            sub.onClick = null;\n\
+            sub.classList.replace(\"button\", \"buttonInactive\");\n\
+            return false;\n\
+          }\n\
+          if (pwd != cpw) {\n\
+            sub.onClick = null;\n\
+            sub.classList.replace(\"button\", \"buttonInactive\");\n\
+            return false;\n\
+          }\n\
+        }\n\
+\n\
+        sub.addEventListener(\"click\", function() { postCreds(); });\n\
+        sub.classList.replace(\"buttonInactive\", \"button\");\n\
+        sub.style.backgroundColor = \"#142248\";\n\
+      }\n\
+\n\
+      function showMenu() {\n\
+        var pane = document.getElementById(\"menuDim\");\n\
+        pane.style.display = \"block\";\n\
+      }\n\
+\n\
+      function hideMenu() {\n\
+        var pane = document.getElementById(\"menuDim\");\n\
+        pane.style.display = \"none\";\n\
+      }\n\
+\n\
       function showList() {\n\
         var pane = document.getElementById(\"sendPane\");\n\
         pane.style.display = \"none\";\n\
@@ -351,6 +592,28 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         errWin.style.display = \"none\";\n\
       }\n\
 \n\
+      function initPage() {\n\
+        /* Pre load images */\n\
+        var eImg = new Image();\n\
+        eImg.src = \"/images/send_hl.png\";\n\
+        var eImg = new Image();\n\
+        eImg.src = \"/images/person_hl.png\";\n\
+        var eImg = new Image();\n\
+        eImg.src = \"/images/error.png\";\n\
+        var wImg = new Image();\n\
+        wImg.src = \"/images/warning.png\";\n\
+\n\
+        popTemplates();\n\
+      }\n\
+\n\
+      function unlockWeb() {\n\
+        var errWin = document.getElementById(\"loginDim\");\n\
+        errWin.style.display = \"none\";\n\
+\n\
+        /* Try to load the template list again */\n\
+        popTemplates();\n\
+      }\n\
+\n\
 \n\
       /* Server communication functions */\n\
       function errHandler(resStr) {\n\
@@ -378,7 +641,91 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         }\n\
       }\n\
 \n\
+      function postCreds() {\n\
+        event.preventDefault();\n\
+        var xhr = new XMLHttpRequest();\n\
+\n\
+        xhr.onreadystatechange = function() {\n\
+          if (xhr.readyState === 4) {\n\
+            if (xhr.status === 200) {\n\
+              if (errHandler(xhr.responseText) == 0) {\n\
+                if (xhr.responseText == \"LA\") {\n\
+                  unlockWeb();\n\
+\n\
+                } else if (xhr.responseText == \"LC\") {\n\
+                  errHandler(\"WARN: Account created but requires activation. Please wait for your system admin to enable your account\");\n\
+                  return false;\n\
+\n\
+                } else if (xhr.responseText == \"LD\") {\n\
+                  errHandler(\"WARN: Account already exists but requires activation. Please wait for your system admin to enable your account\");\n\
+                  return false;\n\
+\n\
+               } else if (xhr.responseText == \"LF\") {\n\
+                  errHandler(\"WARN: Account creation failed, please try again\");\n\
+                  return false;\n\
+\n\
+               } else {\n\
+                  errHandler(\"ERROR: Login failed, please try again\");\n\
+                  return false;\n\
+                }\n\
+              }\n\
+\n\
+            } else if (xhr.status === 401) {\n\
+              errHandler(\"ERROR: Login failed, please try again\");\n\
+              return false;\n\
+\n\
+            } else {\n\
+              errHandler(\"ERROR: The hhl7 backend is not running.\");\n\
+            }\n\
+          }\n\
+        };\n\
+\n\
+        xhr.open(\"POST\", \"/postCreds\");\n\
+\n\
+        var formData = new FormData();\n\
+\n\
+        var pcaction = document.getElementById(\"switchLogin\").innerText;\n\
+        if (pcaction == \"Register\") {\n\
+          formData.append(\"pcaction\", 1);\n\
+        } else if (pcaction == \"Login\") {\n\
+          formData.append(\"pcaction\", 2);\n\
+        } else {\n\
+          formData.append(\"pcaction\", 0);\n\
+        }\n\
+\n\
+        var uname = document.getElementById(\"uname\").value;\n\
+        var pword = document.getElementById(\"pword\").value;\n\
+        formData.append(\"uname\", uname);\n\
+        formData.append(\"pword\", pword);\n\
+\n\
+        xhr.send(formData);\n\
+        return false;\n\
+      }\n\
+\n\
+      async function logout() {\n\
+        try {\n\
+          const response = await fetch(\"/logout\");\n\
+          const htmlData = await response.text();\n\
+\n\
+          if (response.status == 401) {\n\
+            showLogin();\n\
+\n\
+          } else if (response.status == 500) {\n\
+            // TODO internal server error\n\
+\n\
+          } else if (response.ok) {\n\
+            showLogin();\n\
+\n\
+          }\n\
+\n\
+        } catch(error) {\n\
+          console.log(error);\n\
+          errHandler(\"ERROR: The hhl7 backend is not running.\");\n\
+        }\n\
+      }\n\
+\n\
       function postHL7() {\n\
+        event.preventDefault();\n\
         var res = document.getElementById(\"sendRes\");\n\
         res.innerHTML = \"--\";\n\
         res.style.backgroundColor = \"#d4dcf1\";\n\
@@ -414,15 +761,16 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         try {\n\
           const response = await fetch(\"/getTemplateList\");\n\
           const htmlData = await response.text();\n\
-          if (response.ok) {\n\
+\n\
+          if (response.status == 401) {\n\
+            showLogin();\n\
+\n\
+          } else if (response.status == 500) {\n\
+            // TODO internal server error\n\
+\n\
+          } else if (response.ok) {\n\
             var sel = document.getElementById(\"tempSelect\");\n\
             sel.innerHTML = htmlData;\n\
-\n\
-            /* We also need to preload error handling images in case we need them */\n\
-            var eImg = new Image();\n\
-            eImg.src = \"/images/error.png\";\n\
-            var wImg = new Image();\n\
-            wImg.src = \"/images/warning.png\";\n\
           }\n\
 \n\
         } catch(error) {\n\
@@ -467,7 +815,6 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
           const response = await fetch(\"/stopListenHL7\");\n\
           const htmlData = await response.text();\n\
           if (response.ok) {\n\
-            // alert(\"Stopped Listening\");\n\
           }\n\
 \n\
         } catch(error) {\n\
@@ -515,10 +862,13 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
     </script>\n\
   </head>\n\
 \n\
-  <body onLoad=\"popTemplates();\">\n\
+  <body onLoad=\"initPage();\">\n\
     <div id=\"headerBar\">\n\
       <img id=\"logo\" src=\"./images/logo.png\" />\n\
-      <img id=\"person\" src=\"./images/person.png\" />\n\
+      <a href=\"\" onClick=\"showMenu(); return false;\">\n\
+        <!-- <img id=\"person\" src=\"./images/person.png\" /> -->\n\
+        <div id=\"person\"></div>\n\
+      </a>\n\
     </div>\n\
 \n\
     <div id=\"menuBar\">\n\
@@ -526,7 +876,8 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
       <span class=\"menuOption\"><a href=\"\" onClick=\"showList(); return false;\">LISTEN</a></span>\n\
     </div>\n\
 \n\
-    <form id=\"postForm\" action=\"/postHL7\" method=\"post\" enctype=\"text/plain\">\n\
+    // TODO - how much for info is needed? I think just <form> to allow conten editable?\n\
+    <form id=\"postForm\" action=\"/postHL7\" method=\"post\" enctype=\"text/plain\" onSubmit=\"return false;\">\n\
       <div id=\"sendPane\">\n\
         <div class=\"titleBar\">Template:\n\
           <select name=\"tempSelect\" id=\"tempSelect\" onChange=\"showTemp();\">\n\
@@ -552,17 +903,123 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
     </div>\n\
     <div id=\"footer\">Haydn Haines</div>\n\
 \n\
-    <div id=\"errDim\">\n\
-      <div id=\"errWindow\">\n\
-        <div id=\"errTitle\">Error:</div>\n\
-        <div id=\"errMsg\">\n\
-          <div id=\"errImg\"></div>\n\
-          <div id=\"errTxt\"></div>\n\
-        </div>\n\
-        <div id=\"errFooter\">\n\
-          <div class=\"okButton\">\n\
-            <a href=\"\" onclick=\"closeErrWin(); return false;\">OK</a>\n\
+    <!-- login window -->\n\
+    <div id=\"loginDim\" class=\"popDim\">\n\
+      <div id=\"loginWindow\" class=\"popWindow\">\n\
+        <div id=\"loginTitle\" class=\"popTitle\">Login:</div>\n\
+        <div id=\"loginMsg\" class=\"popMsg\">\n\
+          <div id=\"loginImg\" class=\"popImg\"></div>\n\
+          <div id=\"loginTxt\" class=\"popTxt\">\n\
+            <div class=\"loginInfo\">\n\
+              <div class=\"loginQ\">Username:</div>\n\
+              <div class=\"loginFrm\">\n\
+                <input id=\"uname\" class=\"loginInput\" onInput=\"validLogin();\" onChange=\"validLogin();\" />\n\
+              </div>\n\
+            </div>\n\
+            <div class=\"loginInfo\">\n\
+              <div class=\"loginQ\">Password:</div>\n\
+              <div class=\"loginFrm\">\n\
+                <input id=\"pword\" type=\"password\" class=\"loginInput\" onInput=\"validLogin();\" onChange=\"validLogin();\" />\n\
+              </div>\n\
+            </div>\n\
+            <div id=\"confPwordD\" class=\"loginInfo\">\n\
+              <div class=\"loginQ\">Confirm PW:</div>\n\
+              <div class=\"loginFrm\">\n\
+                <input id=\"confPword\" type=\"password\" class=\"loginInput\" onInput=\"validLogin();\" onChange=\"validLogin();\" />\n\
+              </div>\n\
+            </div>\n\
           </div>\n\
+        </div>\n\
+        <div id=\"loginFooter\" class=\"popFooter\">\n\
+          <a href=\"\" id=\"switchLogin\" onclick=\"switchLogin(); return false;\">\n\
+            <div id=\"register\" class=\"button\">Register</div>\n\
+          </a>\n\
+          <a href=\"\" id=\"subLogin\">\n\
+            <div id=\"submit\" class=\"buttonInactive\">&#9654;&#9654;</div>\n\
+          </a>\n\
+        </div>\n\
+      </div>\n\
+    </div>\n\
+\n\
+    <!-- Menu window -->\n\
+    <div id=\"menuDim\" class=\"popDim\">\n\
+      <div id=\"menuWindow\">\n\
+        <div id=\"menuTitle\" class=\"popTitle\">\n\
+          <div class=\"menuTitleText\">Settings</div>\n\
+          <div class=\"menuTitleTogl\">\n\
+            <a href=\"\" onClick=\"hideMenu(); return false;\">&#10006;</a>\n\
+          </div>\n\
+        </div>\n\
+        <div class=\"menuHeader\">Send Settings</div>\n\
+        <div class=\"menuItem\">\n\
+          <div class=\"menuSubHeader\">Target Host:</div>\n\
+          <div class=\"menuDataItem\">\n\
+            <input id=\"tHost\" class=\"menuInput\" value=\"127.0.0.1\" />\n\
+            <!-- <input id=\"tHost\" class=\"menuInput\" onInput=\"validTarget();\" onChange=\"validTarget(); /> -->\n\
+          </div>\n\
+        </div>\n\
+        <div class=\"menuItem\">\n\
+          <div class=\"menuSubHeader\">Target Port:</div>\n\
+          <div class=\"menuDataItem\">\n\
+            <input id=\"tPort\" class=\"menuInput\" value=\"11011\" />\n\
+          </div>\n\
+        </div>\n\
+        <a href=\"\" onclick=\"saveSendSets(); return false;\">\n\
+          <div class=\"menuItemButton\">Save Send Settings</div>\n\
+        </a>\n\
+        <div class=\"menuSpacer\"></div>\n\
+        <div class=\"menuHeader\">Listen Settings</div>\n\
+        <div class=\"menuItem\">\n\
+          <div class=\"menuSubHeader\">Listen Port:</div>\n\
+          <div class=\"menuDataItem\">\n\
+            <input id=\"lPort\" class=\"menuInput\" value=\"22022\" />\n\
+          </div>\n\
+        </div>\n\
+        <a href=\"\" onclick=\"saveListenSets(); return false;\">\n\
+          <div class=\"menuItemButton\">Save Listen Settings</div>\n\
+        </a>\n\
+        <div class=\"menuSpacer\"></div>\n\
+        <div class=\"menuHeader\">Reset Password</div>\n\
+        <div class=\"menuItem\">\n\
+          <div class=\"menuSubHeader\">Old Pwd:</div>\n\
+          <div class=\"menuDataItem\">\n\
+            <input id=\"oldPwd\" class=\"menuInput\" type=\"password\" />\n\
+          </div>\n\
+        </div>\n\
+        <div class=\"menuItem\">\n\
+          <div class=\"menuSubHeader\">New Pwd:</div>\n\
+          <div class=\"menuDataItem\">\n\
+            <input id=\"newPwd\" class=\"menuInput\" type=\"password\" />\n\
+          </div>\n\
+        </div>\n\
+        <div class=\"menuItem\">\n\
+          <div class=\"menuSubHeader\">Confirm Pwd:</div>\n\
+          <div class=\"menuDataItem\">\n\
+            <input id=\"conPwd\" class=\"menuInput\" type=\"password\" />\n\
+          </div>\n\
+        </div>\n\
+        <a href=\"\" onclick=\"changePasswd(); return false;\">\n\
+          <div id=\"resetPW\" class=\"menuItemButton\">Reset Password</div>\n\
+        </a>\n\
+        <div class=\"menuSpacer\"></div>\n\
+        <a href=\"\" onclick=\"logout(); return false;\">\n\
+          <div class=\"menuItemButton menuItemButtonEnabled\">Logout</div>\n\
+        </a>\n\
+      </div>\n\
+    </div>\n\
+\n\
+    <!-- Error message window -->\n\
+    <div id=\"errDim\" class=\"popDim\">\n\
+      <div id=\"errWindow\" class=\"popWindow\">\n\
+        <div id=\"errTitle\" class=\"popTitle\">Error:</div>\n\
+        <div id=\"errMsg\" class=\"popMsg\">\n\
+          <div id=\"errImg\" class=\"popImg\"></div>\n\
+          <div id=\"errTxt\" class=\"popTxt\"></div>\n\
+        </div>\n\
+        <div id=\"errFooter\" class=\"popFooter\">\n\
+          <a href=\"\" onclick=\"closeErrWin(); return false;\">\n\
+            <div id=\"ok\" class=\"button\">OK</div>\n\
+          </a>\n\
         </div>\n\
       </div>\n\
     </div>\n\
@@ -570,4 +1027,5 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
 </html>";
 
 
+// This should never be shown...
 const char *errorPage = "<html><body>ERROR</body></html>";

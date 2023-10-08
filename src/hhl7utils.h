@@ -11,19 +11,20 @@ You should have received a copy of the GNU General Public License along with hhl
 */
 
 // Function prototypes
-void handleErr(char* message, int eCode, FILE* fStream);
-FILE *openFile(char* fileName);
-long int getFileSize(char* fileName);
+void handleErr(char *message, int eCode, FILE *fStream);
+int checkFile(char *fileName, int perms);
+FILE *openFile(char *fileName, char *mode);
+long int getFileSize(char *fileName);
 void file2buf(char *buf, FILE *fp, int fsize);
 void timeNow(char *dt);
 void stripMLLP(char *hl7msg);
 void wrapMLLP(char *hl7msg);
 void getHL7Field(char *hl7msg, char *seg, int field, char *res);
-void hl72unix(char* msg);
+void hl72unix(char *msg);
 void hl72web(char *msg);
-void unix2hl7(char* msg);
-void hl72unix(char* msg);
-FILE *findTemplate(char* fileName, char* tName);
+void unix2hl7(char *msg);
+void hl72unix(char *msg);
+FILE *findTemplate(char *fileName, char *tName);
 char *str2base64(const char *message);
 void escapeSlash(char *dest, char *src);
 void printChars(char *buf);

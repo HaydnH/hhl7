@@ -31,6 +31,7 @@ You should have received a copy of the GNU General Public License along with hhl
 #include "hhl7net.h"
 #include "hhl7utils.h"
 #include "hhl7webpages.h"
+#include "hhl7auth.h"
 #include "hhl7json.h"
 #include <errno.h>
 
@@ -57,10 +58,13 @@ pid_t wpid;
 
 // Connection info
 struct connection_info_struct {
+  struct MHD_Connection *connection;
   int connectiontype;
   char *answerstring;
   struct MHD_PostProcessor *postprocessor;
   struct Session *session;
+  int pcaction;
+  char userid[33];
   char sIP[256];
   char sPort[10];
 };
@@ -73,6 +77,7 @@ struct Session {
   // Session id, previous session ID, connection counter, time last active
   char sessID[33];
   char oldSessID[33];
+  int aStatus;
   unsigned int rc;
   time_t start;
 };
@@ -80,25 +85,6 @@ struct Session {
 // Linked list of sessions
 static struct Session *sessions;
 
-/*
-// Create a random session ID
-static void genSessID(char *sessID) {
-  int c = 0;
-  struct timespec ts;
-  if (clock_gettime(CLOCK_MONOTONIC_RAW, &ts) == -1) {
-    // TODO - use error handle function
-    printf("ERROR: Failed to obtain system timestamp.\n");
-  }
-
-  srand((uint64_t) ts.tv_nsec);
-  for (c = 0; c < 32; c++) {
-    srand(time(NULL) + rand());
-    sessID[c] = 'a' + (rand() % 26);
-  }
-  sessID[33] = '\0';
-  // TODO check if session ID already exists and recreate - hash table?
-}
-*/
 
 // Get the session ID from cookie or create a new session
 static struct Session *getSession(struct MHD_Connection *connection) {
@@ -108,7 +94,7 @@ static struct Session *getSession(struct MHD_Connection *connection) {
   cookie = MHD_lookup_connection_value(connection, MHD_COOKIE_KIND, COOKIE_NAME);
 
   if (cookie != NULL) {
-    /* find existing session */
+    // Try to find an existing session
     ret = sessions;
     while (NULL != ret) {
       if (strcmp(cookie, ret->sessID) == 0) {
@@ -124,7 +110,8 @@ static struct Session *getSession(struct MHD_Connection *connection) {
       return ret;
     }
   }
-  /* create fresh session */
+  
+  // If no session exists, create a new session
   ret = calloc (1, sizeof (struct Session));
   if (NULL == ret) {
     // TODO - error handle function
@@ -132,8 +119,7 @@ static struct Session *getSession(struct MHD_Connection *connection) {
     return NULL;
   }
 
-  //genSessID(ret->sessID);
-  // TODO - create a better ID generation method
+  // TODO - create a better ID generation method?
   snprintf (ret->sessID,
             sizeof (ret->sessID),
             "%X%X%X%X",
@@ -158,13 +144,14 @@ static void expire_sessions() {
   struct Session *next;
   time_t now;
 
-  now = time (NULL);
+  now = time(NULL);
   prev = NULL;
   pos = sessions;
+
   while (NULL != pos) {
     next = pos->next;
     if (now - pos->start > 60 * 60) {
-      /* expire sessions after 1h */
+      // Expire old sessions after 1h
       if (NULL == prev) {
         sessions = pos->next;
       } else {
@@ -181,8 +168,8 @@ static void expire_sessions() {
 
 // Add a session cookie to the browser
 static void addCookie(struct Session *session, struct MHD_Response *response) {
-  char cstr[256];
-  sprintf(cstr, "%s=%s", COOKIE_NAME, session->sessID);
+  char cstr[strlen(COOKIE_NAME) + strlen(session->sessID) + 20];
+  sprintf(cstr, "%s=%s; SameSite=Strict", COOKIE_NAME, session->sessID);
   if (MHD_add_response_header(response, MHD_HTTP_HEADER_SET_COOKIE, cstr) == MHD_NO) {
     fprintf (stderr, "Failed to set session cookie header!\n");
   }
@@ -231,6 +218,7 @@ static enum MHD_Result webErrXHR(struct Session *session,
 }
 
 
+/*
 static enum MHD_Result ask_for_authentication(struct MHD_Connection *connection,
                                               const char *realm) {
   enum MHD_Result ret;
@@ -260,10 +248,25 @@ static enum MHD_Result ask_for_authentication(struct MHD_Connection *connection,
   MHD_destroy_response(response);
   return ret;
 }
+*/
 
+static enum MHD_Result requestLogin(struct MHD_Connection *connection) {
+  enum MHD_Result ret;
+  struct MHD_Response *response;
+
+  response = MHD_create_response_from_buffer(0, NULL, MHD_RESPMEM_PERSISTENT);
+
+  if (! response)
+    return MHD_NO;
+
+  ret = MHD_queue_response(connection, MHD_HTTP_UNAUTHORIZED, response);
+  MHD_destroy_response(response);
+  return ret;
+}
+
+/*
 static int is_authenticated(struct MHD_Connection *connection,
-                     const char *username,
-                     const char *password) {
+                            const char *username, const char *password) {
 
   const char *headervalue;
   char *expected_b64;
@@ -291,7 +294,7 @@ static int is_authenticated(struct MHD_Connection *connection,
   free(expected_b64);
   return authenticated;
 }
-
+*/
 
 static enum MHD_Result main_page(struct Session *session,
                                  struct MHD_Connection *connection) {
@@ -325,7 +328,7 @@ static enum MHD_Result getImage(struct Session *session,
   strcpy(serverURL, ".");
   strcat(serverURL, url);
 
-  fp = openFile(serverURL);
+  fp = openFile(serverURL, "r");
   int fSize = getFileSize(serverURL); 
 
   // Error accessing file
@@ -382,6 +385,12 @@ static enum MHD_Result getImage(struct Session *session,
 // Get a list of template files and return them as a set of <select> <option>s
 static enum MHD_Result getTemplateList(struct Session *session,
                                        struct MHD_Connection *connection) {
+
+  // Request login if not logged in
+  if (session->aStatus != 1) {
+    return requestLogin(connection);
+  }
+
   enum MHD_Result ret;
   struct MHD_Response *response;
   DIR *dp;
@@ -423,7 +432,7 @@ static enum MHD_Result getTemplateList(struct Session *session,
         // Read the template and check if it's hidden:
         int fSize = getFileSize(fullName);
         char *jsonMsg = malloc(fSize + 1);
-        fp = openFile(fullName);
+        fp = openFile(fullName, "r");
         readJSONFile(fp, fSize, jsonMsg);
 
         // If not hidden, add it to the option list
@@ -489,7 +498,8 @@ static enum MHD_Result getTempForm(struct Session *session,
   strcpy(fileName, tPath);
   strcat(fileName, url);
 
-  fp = openFile(fileName);
+  // TODO - use json from file function
+  fp = openFile(fileName, "r");
   int fSize = getFileSize(fileName); 
   char *jsonMsg = malloc(fSize + 1);
 
@@ -537,6 +547,7 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
               const char *transfer_encoding, const char *data, uint64_t off, size_t size) {
 
   struct connection_info_struct *con_info = coninfo_cls;
+
   (void) kind;               /* Unused. Silent compiler warning. */
   (void) filename;           /* Unused. Silent compiler warning. */
   (void) content_type;       /* Unused. Silent compiler warning. */
@@ -545,36 +556,93 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
 
   int sockfd;
   char resStr[3] = "";
+  int aStatus = -1, nStatus = -1;
+  char *answerstring;
+  answerstring = malloc(MAXANSWERSIZE);
+  if (!answerstring) return MHD_NO;
 
-  if (strcmp (key, "hl7MessageText") == 0 ) {
-    if ((size > 0) && (size <= MAXNAMESIZE)) {
-      char newData[strlen(data) + 1];
-      strcpy(newData, data);
-      wrapMLLP(newData);
-
-      char *answerstring;
-      answerstring = malloc(MAXANSWERSIZE);
-
-      if (!answerstring) return MHD_NO;
-
-      // TODO - this seems to fail sometimes if listener isn't up before sending?
-      sockfd = connectSvr(con_info -> sIP, con_info -> sPort);
-      // TODO - Sock number increases with each message? free? 
-      //printf("Debug SOCK: %d\n", sockfd);
- 
-      if (sockfd >= 0) {
-        sendPacket(sockfd, newData);
-        listenACK(sockfd, resStr);
-
-        snprintf(answerstring, MAXANSWERSIZE, resStr, newData);
+  if ((size > 0) && (size <= MAXNAMESIZE)) {
+    if (strcmp (key, "hl7MessageText") == 0 ) {
+      if (con_info->session->aStatus == 1) {
+        snprintf(answerstring, 3, "%s", "L0");  // Require a login
         con_info->answerstring = answerstring;
+
+      } else {
+        char newData[strlen(data) + 5];
+        strcpy(newData, data);
+        wrapMLLP(newData);
+
+        sockfd = connectSvr(con_info->sIP, con_info->sPort);
+        // TODO - Sock number increases with each message? free? 
+        //printf("Debug SOCK: %d\n", sockfd);
+ 
+        if (sockfd >= 0) {
+          sendPacket(sockfd, newData);
+          listenACK(sockfd, resStr);
+
+          // TODO - Why are we adding newData here? surely just resStr will be fine?
+          snprintf(answerstring, MAXANSWERSIZE, resStr, newData);
+          con_info->answerstring = answerstring;
+
+        }  
       }
 
-    } else {
-      con_info->answerstring = NULL;
-    }
+    } else if (strcmp (key, "pcaction") == 0 ) {
+      // TODO sanitise username and password
+      con_info->pcaction = atoi(data);
+      // Temporarily list the answer code as DP (partial data) until we receive passwd
+      snprintf(answerstring, 3, "%s", "DP");
 
+    } else if (strcmp (key, "uname") == 0 ) {
+      // TODO sanitise username and password
+      strcpy(con_info->userid, data);
+      // Temporarily list the answer code as DP (partial data) until we receive passwd
+      snprintf(answerstring, 3, "%s", "DP");
+
+    } else if (strcmp (key, "pword") == 0 ) {
+      // Return partial data code if invalid request
+      if (strlen(con_info->userid) == 0 || con_info->pcaction < 1) {
+        snprintf(answerstring, 3, "%s", "DP");
+
+      } else {
+        aStatus = checkAuth(con_info->userid, data);
+        if (aStatus == 3 && con_info->pcaction == 2) {
+          nStatus = regNewUser(con_info->userid, (char *) data);
+
+          if (nStatus == 0) {
+            snprintf(answerstring, 3, "%s", "LC");  // New account created
+          } else {
+            snprintf(answerstring, 3, "%s", "LF");  // New account creation failure
+          }
+
+        } else if (aStatus == 3 && con_info->pcaction == 1) {
+          snprintf(answerstring, 3, "%s", "LR");  // Reject login, no account
+
+        } else if (aStatus == 2) {
+          snprintf(answerstring, 3, "%s", "LR");  // Reject login, wrong password
+
+        } else if (aStatus == 1) {
+          snprintf(answerstring, 3, "%s", "LD");  // Account disabled, but login OK
+
+        } else if (aStatus == 0) {
+          con_info->session->aStatus = 1;
+          snprintf(answerstring, 3, "%s", "LA");  // Accept login
+
+        } else {
+          snprintf(answerstring, 3, "%s", "DP");
+ 
+        }
+      }
+
+      con_info->answerstring = answerstring;
+    } 
+
+  } else {
+    // No post data was received, reply with code "D0" (no data)
+    strcpy(answerstring, "D0");
+    con_info->answerstring = answerstring;
     return MHD_NO;
+
   }
   return MHD_YES;
 }
@@ -718,6 +786,23 @@ static enum MHD_Result send_page(struct Session *session,
 }
 
 
+// TODO - Use this instead of all the individual functions for pages?
+static enum MHD_Result logout(struct Session *session, struct MHD_Connection *connection) {
+  enum MHD_Result ret;
+  struct MHD_Response *response;
+
+  session->sessID[0] = '\0';
+
+  response = MHD_create_response_from_buffer(2, "LO", MHD_RESPMEM_PERSISTENT);
+
+  if (! response) return MHD_NO;
+
+  MHD_add_response_header(response, "Content-Type", "text/plain");
+  ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
+  MHD_destroy_response(response);
+  return ret;
+}
+
 // Debug function used for showing connection values, e.g user-agent
 //static int print_out_key (void *cls, enum MHD_ValueKind kind, const char *key,
 //               const char *value) {
@@ -749,12 +834,10 @@ static enum MHD_Result answer_to_connection(void *cls, struct MHD_Connection *co
   // TODO change this to /use/local/share
   char *imagePath = "/images/";
  
-  if (! is_authenticated(connection, USER, PASSWORD))
-    return ask_for_authentication(connection, REALM);
-
   if (*con_cls == NULL) {
     con_info = malloc(sizeof(struct connection_info_struct));
     if (con_info == NULL) return MHD_NO;
+    con_info->connection = connection;
     con_info->session = getSession(connection);
     con_info->answerstring = NULL;
     strcpy(con_info->sIP, sIP);
@@ -788,10 +871,11 @@ static enum MHD_Result answer_to_connection(void *cls, struct MHD_Connection *co
     }
   }
   session = con_info->session;
-  // TODO - commented out due to seg fault, rework
   session->start = time(NULL);
-  //if (session->sessID != NULL) printf("S: %s\n", session->sessID);
 
+  //if (strcmp(method, "POST") == 0) {
+ //   if (session->aStatus != 1) return requestLogin(connection);
+ // }
 
   if (strcmp(method, "GET") == 0) {
     if (strstr(url, imagePath)) {
@@ -801,13 +885,21 @@ static enum MHD_Result answer_to_connection(void *cls, struct MHD_Connection *co
       return getTempForm(session, connection, url);
 
     } else if (strcmp(url, "/getTemplateList") == 0) {
+      // Request login if not logged in
+      if (session->aStatus != 1) return requestLogin(connection);
       return getTemplateList(session, connection);
 
     } else if (strcmp(url, "/stopListenHL7") == 0) {
+      if (session->aStatus != 1) return requestLogin(connection);
       return stopListenWeb(session, connection);
 
+    } else if (strcmp(url, "/logout") == 0) {
+      if (session->aStatus != 1) return requestLogin(connection);
+      return logout(session, connection);
+
+    // TODO pull this out to a function?? 
     } else if (strcmp(url, "/listenHL7") == 0) {
-      // TODO - change static port
+      if (session->aStatus != 1) return requestLogin(connection);
       if (isListening == 0) {
         // Make children ignore waiting for parent process before closing
         signal(SIGCHLD, SIG_IGN);
@@ -845,14 +937,21 @@ static enum MHD_Result answer_to_connection(void *cls, struct MHD_Connection *co
   }
 
   if (strcmp(method, "POST") == 0) {
-    //struct connection_info_struct *con_info = *con_cls;
-
     if (*upload_data_size != 0) {
-      MHD_post_process(con_info->postprocessor, upload_data, *upload_data_size);
-      *upload_data_size = 0;
-      return MHD_YES;
+      // TODO - check if a POST processes the data before requesting a login
+ //     if (session->aStatus == 1) {
+        MHD_post_process(con_info->postprocessor, upload_data, *upload_data_size);
+        *upload_data_size = 0;
+        return MHD_YES;
+
+  //    } else {
+  //      snprintf(con_info->answerstring, 3, "%s", "L0");  // Require a login
+        //return send_page(session, connection, method, con_info->answerstring);
+
+  //    }
 
     } else if (NULL != con_info->answerstring) {
+      if (session->aStatus != 1) return requestLogin(connection);
       return send_page(session, connection, method, con_info->answerstring);
     }
   }
@@ -873,8 +972,8 @@ int listenWeb(char *sIP, char *sPort, char *lPort) {
   int pemSize = getFileSize(SPEM);
   char key_pem[keySize + 1];
   char cert_pem[pemSize + 1];
-  FILE *fpSKEY = openFile(SKEY);
-  FILE *fpSPEM = openFile(SPEM);
+  FILE *fpSKEY = openFile(SKEY, "r");
+  FILE *fpSPEM = openFile(SPEM, "r");
 
   file2buf(key_pem, fpSKEY, keySize);
   file2buf(cert_pem, fpSPEM, pemSize);
@@ -924,6 +1023,7 @@ int listenWeb(char *sIP, char *sPort, char *lPort) {
   MHD_socket max;
   MHD_UNSIGNED_LONG_LONG mhd_timeout;
 
+  // TODO - check daemon options
   daemon = MHD_start_daemon(MHD_USE_ERROR_LOG | MHD_USE_TLS,
                             PORT,
                             NULL, NULL,

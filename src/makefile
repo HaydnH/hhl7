@@ -1,11 +1,11 @@
 CC     = gcc
 CFLAGS = -O1 -Wall -fcommon -g
-INCDIR = -I/usr/include/json-c -I/usr/include/microhttpd
+INCDIR = -I/usr/include/json-c -I/usr/include/microhttpd -I/usr/include/openssl
 DESTDIR= /usr
 MANDIR = /usr/share/man
 LIBDIR = 
-LIBS   = -ljson-c -lmicrohttpd
-OBJS   = hhl7webpages.o hhl7web.o hhl7net.o hhl7utils.o hhl7json.o hhl7.o
+LIBS   = -ljson-c -lmicrohttpd -lssl -lcrypto
+OBJS   = hhl7webpages.o hhl7web.o hhl7auth.o hhl7net.o hhl7utils.o hhl7json.o hhl7.o
 BIN    = hhl7
 MAN    = hhl7.1
 

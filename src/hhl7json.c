@@ -18,6 +18,7 @@ You should have received a copy of the GNU General Public License along with hhl
 
 
 // Read a json file from file pointer
+// TODO change any references of this to use the library json from file
 void readJSONFile(FILE *fp, long int fileSize, char *jsonMsg) {
   if (!fread(jsonMsg, fileSize, 1, fp)) {
     fprintf(stderr, "ERROR: Could not read contents of json template\n");
@@ -256,6 +257,7 @@ static void parseJSONField(struct json_object *fieldObj, int *lastFid, int lastF
               isWeb, webForm, fieldObj);
 
   }
+
   *lastFid = fid;
 }
 
@@ -344,6 +346,7 @@ void parseJSONTemp(char *jsonMsg, char **hl7Msg, int *hl7MsgS, char **webForm,
       json_object_object_get_ex(segObj, "fields", &fieldsObj);
       // TODO - error handle all the JSON template functions for temps with missing objs
       fieldCount = json_object_array_length(fieldsObj);
+      lastFid = 0;
 
       for (f = 0; f < fieldCount; f++) {
         // Get field and add it to the HL7 message and web form if appropriate
@@ -351,6 +354,8 @@ void parseJSONTemp(char *jsonMsg, char **hl7Msg, int *hl7MsgS, char **webForm,
         if (isWeb == 1) addVar2WebForm(webForm, webFormS, fieldObj);
         parseJSONField(fieldObj, &lastFid, fieldCount - f, hl7Msg, hl7MsgS, argv,
                        fieldTok, isWeb, webForm);
+
+        printf("JS: %s\n", json_object_to_json_string_ext(fieldObj, JSON_C_TO_STRING_SPACED | JSON_C_TO_STRING_PRETTY));
 
         json_object_object_get_ex(fieldObj, "subfields", &subFObj);
         if (subFObj) {

@@ -151,7 +151,7 @@ int main(int argc, char *argv[]) {
     sockfd = connectSvr(ip, sPort);
 
     // Send a file test
-    fp = openFile(fileName);
+    fp = openFile(fileName, "r");
     sendFile(fp, getFileSize(fileName), sockfd);
     //fclose(fp);
   } 

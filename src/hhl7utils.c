@@ -12,6 +12,7 @@ You should have received a copy of the GNU General Public License along with hhl
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <string.h>
 #include <fcntl.h>
 #include <sys/stat.h>
@@ -31,7 +32,7 @@ void printChars(char *buf) {
 // TODO - grep code for this function and create error code list, currently all fail = 1
 // TODO - maybe send error level (warn, error etc) for processsing?
 // Handle any error messages
-void handleErr(char* message, int eCode, FILE* fStream) {
+void handleErr(char *message, int eCode, FILE *fStream) {
   if (webRunning == 0) {
     fprintf(fStream, "%s [E: %d]\n", message , eCode);
     if (eCode >= 0) exit(eCode);
@@ -45,10 +46,21 @@ void handleErr(char* message, int eCode, FILE* fStream) {
 }
 
 
-// Check if we can open a file for reading and return FP
-FILE *openFile(char* fileName) {
+// Check if file exists (F_OK=0) and is writable (W_OK=2), readable (R_OK=4)
+// or exectuable (X_OK=1)
+int checkFile(char *fileName, int perms) {
+  if (access(fileName, perms) == 0) {
+    return 0;
+  } else {
+    return 1;
+  }
+}
+
+
+// Check if we can open a file for reading and return FP, (Modes; r, w etc)
+FILE *openFile(char *fileName, char *mode) {
   FILE *fp;
-  fp = fopen(fileName, "r");
+  fp = fopen(fileName, mode);
   if (fp == NULL) {
     fprintf(stderr, "ERROR: Cannot open file: %s\n", fileName);
     exit(1);
@@ -58,7 +70,7 @@ FILE *openFile(char* fileName) {
 
 
 // Get the size of a file
-long int getFileSize(char* fileName) {
+long int getFileSize(char *fileName) {
   struct stat st;
   stat(fileName, &st);
   return st.st_size;
@@ -223,7 +235,7 @@ void hl72web(char *msg) {
   // TODO need to realloc msg AND res once it's malloc'd 
   char res[1224] = "";
   char *tokState;
-  char* token = strtok_r(msg, "\r", &tokState);
+  char *token = strtok_r(msg, "\r", &tokState);
 
   while (token != NULL) {
     strcat(res, token);
@@ -236,7 +248,7 @@ void hl72web(char *msg) {
 
 
 // Find fullpath of a json template file
-FILE *findTemplate(char* fileName, char* tName) {
+FILE *findTemplate(char *fileName, char *tName) {
   FILE *fp;
   int p = 0;
   const char *homeDir = getenv("HOME");

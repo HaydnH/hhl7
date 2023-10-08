@@ -89,16 +89,19 @@ static int createPWFile(char *fileName) {
 // Check if a user exists
 static int userExists(struct json_object *userArray, char *uid) {
   //struct json_object *userArray = NULL;
-  struct json_object *userObj = NULL, *uidStr = NULL;
-  int u = 0, uCount = 0;
+  struct json_object *userObj = NULL, *uidStr = NULL, *enabledStr = NULL;
+  int u = 0, uCount = 0, enabled = 0;
 
   uCount = json_object_array_length(userArray);
 
   for (u = 0; u < uCount; u++) {
     userObj = json_object_array_get_idx(userArray, u);
     uidStr = json_object_object_get(userObj, "uid");
+    enabledStr = json_object_object_get(userObj, "enabled");
+    enabled = json_object_get_boolean(enabledStr);    
 
     if (strcmp(json_object_get_string(uidStr), uid) == 0) {
+      if (enabled == 0) return 2;
       return 0;
     }
   }
@@ -113,6 +116,7 @@ int regNewUser(char *uid, char *passwd) {
   struct json_object *newUserObj = json_object_new_object();
   struct json_object *pwObj = NULL, *userArray = NULL;
 
+  int uExists = 0;
   int maxPassL = 32;
   size_t saltedL = 3 * maxPassL;
   char salt[maxPassL + 1];
@@ -139,12 +143,12 @@ int regNewUser(char *uid, char *passwd) {
   }
 
   json_object_object_get_ex(pwObj, "users", &userArray);
+  uExists = userExists(userArray, uid);
 
-  if (userExists(userArray, uid) == 1) {
+  if (uExists == 1) {
     // Generate salt and password hash
     genPwdSalt(salt, maxPassL);
     sprintf(saltPasswd, "%s%s", salt, passwd);
-    printf("SP AU: %s\n", saltPasswd);
 
     genPwdHash(saltPasswd, strlen(saltPasswd), pwdHash);
 
@@ -156,6 +160,7 @@ int regNewUser(char *uid, char *passwd) {
 
     json_object_array_add(userArray, newUserObj);
 
+    // TODO JSON_C_TO_STRING_SPACED | JSON_C_TO_STRING_PRETTY?
     if (json_object_to_file(pwFile, pwObj) == -1) {
       printf("ERROR: Couldn't write passwd file\n");
       PWLOCK = 0;
@@ -173,12 +178,16 @@ int regNewUser(char *uid, char *passwd) {
 }
 
 
-// Check if a username/password combination is valid
+// Check if a username/password combination is valid, return codes:
+//    0 - User exists and password matches
+//    1 - User exists and password matches, but account is disabled
+//    2 - User exists but password is incorrect
+//    3 - User doesn't exist
 int checkAuth(char *uid, const char *passwd) {
   char pwFile[] = "./conf/passwd.hhl7";
   struct json_object *pwObj = NULL, *userArray = NULL, *userObj = NULL;
   struct json_object  *uidStr = NULL, *saltStr = NULL, *pwdStr = NULL;
-  int uCount = 0, u = 0;
+  int uCount = 0, u = 0, uExists = 0;
   int maxPassL = 32;
   size_t saltedL = 3 * maxPassL;
   char saltPasswd[saltedL];
@@ -203,10 +212,10 @@ int checkAuth(char *uid, const char *passwd) {
   }
 
   // If... blah == 0
-  if (userExists(userArray, uid) == 1) {
-    // TODO error handle function
-    printf("User doesn't exist\n");
-    exit(1);
+  uExists = userExists(userArray, uid);
+  if (uExists == 1) {
+    json_object_put(pwObj);
+    return 3;
 
   } else {
     uCount = json_object_array_length(userArray);
@@ -230,20 +239,24 @@ int checkAuth(char *uid, const char *passwd) {
           sprintf(saltPasswd, "%s%s", json_object_get_string(saltStr), passwd);
           genPwdHash(saltPasswd, strlen(saltPasswd), pwdHash);
 
-          //if (strcmp(json_object_get_string(pwdStr), pwdHash) == 0) {
           if (strncmp(json_object_get_string(pwdStr), pwdHash, maxPassL) == 0) {
+            // Return 1 if the user exists, the password is correct, but account disabled
+            json_object_put(pwObj);
+            if (uExists == 2) return 1;
             return 0;
 
           } else {
-            return 1;
+            json_object_put(pwObj);
+            return 2;
           }
         }
 
       }
     }
   }
-  return 1;
   json_object_put(pwObj);
+  // We shouldn't get here, but return a denial as a safety net
+  return 2;
 }
 
 
