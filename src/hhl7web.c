@@ -218,38 +218,6 @@ static enum MHD_Result webErrXHR(struct Session *session,
 }
 
 
-/*
-static enum MHD_Result ask_for_authentication(struct MHD_Connection *connection,
-                                              const char *realm) {
-  enum MHD_Result ret;
-  struct MHD_Response *response;
-  char *headervalue;
-  size_t slen;
-  const char *strbase = "Basic realm=";
-
-  response = MHD_create_response_from_buffer(0, NULL, MHD_RESPMEM_PERSISTENT);
-  if (! response)
-    return MHD_NO;
-
-  slen = strlen(strbase) + strlen(realm) + 1;
-  if (NULL == (headervalue = malloc(slen)))
-    return MHD_NO;
-  snprintf(headervalue, slen, "%s%s", strbase, realm);
-  ret = MHD_add_response_header(response, "WWW-Authenticate", headervalue);
-  free(headervalue);
-
-  if (! ret) {
-    MHD_destroy_response(response);
-    return MHD_NO;
-  }
-
-  //addCookie(session, response);
-  ret = MHD_queue_response(connection, MHD_HTTP_UNAUTHORIZED, response);
-  MHD_destroy_response(response);
-  return ret;
-}
-*/
-
 static enum MHD_Result requestLogin(struct MHD_Connection *connection) {
   enum MHD_Result ret;
   struct MHD_Response *response;
@@ -264,37 +232,6 @@ static enum MHD_Result requestLogin(struct MHD_Connection *connection) {
   return ret;
 }
 
-/*
-static int is_authenticated(struct MHD_Connection *connection,
-                            const char *username, const char *password) {
-
-  const char *headervalue;
-  char *expected_b64;
-  char *expected;
-  const char *strbase = "Basic ";
-  int authenticated;
-  size_t slen;
-
-  headervalue = MHD_lookup_connection_value(connection, MHD_HEADER_KIND, "Authorization");
-  if (NULL == headervalue)
-    return 0;
-  if (0 != strncmp(headervalue, strbase, strlen(strbase)))
-    return 0;
-
-  slen = strlen(username) + 1 + strlen(password) + 1;
-  if (NULL == (expected = malloc(slen)))
-    return 0;
-  snprintf(expected, slen, "%s:%s", username, password);
-  expected_b64 = str2base64(expected);
-  free(expected);
-  if (NULL == expected_b64)
-    return 0;
-
-  authenticated = (strcmp(headervalue + strlen(strbase), expected_b64) == 0);
-  free(expected_b64);
-  return authenticated;
-}
-*/
 
 static enum MHD_Result main_page(struct Session *session,
                                  struct MHD_Connection *connection) {
@@ -382,14 +319,37 @@ static enum MHD_Result getImage(struct Session *session,
 }
 
 
+// Send error message web browser
+static enum MHD_Result getSettings(struct Session *session,
+                                   struct MHD_Connection *connection) {
+  enum MHD_Result ret;
+  struct MHD_Response *response;
+
+  // TODO - we need to save and get these from passwd file before we can use them
+  //printf("SIP: %s\n", connection->sIP);
+  //printf("SPORT: %s\n", connection->sPort);
+
+  char setJSON[10] = "Hello";
+
+  response = MHD_create_response_from_buffer(strlen(setJSON), (void *) setJSON,
+             MHD_RESPMEM_PERSISTENT);
+
+  if (!response) return MHD_NO;
+
+  MHD_add_response_header(response, "Content-Type", "text/plain");
+  MHD_add_response_header(response, "Cache-Control", "no-cache");
+
+  addCookie(session, response);
+  ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
+  MHD_destroy_response(response);
+
+  return ret;
+}
+
+
 // Get a list of template files and return them as a set of <select> <option>s
 static enum MHD_Result getTemplateList(struct Session *session,
                                        struct MHD_Connection *connection) {
-
-  // Request login if not logged in
-  if (session->aStatus != 1) {
-    return requestLogin(connection);
-  }
 
   enum MHD_Result ret;
   struct MHD_Response *response;
@@ -563,7 +523,7 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
 
   if ((size > 0) && (size <= MAXNAMESIZE)) {
     if (strcmp (key, "hl7MessageText") == 0 ) {
-      if (con_info->session->aStatus == 1) {
+      if (con_info->session->aStatus != 1) {
         snprintf(answerstring, 3, "%s", "L0");  // Require a login
         con_info->answerstring = answerstring;
 
@@ -634,6 +594,7 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
         }
       }
 
+printf("PR: %s\n", answerstring);
       con_info->answerstring = answerstring;
     } 
 
@@ -889,6 +850,11 @@ static enum MHD_Result answer_to_connection(void *cls, struct MHD_Connection *co
       if (session->aStatus != 1) return requestLogin(connection);
       return getTemplateList(session, connection);
 
+    } else if (strcmp(url, "/getSettings") == 0) {
+      // Request login if not logged in
+      if (session->aStatus != 1) return requestLogin(connection);
+      return getSettings(session, connection);
+
     } else if (strcmp(url, "/stopListenHL7") == 0) {
       if (session->aStatus != 1) return requestLogin(connection);
       return stopListenWeb(session, connection);
@@ -951,7 +917,8 @@ static enum MHD_Result answer_to_connection(void *cls, struct MHD_Connection *co
   //    }
 
     } else if (NULL != con_info->answerstring) {
-      if (session->aStatus != 1) return requestLogin(connection);
+      // TODO - should we auth here? We need to for POST somewhere but this seeems to break?
+      //if (session->aStatus != 1) return requestLogin(connection);
       return send_page(session, connection, method, con_info->answerstring);
     }
   }

@@ -355,8 +355,6 @@ void parseJSONTemp(char *jsonMsg, char **hl7Msg, int *hl7MsgS, char **webForm,
         parseJSONField(fieldObj, &lastFid, fieldCount - f, hl7Msg, hl7MsgS, argv,
                        fieldTok, isWeb, webForm);
 
-        printf("JS: %s\n", json_object_to_json_string_ext(fieldObj, JSON_C_TO_STRING_SPACED | JSON_C_TO_STRING_PRETTY));
-
         json_object_object_get_ex(fieldObj, "subfields", &subFObj);
         if (subFObj) {
           subFCount = json_object_array_length(subFObj);

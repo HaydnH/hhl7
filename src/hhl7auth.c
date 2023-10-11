@@ -157,11 +157,15 @@ int regNewUser(char *uid, char *passwd) {
     json_object_object_add(newUserObj, "passwd", json_object_new_string(pwdHash));
     json_object_object_add(newUserObj, "enabled", json_object_new_boolean(0));
     json_object_object_add(newUserObj, "admin", json_object_new_boolean(0));
+    json_object_object_add(newUserObj, "sIP", json_object_new_string("127.0.0.1"));
+    json_object_object_add(newUserObj, "sPort", json_object_new_int(11011));
+    json_object_object_add(newUserObj, "lPort", json_object_new_int(0));
 
     json_object_array_add(userArray, newUserObj);
 
-    // TODO JSON_C_TO_STRING_SPACED | JSON_C_TO_STRING_PRETTY?
-    if (json_object_to_file(pwFile, pwObj) == -1) {
+    if (json_object_to_file_ext(pwFile, pwObj,
+        JSON_C_TO_STRING_SPACED | JSON_C_TO_STRING_PRETTY) == -1) {
+
       printf("ERROR: Couldn't write passwd file\n");
       PWLOCK = 0;
       json_object_put(pwObj);

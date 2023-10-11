@@ -354,13 +354,29 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         border-width: 3px;\n\
         border-style: double;\n\
         border-color: #fff;\n\
-        background-color: #BBBBBB;\n\
-        cursor: default;\n\
+        background-color: #142248;;\n\
+        //cursor: pointer;\n\
+        //background-color: #BBBBBB;\n\
+        //cursor: default;\n\
       }\n\
-      .menuItemButtonEnabled {\n\
-        background-color: #142248;\n\
+      .menuItemButtonInactive {\n\
+        box-sizing: border-box;\n\
+        display: inline-block;\n\
+        width: 100%;\n\
+        font-family: Verdana, Helvetica, sans-serif;\n\
+        font-size: 16px;\n\
+        font-weight: bold;\n\
+        color: #fff;\n\
+        height: 36px;\n\
+        line-height: 36px;\n\
+        padding: 0px 15px;\n\
+        text-align: center;\n\
+        border-width: 3px;\n\
+        border-style: double;\n\
+        border-color: #fff;\n\
+        background-color: #BBBBBB;;\n\
       }\n\
-      .menuItemButtonEnabled:hover {\n\
+      .menuItemButton:hover {\n\
         color: #eeb11e;\n\
         cursor: pointer;\n\
       }\n\
@@ -403,6 +419,10 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         width: 100%;\n\
         padding: 0px 15px;\n\
         border: none;\n\
+        outline: none;\n\
+      }\n\
+      .menuInput:focus {\n\
+        background-color: #fff8d6;\n\
       }\n\
       .loginInfo {\n\
         padding: 0px 0px 2px 0px;\n\
@@ -456,7 +476,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
       #register {\n\
         left: 15px;\n\
         bottom: 15px;\n\
-        height: 26px;\n\
+        height: 32px;\n\
         width: 92px;\n\
         line-height: 28px;\n\
       }\n\
@@ -464,10 +484,10 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         position: absolute;\n\
         right: 15px;\n\
         bottom: 15px;\n\
-        height: 26px;\n\
-        width: 45px;\n\
-        line-height: 26px;\n\
-        padding: 0px 0px 0px 2px;\n\
+        height: 32px;\n\
+        width: 52px;\n\
+        //line-height: 26px;\n\
+        padding: 0px 0px 0px 3px;\n\
       }\n\
     </style>\n\
 \n\
@@ -479,7 +499,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
       }\n\
 \n\
       function switchLogin() {\n\
-        var reg = document.getElementById(\"switchLogin\");\n\
+        var reg = document.getElementById(\"register\");\n\
         var tit = document.getElementById(\"loginTitle\");\n\
         var conf = document.getElementById(\"confPwordD\");\n\
 \n\
@@ -496,35 +516,34 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         validLogin();\n\
       }\n\
 \n\
+      var postFunc = function(event) { postCreds(event); };\n\
       function validLogin() {\n\
-        var reg = document.getElementById(\"switchLogin\").innerText;\n\
+        var reg = document.getElementById(\"register\").innerText;\n\
         var usr = document.getElementById(\"uname\").value;\n\
         var pwd = document.getElementById(\"pword\").value;\n\
         var cpw = document.getElementById(\"confPword\").value;\n\
         var sub = document.getElementById(\"submit\");\n\
 \n\
+        sub.removeEventListener(\"click\", postFunc);\n\
+\n\
         /* TODO change min username & pw length to config file? */\n\
         if (usr.length < 5 || pwd.length < 8) {\n\
-          sub.onClick = null;\n\
           sub.classList.replace(\"button\", \"buttonInactive\");\n\
           return false;\n\
         }\n\
         if (reg == \"Login\") {\n\
           if (cpw.length < 8) {\n\
-            sub.onClick = null;\n\
             sub.classList.replace(\"button\", \"buttonInactive\");\n\
             return false;\n\
           }\n\
           if (pwd != cpw) {\n\
-            sub.onClick = null;\n\
             sub.classList.replace(\"button\", \"buttonInactive\");\n\
             return false;\n\
           }\n\
         }\n\
 \n\
-        sub.addEventListener(\"click\", function() { postCreds(); });\n\
+        sub.addEventListener(\"click\", postFunc);\n\
         sub.classList.replace(\"buttonInactive\", \"button\");\n\
-        sub.style.backgroundColor = \"#142248\";\n\
       }\n\
 \n\
       function showMenu() {\n\
@@ -604,6 +623,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         wImg.src = \"/images/warning.png\";\n\
 \n\
         popTemplates();\n\
+        //popSettings();\n\
       }\n\
 \n\
       function unlockWeb() {\n\
@@ -684,7 +704,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
 \n\
         var formData = new FormData();\n\
 \n\
-        var pcaction = document.getElementById(\"switchLogin\").innerText;\n\
+        var pcaction = document.getElementById(\"register\").innerText;\n\
         if (pcaction == \"Register\") {\n\
           formData.append(\"pcaction\", 1);\n\
         } else if (pcaction == \"Login\") {\n\
@@ -699,7 +719,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         formData.append(\"pword\", pword);\n\
 \n\
         xhr.send(formData);\n\
-        return false;\n\
+        //return false;\n\
       }\n\
 \n\
       async function logout() {\n\
@@ -771,6 +791,30 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
           } else if (response.ok) {\n\
             var sel = document.getElementById(\"tempSelect\");\n\
             sel.innerHTML = htmlData;\n\
+          }\n\
+\n\
+        } catch(error) {\n\
+          console.log(error);\n\
+          errHandler(\"ERROR: The hhl7 backend is not running.\");\n\
+        }\n\
+      }\n\
+\n\
+      async function popSettings() {\n\
+        try {\n\
+          const response = await fetch(\"/getSettings\");\n\
+          const htmlData = await response.text();\n\
+\n\
+          if (response.status == 401) {\n\
+            showLogin();\n\
+\n\
+          } else if (response.status == 500) {\n\
+            // TODO internal server error\n\
+\n\
+          } else if (response.ok) {\n\
+            //var sel = document.getElementById(\"tempSelect\");\n\
+            //sel.innerHTML = htmlData;\n\
+            // TODO - pop settings menu\n\
+            alert(\"Test\");\n\
           }\n\
 \n\
         } catch(error) {\n\
@@ -931,12 +975,8 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
           </div>\n\
         </div>\n\
         <div id=\"loginFooter\" class=\"popFooter\">\n\
-          <a href=\"\" id=\"switchLogin\" onclick=\"switchLogin(); return false;\">\n\
-            <div id=\"register\" class=\"button\">Register</div>\n\
-          </a>\n\
-          <a href=\"\" id=\"subLogin\">\n\
-            <div id=\"submit\" class=\"buttonInactive\">&#9654;&#9654;</div>\n\
-          </a>\n\
+          <button id=\"register\" class=\"button\" onclick=\"switchLogin(); return false;\">Register</button>\n\
+          <button id=\"submit\" class=\"buttonInactive\">&#9654;&#9654;</button>\n\
         </div>\n\
       </div>\n\
     </div>\n\
@@ -964,9 +1004,10 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
             <input id=\"tPort\" class=\"menuInput\" value=\"11011\" />\n\
           </div>\n\
         </div>\n\
-        <a href=\"\" onclick=\"saveSendSets(); return false;\">\n\
+        <!-- <a href=\"\" onclick=\"saveSendSets(); return false;\">\n\
           <div class=\"menuItemButton\">Save Send Settings</div>\n\
-        </a>\n\
+        </a> -->\n\
+        <button id=\"saveSendSets\" class=\"menuItemButtonInactive\">Save Send Settings</button>\n\
         <div class=\"menuSpacer\"></div>\n\
         <div class=\"menuHeader\">Listen Settings</div>\n\
         <div class=\"menuItem\">\n\
@@ -975,9 +1016,10 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
             <input id=\"lPort\" class=\"menuInput\" value=\"22022\" />\n\
           </div>\n\
         </div>\n\
-        <a href=\"\" onclick=\"saveListenSets(); return false;\">\n\
+        <!-- <a href=\"\" onclick=\"saveListenSets(); return false;\">\n\
           <div class=\"menuItemButton\">Save Listen Settings</div>\n\
-        </a>\n\
+        </a> -->\n\
+        <button id=\"saveListSets\" class=\"menuItemButtonInactive\">Save Listen Settings</button>\n\
         <div class=\"menuSpacer\"></div>\n\
         <div class=\"menuHeader\">Reset Password</div>\n\
         <div class=\"menuItem\">\n\
@@ -998,13 +1040,9 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
             <input id=\"conPwd\" class=\"menuInput\" type=\"password\" />\n\
           </div>\n\
         </div>\n\
-        <a href=\"\" onclick=\"changePasswd(); return false;\">\n\
-          <div id=\"resetPW\" class=\"menuItemButton\">Reset Password</div>\n\
-        </a>\n\
+        <button id=\"resetPW\" class=\"menuItemButtonInactive\">Reset Password</button>\n\
         <div class=\"menuSpacer\"></div>\n\
-        <a href=\"\" onclick=\"logout(); return false;\">\n\
-          <div class=\"menuItemButton menuItemButtonEnabled\">Logout</div>\n\
-        </a>\n\
+        <button class=\"menuItemButton\" onclick=\"logout();\">Logout</button>\n\
       </div>\n\
     </div>\n\
 \n\
