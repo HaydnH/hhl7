@@ -421,6 +421,9 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         border: none;\n\
         outline: none;\n\
       }\n\
+      .menuInputErr {\n\
+        background-color: #f2c7c7;\n\
+      }\n\
       .menuInput:focus {\n\
         background-color: #fff8d6;\n\
       }\n\
@@ -516,7 +519,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         validLogin();\n\
       }\n\
 \n\
-      var postFunc = function(event) { postCreds(event); };\n\
+      var logPostFunc = function(event) { postCreds(event); };\n\
       function validLogin() {\n\
         var reg = document.getElementById(\"register\").innerText;\n\
         var usr = document.getElementById(\"uname\").value;\n\
@@ -524,7 +527,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         var cpw = document.getElementById(\"confPword\").value;\n\
         var sub = document.getElementById(\"submit\");\n\
 \n\
-        sub.removeEventListener(\"click\", postFunc);\n\
+        sub.removeEventListener(\"click\", logPostFunc);\n\
 \n\
         /* TODO change min username & pw length to config file? */\n\
         if (usr.length < 5 || pwd.length < 8) {\n\
@@ -542,13 +545,34 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
           }\n\
         }\n\
 \n\
-        sub.addEventListener(\"click\", postFunc);\n\
+        sub.addEventListener(\"click\", logPostFunc);\n\
         sub.classList.replace(\"buttonInactive\", \"button\");\n\
       }\n\
 \n\
       function showMenu() {\n\
         var pane = document.getElementById(\"menuDim\");\n\
         pane.style.display = \"block\";\n\
+      }\n\
+\n\
+      var listPostFunc = function(event) { postListSets(event); };\n\
+      function validListSets() {\n\
+        lPortObj = document.getElementById(\"lPort\");\n\
+        lPort = Number(lPortObj.value);\n\
+        lButton = document.getElementById(\"saveListSets\");\n\
+\n\
+        lButton.removeEventListener(\"click\", listPostFunc);\n\
+\n\
+        if (typeof(lPort) == 'number' && lPort > 1023 && lPort <= 65535) {\n\
+          lButton.addEventListener(\"click\", listPostFunc);\n\
+          lButton.classList.replace(\"menuItemButtonInactive\", \"menuItemButton\");\n\
+          lPortObj.classList.remove(\"menuInputErr\");\n\
+\n\
+        } else {\n\
+          lButton.classList.replace(\"menuItemButton\", \"menuItemButtonInactive\");\n\
+          lPortObj.classList.add(\"menuInputErr\");\n\
+\n\
+        }\n\
+\n\
       }\n\
 \n\
       function hideMenu() {\n\
@@ -623,7 +647,6 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         wImg.src = \"/images/warning.png\";\n\
 \n\
         popTemplates();\n\
-        //popSettings();\n\
       }\n\
 \n\
       function unlockWeb() {\n\
@@ -631,6 +654,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         errWin.style.display = \"none\";\n\
 \n\
         /* Try to load the template list again */\n\
+        popSettings();\n\
         popTemplates();\n\
       }\n\
 \n\
@@ -722,6 +746,36 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         //return false;\n\
       }\n\
 \n\
+      function postListSets() {\n\
+        event.preventDefault();\n\
+        var xhr = new XMLHttpRequest();\n\
+\n\
+        xhr.onreadystatechange = function() {\n\
+          if (xhr.readyState === 4) {\n\
+            if (xhr.status === 200) {\n\
+              if (errHandler(xhr.responseText) == 0) {\n\
+                if (xhr.responseText == \"OK\") {\n\
+                  alert(\"OK\");\n\
+                } else {\n\
+                  //alert(\"Fail\");\n\
+                }\n\
+              }\n\
+            } else {\n\
+              errHandler(\"ERROR: The hhl7 backend is not running.\");\n\
+            }\n\
+          }\n\
+        };\n\
+\n\
+        xhr.open(\"POST\", \"/postListSets\");\n\
+\n\
+        var formData = new FormData();\n\
+\n\
+        var lPort = document.getElementById(\"lPort\").value;\n\
+        formData.append(\"lPort\", lPort);\n\
+\n\
+        xhr.send(formData);\n\
+      }\n\
+\n\
       async function logout() {\n\
         try {\n\
           const response = await fetch(\"/logout\");\n\
@@ -811,10 +865,37 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
             // TODO internal server error\n\
 \n\
           } else if (response.ok) {\n\
-            //var sel = document.getElementById(\"tempSelect\");\n\
-            //sel.innerHTML = htmlData;\n\
-            // TODO - pop settings menu\n\
-            alert(\"Test\");\n\
+            jObj = JSON.parse(htmlData, function(key, value) {\n\
+              return value;\n\
+            });\n\
+\n\
+            var sIP = document.getElementById(\"tHost\");\n\
+            var sPort = document.getElementById(\"tPort\");\n\
+            var lPort = document.getElementById(\"lPort\");\n\
+\n\
+            if (jObj.sIP) {\n\
+              sIP.value = jObj.sIP;\n\
+              sIP.classList.remove(\"menuInputErr\");\n\
+            } else {\n\
+              sIP.value = \"\";\n\
+              sIP.classList.add(\"menuInputErr\");\n\
+            }\n\
+\n\
+            if (jObj.sPort > 0) {\n\
+              sPort.value = jObj.sPort;\n\
+              sPort.classList.remove(\"menuInputErr\");\n\
+            } else {\n\
+              sPort.value = \"\";\n\
+              sPort.classList.add(\"menuInputErr\");\n\
+            }\n\
+\n\
+            if (jObj.lPort > 0) {\n\
+              lPort.value = jObj.lPort;\n\
+              lPort.classList.remove(\"menuInputErr\");\n\
+            } else {\n\
+              lPort.value = \"\";\n\
+              lPort.classList.add(\"menuInputErr\");\n\
+            }\n\
           }\n\
 \n\
         } catch(error) {\n\
@@ -994,14 +1075,14 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         <div class=\"menuItem\">\n\
           <div class=\"menuSubHeader\">Target Host:</div>\n\
           <div class=\"menuDataItem\">\n\
-            <input id=\"tHost\" class=\"menuInput\" value=\"127.0.0.1\" />\n\
-            <!-- <input id=\"tHost\" class=\"menuInput\" onInput=\"validTarget();\" onChange=\"validTarget(); /> -->\n\
+            <input id=\"tHost\" class=\"menuInput\" />\n\
+            <!-- <input id=\"tHost\" class=\"menuInput\" onInput=\"validTarget();\" onChange=\"validTarget();\" /> -->\n\
           </div>\n\
         </div>\n\
         <div class=\"menuItem\">\n\
           <div class=\"menuSubHeader\">Target Port:</div>\n\
           <div class=\"menuDataItem\">\n\
-            <input id=\"tPort\" class=\"menuInput\" value=\"11011\" />\n\
+            <input id=\"tPort\" class=\"menuInput\" />\n\
           </div>\n\
         </div>\n\
         <!-- <a href=\"\" onclick=\"saveSendSets(); return false;\">\n\
@@ -1013,12 +1094,10 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         <div class=\"menuItem\">\n\
           <div class=\"menuSubHeader\">Listen Port:</div>\n\
           <div class=\"menuDataItem\">\n\
-            <input id=\"lPort\" class=\"menuInput\" value=\"22022\" />\n\
+            <input id=\"lPort\" class=\"menuInput\" onInput=\"validListSets();\" onChange=\"validListSets();\" />\n\
           </div>\n\
         </div>\n\
-        <!-- <a href=\"\" onclick=\"saveListenSets(); return false;\">\n\
-          <div class=\"menuItemButton\">Save Listen Settings</div>\n\
-        </a> -->\n\
+        <!-- onclick=\"saveListenSets(); return false;\" -->\n\
         <button id=\"saveListSets\" class=\"menuItemButtonInactive\">Save Listen Settings</button>\n\
         <div class=\"menuSpacer\"></div>\n\
         <div class=\"menuHeader\">Reset Password</div>\n\

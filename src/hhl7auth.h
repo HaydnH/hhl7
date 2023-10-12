@@ -12,3 +12,4 @@ You should have received a copy of the GNU General Public License along with hhl
 
 int regNewUser(char *uid, char *passwd);
 int checkAuth(char *uid, const char *passwd);
+int updatePasswdFile(char *uid, const char *key, const char *val);

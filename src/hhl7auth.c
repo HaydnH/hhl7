@@ -158,8 +158,8 @@ int regNewUser(char *uid, char *passwd) {
     json_object_object_add(newUserObj, "enabled", json_object_new_boolean(0));
     json_object_object_add(newUserObj, "admin", json_object_new_boolean(0));
     json_object_object_add(newUserObj, "sIP", json_object_new_string("127.0.0.1"));
-    json_object_object_add(newUserObj, "sPort", json_object_new_int(11011));
-    json_object_object_add(newUserObj, "lPort", json_object_new_int(0));
+    json_object_object_add(newUserObj, "sPort", json_object_new_string("11011"));
+    json_object_object_add(newUserObj, "lPort", json_object_new_string(""));
 
     json_object_array_add(userArray, newUserObj);
 
@@ -265,25 +265,62 @@ int checkAuth(char *uid, const char *passwd) {
 
 
 // Update an entry in the password file
-// TODO - allow multiple updates at once?
+// TODO - allow multiple updates at once
+int updatePasswdFile(char *uid, const char *key, const char *val) {
 
-/*
-int main(int argc, char *argv[]) {
-  char uid[33] = "";
-  unsigned int pwdHashL = 32;
-  char passwd[pwdHashL + 1];
+  // TODO make config item - check for other references
+  char pwFile[] = "./conf/passwd.hhl7";
+  int uExists = 0, u = 0, uCount = 0;
+  struct json_object *pwObj = NULL, *userArray = NULL, *userObj = NULL, *uidStr = NULL;
 
-  sprintf(uid, "%s", argv[1]);
-  if (strlen(argv[2]) > 32) {
-    // TODO throw warning to web
-    printf("WARN:  password is longer than 32 characters and will be truncated\n");
+  // TODO - add max sleep count as timeout? Look for other sleeps
+  // If lock is true, sleep until lock is cleared
+  while (PWLOCK == 1) {
+    usleep(250000);
+    printf("sleep\n");
   }
-  snprintf((char *) passwd, 32, "%s", argv[2]);
+  PWLOCK = 1;
 
-  addUser2PW(uid, passwd);
+  pwObj = json_object_from_file(pwFile);
+  if (pwObj == NULL) {
+    printf("Failed to read password file\n");
+    exit(1);
+  }
 
-  checkAuth(uid, passwd);
+  json_object_object_get_ex(pwObj, "users", &userArray);
+  uExists = userExists(userArray, uid);
 
+  if (uExists == 1) {
+    PWLOCK = 0;
+    json_object_put(pwObj);
+    return 1;
+
+  } else {
+    // TODO - WORKING - update object here
+    uCount = json_object_array_length(userArray);
+
+    for (u = 0; u < uCount; u++) {
+      userObj = json_object_array_get_idx(userArray, u);
+      uidStr = json_object_object_get(userObj, "uid");
+
+      if (strcmp(json_object_get_string(uidStr), uid) == 0) {
+        json_object_object_del(userObj, key);
+        json_object_object_add(userObj, key, json_object_new_string(val));
+        break;
+      }
+    }
+
+    if (json_object_to_file_ext(pwFile, pwObj,
+        JSON_C_TO_STRING_SPACED | JSON_C_TO_STRING_PRETTY) == -1) {
+
+      printf("ERROR: Couldn't write passwd file\n");
+      PWLOCK = 0;
+      json_object_put(pwObj);
+      return 1;
+    }
+  }
+
+  PWLOCK = 0;
+  json_object_put(pwObj);
   return 0;
 }
-*/

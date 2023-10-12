@@ -66,7 +66,8 @@ struct connection_info_struct {
   int pcaction;
   char userid[33];
   char sIP[256];
-  char sPort[10];
+  char sPort[6];
+  char lPort[6];
 };
 
 // Session info
@@ -321,18 +322,66 @@ static enum MHD_Result getImage(struct Session *session,
 
 // Send error message web browser
 static enum MHD_Result getSettings(struct Session *session,
-                                   struct MHD_Connection *connection) {
+                                   struct MHD_Connection *connection,
+                                   struct connection_info_struct *con_info) {
   enum MHD_Result ret;
   struct MHD_Response *response;
 
+  // TODO - change pw file location (check for other references to it as well)
+  char pwFile[] = "./conf/passwd.hhl7";
+  struct json_object *resObj = json_object_new_object();
+  struct json_object *pwObj = NULL, *userArray = NULL, *userObj = NULL;
+  struct json_object  *uidStr = NULL, *sIP = NULL, *sPort = NULL, *lPort = NULL;
+  int uCount = 0, u = 0;
+
+  char *uid = con_info->userid;
+
+  pwObj = json_object_from_file(pwFile);
+  if (pwObj == NULL) {
+    // TODO - another error to handle
+    printf("Failed to read password file\n");
+    exit(1);
+  }
+
+  json_object_object_get_ex(pwObj, "users", &userArray);
+  if (userArray == NULL) {
+    printf("Failed to get user object, passwd file corrupt?\n");
+    exit(1);
+  }
+
+  // TODO - using a lot of for i in userArrays throughout code, hash table?
+  uCount = json_object_array_length(userArray);
+  for (u = 0; u < uCount; u++) {
+    userObj = json_object_array_get_idx(userArray, u);
+    uidStr = json_object_object_get(userObj, "uid");
+
+    if (strcmp(json_object_get_string(uidStr), uid) == 0) {
+      sIP = json_object_object_get(userObj, "sIP");
+      sPort = json_object_object_get(userObj, "sPort");
+      lPort = json_object_object_get(userObj, "lPort");
+
+      json_object_object_add(resObj, "sIP", sIP);
+      json_object_object_add(resObj, "sPort", sPort);
+      json_object_object_add(resObj, "lPort", lPort);
+
+      break;
+    }
+  }
+
+  // TODO - set session/con_info setttings here? Or call write?
+
+  const char *resStr = json_object_to_json_string(resObj);
   // TODO - we need to save and get these from passwd file before we can use them
   //printf("SIP: %s\n", connection->sIP);
   //printf("SPORT: %s\n", connection->sPort);
 
-  char setJSON[10] = "Hello";
-
-  response = MHD_create_response_from_buffer(strlen(setJSON), (void *) setJSON,
+  response = MHD_create_response_from_buffer(strlen(resStr), (void *) resStr,
              MHD_RESPMEM_PERSISTENT);
+
+  //char setJSON[10] = "Hello";
+
+  //response = MHD_create_response_from_buffer(strlen(setJSON), (void *) setJSON,
+  //           MHD_RESPMEM_PERSISTENT);
 
   if (!response) return MHD_NO;
 
@@ -343,6 +392,7 @@ static enum MHD_Result getSettings(struct Session *session,
   ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
   MHD_destroy_response(response);
 
+  json_object_put(pwObj);
   return ret;
 }
 
@@ -502,6 +552,7 @@ static enum MHD_Result getTempForm(struct Session *session,
 }
 
 
+// TODO - iterate post getting too big, split to functions
 static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
               const char *key, const char *filename, const char *content_type,
               const char *transfer_encoding, const char *data, uint64_t off, size_t size) {
@@ -594,9 +645,17 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
         }
       }
 
-printf("PR: %s\n", answerstring);
       con_info->answerstring = answerstring;
-    } 
+
+    } else if (strcmp (key, "lPort") == 0 ) {
+      // TODO - check logged in **AND** user is the correct user! Maybe change to update based on session ID?? Should be done above?
+      // TODO - WORKING - create update passwd file function
+      // TODO check return val
+      if (updatePasswdFile(con_info->userid, key, data) == 0) {
+        strcpy(con_info->lPort, data);
+        printf("U: %s\nO:%s\nV:%s\nC:%s\n", con_info->userid, key, data, con_info->lPort);
+      }
+    }
 
   } else {
     // No post data was received, reply with code "D0" (no data)
@@ -853,7 +912,7 @@ static enum MHD_Result answer_to_connection(void *cls, struct MHD_Connection *co
     } else if (strcmp(url, "/getSettings") == 0) {
       // Request login if not logged in
       if (session->aStatus != 1) return requestLogin(connection);
-      return getSettings(session, connection);
+      return getSettings(session, connection, con_info);
 
     } else if (strcmp(url, "/stopListenHL7") == 0) {
       if (session->aStatus != 1) return requestLogin(connection);
