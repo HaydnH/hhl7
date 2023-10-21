@@ -194,7 +194,8 @@ int main(int argc, char *argv[]) {
   }
 
   if (fWeb == 1) {
-    listenWeb(ip, sPort, lPort);
+    //listenWeb(ip, sPort, lPort);
+    listenWeb();
 
   }
 

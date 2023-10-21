@@ -339,7 +339,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         flex-wrap: nowrap;\n\
         width: 100%;\n\
       }\n\
-      .menuItemButton {\n\
+      .menuItemButton, .menuItemButtonInactive {\n\
         box-sizing: border-box;\n\
         display: inline-block;\n\
         width: 100%;\n\
@@ -354,31 +354,35 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         border-width: 3px;\n\
         border-style: double;\n\
         border-color: #fff;\n\
-        background-color: #142248;;\n\
-        //cursor: pointer;\n\
-        //background-color: #BBBBBB;\n\
-        //cursor: default;\n\
+        background-color: #142248;\n\
       }\n\
-      .menuItemButtonInactive {\n\
-        box-sizing: border-box;\n\
-        display: inline-block;\n\
-        width: 100%;\n\
-        font-family: Verdana, Helvetica, sans-serif;\n\
-        font-size: 16px;\n\
-        font-weight: bold;\n\
-        color: #fff;\n\
-        height: 36px;\n\
-        line-height: 36px;\n\
-        padding: 0px 15px;\n\
-        text-align: center;\n\
-        border-width: 3px;\n\
-        border-style: double;\n\
-        border-color: #fff;\n\
-        background-color: #BBBBBB;;\n\
+      .menuItemButton {\n\
+        background-color: #142248;\n\
       }\n\
       .menuItemButton:hover {\n\
         color: #eeb11e;\n\
         cursor: pointer;\n\
+      }\n\
+      .menuItemButtonInactive {\n\
+        background-color: #BBBBBB;\n\
+      }\n\
+      @keyframes fadeGreen {\n\
+        0% { background-color: #2aa33a; }\n\
+        40% { background-color: #2aa33a; }\n\
+        100% { background-color: #BBBBBB; }\n\
+      }\n\
+      @keyframes fadeRed {\n\
+        0% { background-color: #cf2d33; }\n\
+        40% { background-color: #cf2d33; }\n\
+        100% { background-color: #BBBBBB; }\n\
+      }\n\
+      .menuItemButtonGreen {\n\
+        animation-duration: 500ms;\n\
+        animation-name: fadeGreen;\n\
+      }\n\
+      .menuItemButtonRed {\n\
+        animation-duration: 500ms;\n\
+        animation-name: fadeRed;\n\
       }\n\
       .menuSpacer {\n\
         box-sizing: border-box;\n\
@@ -420,6 +424,17 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         padding: 0px 15px;\n\
         border: none;\n\
         outline: none;\n\
+      }\n\
+      .menuSelect {\n\
+        box-sizing: border-box;\n\
+        font-family: Verdana, Helvetica, sans-serif;\n\
+        font-size: 16px;\n\
+        height: 100%;\n\
+        width: 100%;\n\
+        padding: 0px 15px;\n\
+        border: none;\n\
+        outline: none;\n\
+        background-color: #fff;\n\
       }\n\
       .menuInputErr {\n\
         background-color: #f2c7c7;\n\
@@ -554,6 +569,29 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         pane.style.display = \"block\";\n\
       }\n\
 \n\
+      var sendPostFunc = function(event) { postSendSets(event); };\n\
+      function validSendSets() {\n\
+        //sIPObj = document.getElementById(\"tHost\");\n\
+        sPortObj = document.getElementById(\"tPort\");\n\
+        sPort = Number(sPortObj.value);\n\
+        sButton = document.getElementById(\"saveSendSets\");\n\
+\n\
+        sButton.removeEventListener(\"click\", sendPostFunc);\n\
+        sButton.classList.remove(\"menuItemButtonGreen\");\n\
+        sButton.classList.remove(\"menuItemButtonRed\");\n\
+\n\
+        if (typeof(sPort) == 'number' && sPort > 1023 && sPort <= 65535) {\n\
+          sButton.addEventListener(\"click\", sendPostFunc);\n\
+          sButton.classList.replace(\"menuItemButtonInactive\", \"menuItemButton\");\n\
+          sPortObj.classList.remove(\"menuInputErr\");\n\
+\n\
+        } else {\n\
+          sButton.classList.replace(\"menuItemButton\", \"menuItemButtonInactive\");\n\
+          sPortObj.classList.add(\"menuInputErr\");\n\
+\n\
+        }\n\
+      }\n\
+\n\
       var listPostFunc = function(event) { postListSets(event); };\n\
       function validListSets() {\n\
         lPortObj = document.getElementById(\"lPort\");\n\
@@ -561,6 +599,8 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         lButton = document.getElementById(\"saveListSets\");\n\
 \n\
         lButton.removeEventListener(\"click\", listPostFunc);\n\
+        lButton.classList.remove(\"menuItemButtonGreen\");\n\
+        lButton.classList.remove(\"menuItemButtonRed\");\n\
 \n\
         if (typeof(lPort) == 'number' && lPort > 1023 && lPort <= 65535) {\n\
           lButton.addEventListener(\"click\", listPostFunc);\n\
@@ -572,10 +612,50 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
           lPortObj.classList.add(\"menuInputErr\");\n\
 \n\
         }\n\
+      }\n\
 \n\
+      var pwdPostFunc = function(event) { postPwdSets(event); };\n\
+      function validPwdSets() {\n\
+        oldPwdObj = document.getElementById(\"oldPwd\");\n\
+        newPwdObj = document.getElementById(\"newPwd\");\n\
+        conPwdObj = document.getElementById(\"conPwd\");\n\
+        oldPwd = oldPwdObj.value;\n\
+        newPwd = newPwdObj.value;\n\
+        conPwd = conPwdObj.value;\n\
+        pButton = document.getElementById(\"resetPW\");\n\
+\n\
+        pButton.removeEventListener(\"click\", pwdPostFunc);\n\
+        pButton.classList.remove(\"menuItemButtonGreen\");\n\
+        pButton.classList.remove(\"menuItemButtonRed\");\n\
+\n\
+\n\
+        if (oldPwd.length > 7 && newPwd.length > 7 && conPwd.length > 7 && newPwd == conPwd) {\n\
+          pButton.addEventListener(\"click\", pwdPostFunc);\n\
+          pButton.classList.replace(\"menuItemButtonInactive\", \"menuItemButton\");\n\
+          oldPwdObj.classList.remove(\"menuInputErr\");\n\
+          newPwdObj.classList.remove(\"menuInputErr\");\n\
+          conPwdObj.classList.remove(\"menuInputErr\");\n\
+\n\
+        } else {\n\
+          pButton.classList.replace(\"menuItemButton\", \"menuItemButtonInactive\");\n\
+          oldPwdObj.classList.add(\"menuInputErr\");\n\
+          newPwdObj.classList.add(\"menuInputErr\");\n\
+          conPwdObj.classList.add(\"menuInputErr\");\n\
+\n\
+        }\n\
+      }\n\
+\n\
+      function clearMenuButtons() {\n\
+        const btns = [ \"saveSendSets\", \"saveListSets\", \"resetPW\" ];\n\
+        for (let i = 0; i < btns.length; i++) {\n\
+          btn = document.getElementById(btns[i]);\n\
+          btn.classList.remove(\"menuItemButtonGreen\");\n\
+          btn.classList.remove(\"menuItemButtonRed\");\n\
+        }\n\
       }\n\
 \n\
       function hideMenu() {\n\
+        clearMenuButtons();\n\
         var pane = document.getElementById(\"menuDim\");\n\
         pane.style.display = \"none\";\n\
       }\n\
@@ -746,18 +826,58 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         //return false;\n\
       }\n\
 \n\
-      function postListSets() {\n\
+      function postSendSets() {\n\
         event.preventDefault();\n\
         var xhr = new XMLHttpRequest();\n\
+        var btn = document.getElementById(\"saveSendSets\");\n\
 \n\
         xhr.onreadystatechange = function() {\n\
           if (xhr.readyState === 4) {\n\
             if (xhr.status === 200) {\n\
               if (errHandler(xhr.responseText) == 0) {\n\
                 if (xhr.responseText == \"OK\") {\n\
-                  alert(\"OK\");\n\
+                  btn.classList.add(\"menuItemButtonGreen\");\n\
+                  btn.classList.replace(\"menuItemButton\", \"menuItemButtonInactive\");\n\
                 } else {\n\
-                  //alert(\"Fail\");\n\
+                  btn.classList.add(\"menuItemButtonRed\");\n\
+                  btn.classList.replace(\"menuItemButton\", \"menuItemButtonInactive\");\n\
+                  errHandler(\"ERROR: The backend failed to save your settings, please try again.\");\n\
+                }\n\
+              }\n\
+            } else {\n\
+              errHandler(\"ERROR: The hhl7 backend is not running.\");\n\
+            }\n\
+          }\n\
+        };\n\
+\n\
+        xhr.open(\"POST\", \"/postSendSets\");\n\
+\n\
+        var formData = new FormData();\n\
+\n\
+        var tHost = document.getElementById(\"tHost\").value;\n\
+        formData.append(\"sIP\", tHost);\n\
+        var tPort = document.getElementById(\"tPort\").value;\n\
+        formData.append(\"sPort\", tPort);\n\
+\n\
+        xhr.send(formData);\n\
+      }\n\
+\n\
+      function postListSets() {\n\
+        event.preventDefault();\n\
+        var xhr = new XMLHttpRequest();\n\
+        var btn = document.getElementById(\"saveListSets\");\n\
+\n\
+        xhr.onreadystatechange = function() {\n\
+          if (xhr.readyState === 4) {\n\
+            if (xhr.status === 200) {\n\
+              if (errHandler(xhr.responseText) == 0) {\n\
+                if (xhr.responseText == \"OK\") {\n\
+                  btn.classList.add(\"menuItemButtonGreen\");\n\
+                  btn.classList.replace(\"menuItemButton\", \"menuItemButtonInactive\");\n\
+                } else {\n\
+                  btn.classList.add(\"menuItemButtonRed\");\n\
+                  btn.classList.replace(\"menuItemButton\", \"menuItemButtonInactive\");\n\
+                  errHandler(\"ERROR: The backend failed to save your settings, please try again.\");\n\
                 }\n\
               }\n\
             } else {\n\
@@ -772,6 +892,47 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
 \n\
         var lPort = document.getElementById(\"lPort\").value;\n\
         formData.append(\"lPort\", lPort);\n\
+\n\
+        xhr.send(formData);\n\
+      }\n\
+\n\
+      function postPwdSets() {\n\
+        event.preventDefault();\n\
+        var xhr = new XMLHttpRequest();\n\
+        var btn = document.getElementById(\"resetPW\");\n\
+        var oldPwd = document.getElementById(\"oldPwd\");\n\
+        var newPwd = document.getElementById(\"newPwd\");\n\
+        var conPwd = document.getElementById(\"conPwd\");\n\
+\n\
+        xhr.onreadystatechange = function() {\n\
+          if (xhr.readyState === 4) {\n\
+            if (xhr.status === 200) {\n\
+              if (errHandler(xhr.responseText) == 0) {\n\
+                if (xhr.responseText == \"OK\") {\n\
+                  btn.classList.add(\"menuItemButtonGreen\");\n\
+                  btn.classList.replace(\"menuItemButton\", \"menuItemButtonInactive\");\n\
+                  oldPwd.value = \"\";\n\
+                  newPwd.value = \"\";\n\
+                  conPwd.value = \"\";\n\
+                } else {\n\
+                  btn.classList.add(\"menuItemButtonRed\");\n\
+                  btn.classList.replace(\"menuItemButton\", \"menuItemButtonInactive\");\n\
+                  errHandler(\"ERROR: The backend failed to save your password, please try again.\");\n\
+                }\n\
+              }\n\
+            } else {\n\
+              errHandler(\"ERROR: The hhl7 backend is not running.\");\n\
+            }\n\
+          }\n\
+        };\n\
+\n\
+        xhr.open(\"POST\", \"/postPwdSets\");\n\
+\n\
+        var formData = new FormData();\n\
+\n\
+        formData.append(\"pcaction\", 3);\n\
+        formData.append(\"pword\", oldPwd.value);\n\
+        formData.append(\"npword\", newPwd.value);\n\
 \n\
         xhr.send(formData);\n\
       }\n\
@@ -853,6 +1014,36 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         }\n\
       }\n\
 \n\
+      async function popServers() {\n\
+        try {\n\
+          const response = await fetch(\"/getServers\");\n\
+          const htmlData = await response.text();\n\
+\n\
+          if (response.status == 401) {\n\
+            showLogin();\n\
+\n\
+          } else if (response.status == 500) {\n\
+            // TODO internal server error\n\
+\n\
+          } else if (response.ok) {\n\
+            var sIP = document.getElementById(\"tHost\");\n\
+            sIP.innerHTML = \"\";\n\
+            var sObj = JSON.parse(htmlData);\n\
+            for (var i = 0; i < sObj.length; i++) {\n\
+              var opt = document.createElement(\"option\");\n\
+              opt.innerHTML = sObj[i].displayName;\n\
+              opt.value = sObj[i].address;\n\
+              sIP.appendChild(opt);\n\
+\n\
+            }\n\
+          }\n\
+\n\
+        } catch(error) {\n\
+          console.log(error);\n\
+          errHandler(\"ERROR: The hhl7 backend is not running.\");\n\
+        }\n\
+      }\n\
+\n\
       async function popSettings() {\n\
         try {\n\
           const response = await fetch(\"/getSettings\");\n\
@@ -869,17 +1060,18 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
               return value;\n\
             });\n\
 \n\
-            var sIP = document.getElementById(\"tHost\");\n\
+            popServers();\n\
+\n\
             var sPort = document.getElementById(\"tPort\");\n\
             var lPort = document.getElementById(\"lPort\");\n\
 \n\
-            if (jObj.sIP) {\n\
+            /* if (jObj.sIP) {\n\
               sIP.value = jObj.sIP;\n\
               sIP.classList.remove(\"menuInputErr\");\n\
             } else {\n\
               sIP.value = \"\";\n\
               sIP.classList.add(\"menuInputErr\");\n\
-            }\n\
+            } */\n\
 \n\
             if (jObj.sPort > 0) {\n\
               sPort.value = jObj.sPort;\n\
@@ -1050,7 +1242,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
             <div id=\"confPwordD\" class=\"loginInfo\">\n\
               <div class=\"loginQ\">Confirm PW:</div>\n\
               <div class=\"loginFrm\">\n\
-                <input id=\"confPword\" type=\"password\" class=\"loginInput\" onInput=\"validLogin();\" onChange=\"validLogin();\" />\n\
+                <input id=\"confPword\" type=\"password\" autocomplete=\"off\" class=\"loginInput\" onInput=\"validLogin();\" onChange=\"validLogin();\" />\n\
               </div>\n\
             </div>\n\
           </div>\n\
@@ -1075,19 +1267,15 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         <div class=\"menuItem\">\n\
           <div class=\"menuSubHeader\">Target Host:</div>\n\
           <div class=\"menuDataItem\">\n\
-            <input id=\"tHost\" class=\"menuInput\" />\n\
-            <!-- <input id=\"tHost\" class=\"menuInput\" onInput=\"validTarget();\" onChange=\"validTarget();\" /> -->\n\
+            <select id=\"tHost\" class=\"menuSelect\" onInput=\"validSendSets();\" onChange=\"validSendSets();\"></select>\n\
           </div>\n\
         </div>\n\
         <div class=\"menuItem\">\n\
           <div class=\"menuSubHeader\">Target Port:</div>\n\
           <div class=\"menuDataItem\">\n\
-            <input id=\"tPort\" class=\"menuInput\" />\n\
+            <input id=\"tPort\" class=\"menuInput\" onInput=\"validSendSets();\" onChange=\"validSendSets();\" />\n\
           </div>\n\
         </div>\n\
-        <!-- <a href=\"\" onclick=\"saveSendSets(); return false;\">\n\
-          <div class=\"menuItemButton\">Save Send Settings</div>\n\
-        </a> -->\n\
         <button id=\"saveSendSets\" class=\"menuItemButtonInactive\">Save Send Settings</button>\n\
         <div class=\"menuSpacer\"></div>\n\
         <div class=\"menuHeader\">Listen Settings</div>\n\
@@ -1097,26 +1285,25 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
             <input id=\"lPort\" class=\"menuInput\" onInput=\"validListSets();\" onChange=\"validListSets();\" />\n\
           </div>\n\
         </div>\n\
-        <!-- onclick=\"saveListenSets(); return false;\" -->\n\
         <button id=\"saveListSets\" class=\"menuItemButtonInactive\">Save Listen Settings</button>\n\
         <div class=\"menuSpacer\"></div>\n\
         <div class=\"menuHeader\">Reset Password</div>\n\
         <div class=\"menuItem\">\n\
           <div class=\"menuSubHeader\">Old Pwd:</div>\n\
           <div class=\"menuDataItem\">\n\
-            <input id=\"oldPwd\" class=\"menuInput\" type=\"password\" />\n\
+            <input id=\"oldPwd\" class=\"menuInput\" type=\"password\" onInput=\"validPwdSets();\" onChange=\"validPwdSets();\" />\n\
           </div>\n\
         </div>\n\
         <div class=\"menuItem\">\n\
           <div class=\"menuSubHeader\">New Pwd:</div>\n\
           <div class=\"menuDataItem\">\n\
-            <input id=\"newPwd\" class=\"menuInput\" type=\"password\" />\n\
+            <input id=\"newPwd\" class=\"menuInput\" type=\"password\" autocomplete=\"off\" onInput=\"validPwdSets();\" onChange=\"validPwdSets();\" />\n\
           </div>\n\
         </div>\n\
         <div class=\"menuItem\">\n\
           <div class=\"menuSubHeader\">Confirm Pwd:</div>\n\
           <div class=\"menuDataItem\">\n\
-            <input id=\"conPwd\" class=\"menuInput\" type=\"password\" />\n\
+            <input id=\"conPwd\" class=\"menuInput\" type=\"password\" autocomplete=\"off\" onInput=\"validPwdSets();\" onChange=\"validPwdSets();\" />\n\
           </div>\n\
         </div>\n\
         <button id=\"resetPW\" class=\"menuItemButtonInactive\">Reset Password</button>\n\
