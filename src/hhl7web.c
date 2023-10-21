@@ -742,7 +742,10 @@ static void startListenWeb(struct Session *session, struct MHD_Connection *conne
 
   }
 
-  char *hhl7fifo = "hhl7fifo";
+  // TODO - WORKING - make sure we delete old fifos after use
+  char hhl7fifo[20]; 
+  sprintf(hhl7fifo, "%s%d", "hhl7fifo.", session->lpid);
+  mkfifo(hhl7fifo, 0666);
   session->readFD = open(hhl7fifo, O_RDONLY | O_NONBLOCK);
   session->isListening = 1;
   //fcntl(readFD, F_SETPIPE_SZ, 1048576);
