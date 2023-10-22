@@ -303,8 +303,9 @@ int startMsgListener(char *ip, const char *port) {
 
   svrfd = createSession(ip, port);
 
-  char hhl7fifo[20]; 
-  sprintf(hhl7fifo, "%s%d", "hhl7fifo.", getpid());
+  // Create a named pipe to write to
+  char hhl7fifo[21]; 
+  sprintf(hhl7fifo, "%s%d", "/tmp/hhl7fifo.", getpid());
   mkfifo(hhl7fifo, 0666);
   fd = open(hhl7fifo, O_WRONLY | O_NONBLOCK);
 

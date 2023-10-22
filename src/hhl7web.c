@@ -73,7 +73,7 @@ struct Session {
   char oldSessID[33];
   int aStatus;
   unsigned int rc;
-  time_t start;
+  time_t lastSeen;
 
   // User settings & data stored in session
   int pcaction;
@@ -132,39 +132,10 @@ static struct Session *getSession(struct MHD_Connection *connection) {
 
   sprintf(ret->oldSessID, "%s", cookie);
   ret->rc++;
-  ret->start = time(NULL);
+  ret->lastSeen = time(NULL);
   ret->next = sessions;
   sessions = ret;
   return ret;
-}
-
-
-// Clear down old sessions
-static void expire_sessions() {
-  struct Session *pos;
-  struct Session *prev;
-  struct Session *next;
-  time_t now;
-
-  now = time(NULL);
-  prev = NULL;
-  pos = sessions;
-
-  while (NULL != pos) {
-    next = pos->next;
-    if (now - pos->start > 60 * 60) {
-      // Expire old sessions after 1h
-      if (NULL == prev) {
-        sessions = pos->next;
-      } else {
-        prev->next = next;
-      }
-      free (pos);
-    } else {
-      prev = pos;
-    }
-    pos = next;
-  }
 }
 
 
@@ -684,6 +655,24 @@ static enum MHD_Result sendHL72Web(struct Session *session,
 }
 
 
+// Remove the named pipe and kill the listening child process if required
+static void cleanSession(struct Session *session) {
+  // Remove the listeners named pipe if it exists
+  if (session->readFD > 0) {
+    char hhl7fifo[21];
+    sprintf(hhl7fifo, "%s%d", "/tmp/hhl7fifo.", session->lpid);
+    close(session->readFD);
+    unlink(hhl7fifo);
+  }
+
+  // Stop the listening child process if running
+  if (session->lpid > 0) {
+    kill(session->lpid, SIGTERM);
+    session->lpid = 0;
+  }
+}
+
+
 // Stop the backend listening for packets from hl7 server
 static enum MHD_Result stopListenWeb(struct Session *session,
                                      struct MHD_Connection *connection) {
@@ -691,13 +680,7 @@ static enum MHD_Result stopListenWeb(struct Session *session,
   enum MHD_Result ret;
   struct MHD_Response *response;
 
-  // Stop the child process
-  if (session->lpid > 0) {
-    kill(session->lpid, SIGTERM);
-    session->lpid = 0;
-  }
-
-  close(session->readFD);
+  cleanSession(session);
   session->isListening = 0;
 
   // TODO We should probably check the listener actually stopped and retry a few times
@@ -742,9 +725,9 @@ static void startListenWeb(struct Session *session, struct MHD_Connection *conne
 
   }
 
-  // TODO - WORKING - make sure we delete old fifos after use
-  char hhl7fifo[20]; 
-  sprintf(hhl7fifo, "%s%d", "hhl7fifo.", session->lpid);
+  // Create a named pipe to read from
+  char hhl7fifo[21]; 
+  sprintf(hhl7fifo, "%s%d", "/tmp/hhl7fifo.", session->lpid);
   mkfifo(hhl7fifo, 0666);
   session->readFD = open(hhl7fifo, O_RDONLY | O_NONBLOCK);
   session->isListening = 1;
@@ -893,12 +876,6 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
     } else if (strcmp(key, "lPort") == 0 ) {
       if (updatePasswdFile(con_info->session->userid, key, data) == 0) {
         sprintf(con_info->session->lPort, "%s", data);
-        // These 4 lines are repeated in stopListenWeb(), move to functions?
-        //if (con_info->session->lpid > 0) {
-        //  kill(con_info->session->lpid, SIGTERM);
-        //  con_info->session->lpid = 0;
-        //  con_info->session->isListening = 0;
-        //}
         stopListenWeb(con_info->session, con_info->connection);
         startListenWeb(con_info->session, con_info->connection);
         snprintf(answerstring, 3, "%s", "OK");  // Save OK
@@ -1032,7 +1009,7 @@ static enum MHD_Result answer_to_connection(void *cls, struct MHD_Connection *co
     }
   }
   session = con_info->session;
-  session->start = time(NULL);
+  session->lastSeen = time(NULL);
 
   if (strcmp(method, "GET") == 0) {
     if (strstr(url, imagePath)) {
@@ -1107,6 +1084,39 @@ static enum MHD_Result answer_to_connection(void *cls, struct MHD_Connection *co
 
   // TODO - error page
   return send_page(session, connection, method, errorPage);
+}
+
+
+// Clear down old sessions
+static void expireSessions() {
+  struct Session *pos;
+  struct Session *prev;
+  struct Session *next;
+  time_t now;
+
+  now = time(NULL);
+  prev = NULL;
+  pos = sessions;
+
+  while (NULL != pos) {
+    next = pos->next;
+    // Expire old sessions after 1 hour
+    if (now - pos->lastSeen > 3600) {
+      cleanSession(pos);
+
+      if (NULL == prev) {
+        sessions = pos->next;
+      } else {
+        prev->next = next;
+      }
+      free (pos);
+
+    } else {
+      prev = pos;
+    }
+
+    pos = next;
+  }
 }
 
 
@@ -1205,7 +1215,7 @@ int listenWeb() {
 
 
   while (1) {
-    expire_sessions();
+    expireSessions();
 
     max = 0;
     FD_ZERO (&rs);

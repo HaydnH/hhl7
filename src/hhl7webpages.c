@@ -1218,7 +1218,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
       <div class=\"titleBar\">Listening...</div>\n\
       <div id=\"hl7Log\" class=\"hl7Message\"></div>\n\
     </div>\n\
-    <div id=\"footer\">Haydn Haines</div>\n\
+    <div id=\"footer\">&copy; Haydn Haines</div>\n\
 \n\
     <!-- login window -->\n\
     <div id=\"loginDim\" class=\"popDim\">\n\
