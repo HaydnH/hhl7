@@ -402,3 +402,34 @@ int updatePasswd(char *uid, const char *password) {
   json_object_put(pwObj);
   return 0;
 }
+
+
+// Check if someone else has the same listening port configured
+int lPortUsed(char *uid, const char *lPort) {
+  char pwFile[] = "./conf/passwd.hhl7";
+  int u = 0, uCount = 0;
+
+  struct json_object *pwObj = NULL, *lPortStr = NULL;
+  struct json_object *userArray = NULL, *userObj = NULL, *uidStr = NULL;
+
+  pwObj = json_object_from_file(pwFile);
+  if (pwObj == NULL) {
+    printf("Failed to read password file\n");
+    exit(1);
+  }
+
+  json_object_object_get_ex(pwObj, "users", &userArray);
+
+  uCount = json_object_array_length(userArray);
+  for (u = 0; u < uCount; u++) {
+    userObj = json_object_array_get_idx(userArray, u);
+    uidStr = json_object_object_get(userObj, "uid");
+    lPortStr = json_object_object_get(userObj, "lPort");
+
+    if (strcmp(json_object_get_string(lPortStr), lPort) == 0 &&
+        strcmp(json_object_get_string(uidStr), uid) != 0) {
+      return 1;
+    }
+  }
+  return 0;
+}

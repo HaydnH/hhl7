@@ -14,3 +14,4 @@ int regNewUser(char *uid, char *passwd);
 int checkAuth(char *uid, const char *passwd);
 int updatePasswdFile(char *uid, const char *key, const char *val);
 int updatePasswd(char *uid, const char *password);
+int lPortUsed(char *uid, const char *lPort);

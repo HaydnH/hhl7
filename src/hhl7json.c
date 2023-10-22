@@ -69,7 +69,7 @@ static void addVar2WebForm(char **webForm, int *webFormS, struct json_object *fi
   const char wStr1[]  = "<div class='tempFormField'><div class='tempFormKey'>";
   const char wStr2[]  = ":</div><div class='tempFormValue'>";
   const char wStr3[]  = "<select id='HHL7_FL_";
-  const char wStr4[]  = "' class='tempFormInput'";
+  const char wStr4[]  = "' class='tempFormSelct'";
   const char wStr5[]  = " onInput='updateHL7(this.id, this.value);' />";
   const char wStr6[]  = "<option value='";
   const char wStr7[]  = "' selected='selected";

@@ -47,6 +47,7 @@ You should have received a copy of the GNU General Public License along with hhl
 #define POSTBUFFERSIZE  65536
 
 // Global variables TODO - review these to see if we can not use globals
+// TODO - IMPORTANT - webErrStr needs to go in the session somehow
 char webErrStr[256] = "";
 int webRunning = 0;
 //int isListening = 0;
@@ -176,17 +177,18 @@ static enum MHD_Result webErrXHR(struct Session *session,
   struct MHD_Response *response;
 
   response = MHD_create_response_from_buffer(strlen(webErrStr), (void *) webErrStr,
-             MHD_RESPMEM_PERSISTENT);
+             MHD_RESPMEM_MUST_COPY);
 
   if (!response) return MHD_NO;
 
   MHD_add_response_header(response, "Content-Type", "text/plain");
   MHD_add_response_header(response, "Cache-Control", "no-cache");
 
-  addCookie(session, response);
+  //addCookie(session, response);
   ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
   MHD_destroy_response(response);
 
+  webErrStr[0] = '\0';
   return ret;
 }
 
@@ -302,8 +304,7 @@ static enum MHD_Result getServers(struct Session *session,
 
   // TODO - change svr file location (check for other references to it as well)
   char svrsFile[] = "./conf/servers.hhl7";
-  struct json_object *svrsObj = NULL, *svrObj = NULL; // , *svrName = NULL, *svrIP = NULL;
-  //int sCount = 0, s = 0;
+  struct json_object *svrsObj = NULL, *svrObj = NULL;
 
   svrsObj = json_object_from_file(svrsFile);
   if (svrsObj == NULL) {
@@ -392,16 +393,10 @@ static enum MHD_Result getSettings(struct Session *session,
     }
   }
 
-  // TODO - set session/con_info setttings here? Or call write?
-
   const char *resStr = json_object_to_json_string_ext(resObj, JSON_C_TO_STRING_PLAIN);
-  // TODO - we need to save and get these from passwd file before we can use them
-  //printf("SIP: %s\n", connection->sIP);
-  //printf("SPORT: %s\n", connection->sPort);
 
   response = MHD_create_response_from_buffer(strlen(resStr), (void *) resStr,
              MHD_RESPMEM_PERSISTENT);
-             //MHD_RESPMEM_MUST_COPY);
 
   if (!response) return MHD_NO;
 
@@ -783,6 +778,8 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
           snprintf(answerstring, MAXANSWERSIZE, resStr, newData);
           con_info->answerstring = answerstring;
 
+        } else {
+          // TODO - can't open socket error message - maybe handled by error handler
         }  
       }
 
@@ -874,7 +871,10 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
       con_info->answerstring = answerstring;
 
     } else if (strcmp(key, "lPort") == 0 ) {
-      if (updatePasswdFile(con_info->session->userid, key, data) == 0) {
+      if (lPortUsed(con_info->session->userid, data) == 1) {
+        snprintf(answerstring, 3, "%s", "SR");  // Save Rejected (port in use)
+
+      } else if (updatePasswdFile(con_info->session->userid, key, data) == 0) {
         sprintf(con_info->session->lPort, "%s", data);
         stopListenWeb(con_info->session, con_info->connection);
         startListenWeb(con_info->session, con_info->connection);

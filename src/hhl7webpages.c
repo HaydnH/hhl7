@@ -79,7 +79,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
       }\n\
       .menuOption {\n\
         font-family: Verdana, Helvetica, sans-serif;\n\
-        font-size: 16px;\n\
+        font-size: 14px;\n\
         font-weight: bold;\n\
         color: #fff;\n\
         padding: 0px 15px;\n\
@@ -90,13 +90,14 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         width: 100%;\n\
         line-height: 38px;\n\
         border-width: 2px 0px 2px 0px;\n\
+        margin-top: -2px;\n\
         border-style: solid;\n\
         border-color: #8a93ae;\n\
         background-color: #d4dcf1;\n\
         text-align: left;\n\
         padding: 0px 15px;\n\
         font-family: Verdana, Helvetica, sans-serif;\n\
-        font-size: 16px;\n\
+        font-size: 14px;\n\
         font-weight: bold;\n\
         color: #000;\n\
       }\n\
@@ -110,16 +111,18 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         margin-top: 4px;\n\
       }\n\
       #sendRes {\n\
+        border: 1px solid #f00;\n\
+        box-sizing: border-box;\n\
         border-width: 1px;\n\
         border-style: solid;\n\
         border-color: #8a93ae;\n\
         box-shadow: inset 1px 1px 3px #999;\n\
         position: absolute;\n\
         right: 0px;\n\
-        padding: 0px 0px 0px 2px;\n\
-        font-size: 28px;\n\
+        padding: 0px 0px 0px 4px;\n\
+        font-size: 24px;\n\
         height: 36px;\n\
-        line-height: 40px;\n\
+        line-height: 36px;\n\
         width: 50px;\n\
         display: inline-block;\n\
         text-align: center;\n\
@@ -145,37 +148,40 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
       #tempForm {\n\
         display: flex;\n\
         flex-wrap: wrap;\n\
-        justify-content: space-between;\n\
+        //justify-content: space-between;\n\
         font-family: Verdana, Helvetica, sans-serif;\n\
-        font-size: 16px;\n\
+        font-size: 14px;\n\
         display: none;\n\
         background-color: #eeeff3;\n\
       }\n\
       .tempFormField {\n\
         flex: 0 33%;\n\
         height: 36px;\n\
-        line-height: 40px;\n\
+        line-height: 36px;\n\
       }\n\
       .tempFormKey {\n\
         width: 36%;\n\
         float: left;\n\
         text-align: right;\n\
         font-family: Verdana, Helvetica, sans-serif;\n\
-        font-size: 16px;\n\
-        line-height: 38px;\n\
-        font-weight: bold;\n\
+        font-size: 13px;\n\
+        line-height: 36px;\n\
+        font-weight: bolder;\n\
         padding: 0px 10px 0px 0px;\n\
         background-color: #eeeff3;\n\
       }\n\
       .tempFormValue {\n\
         float: left;\n\
-        height: 38px;\n\
+        height: 36px;\n\
         width: 60%;\n\
         background-color: #eeeff3;\n\
+        font-family: Verdana, Helvetica, sans-serif;\n\
+        font-size: 13px;\n\
+        font-weight: bolder;\n\
       }\n\
       .tempFormInput {\n\
         font-family: Verdana, Helvetica, sans-serif;\n\
-        font-size: 16px;\n\
+        font-size: 14px;\n\
         background-color: #fff;\n\
         border: 0px;\n\
         height: 26px;\n\
@@ -183,12 +189,22 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         padding: 0px 10px 0px 10px;\n\
         outline: none;\n\
       }\n\
+      .tempFormSelct {\n\
+        font-family: Verdana, Helvetica, sans-serif;\n\
+        font-size: 14px;\n\
+        background-color: #fff;\n\
+        border: 0px;\n\
+        height: 26px;\n\
+        width: 100%;\n\
+        padding: 0px 10px 0px 10px;\n\
+        outline: none;\n\
+      }\n\
       select {\n\
         font-family: Verdana, Helvetica, sans-serif;\n\
-        font-size: 16px;\n\
+        font-size: 14px;\n\
         background-color: #d4dcf1;\n\
         border-width: 0px;\n\
-        padding: 0px 5px 0px 50px;\n\
+        padding: 0px 5px 0px 5px;\n\
         outline: none;\n\
       }\n\
       #hl7Container {\n\
@@ -197,7 +213,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
       .hl7Message {\n\
         height: 100%;\n\
         font-family: \"Courier New\", Courier, monospace;\n\
-        font-size: 18px;\n\
+        font-size: 16px;\n\
         padding: 10px 14px 10px 14px;\n\
         /* TODO - scroll bar not showing scrolling - height? */\n\
         overflow-y: scroll;\n\
@@ -218,7 +234,8 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         text-align: right;\n\
         padding: 0px 20px;\n\
         font-family: Verdana, Helvetica, sans-serif;\n\
-        font-size: 16px;\n\
+        font-size: 12px;\n\
+        font-weight: normal;\n\
       }\n\
       .popDim {\n\
         display: none;\n\
@@ -241,8 +258,8 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         left: 50%;\n\
         top: 50%;\n\
         transform: translate(-50%, -50%);\n\
-        width: 25%;\n\
-        height: 20%;\n\
+        width: 30%;\n\
+        height: 25%;\n\
         background-color: #fff;\n\
         border-width: 2px;\n\
         border-style: solid;\n\
@@ -260,7 +277,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
       }\n\
       .popTitle {\n\
         font-family: Verdana, Helvetica, sans-serif;\n\
-        font-size: 16px;\n\
+        font-size: 14px;\n\
         font-weight: bold;\n\
         background-color: #142248;\n\
         color: #fff;\n\
@@ -292,7 +309,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
       .popTxt {\n\
         flex: 1;\n\
         font-family: Verdana, Helvetica, sans-serif;\n\
-        font-size: 16px;\n\
+        font-size: 14px;\n\
         padding: 0px 25px 0px 15px;\n\
         text-align: justify;\n\
         text-justify: inter-word;\n\
@@ -312,8 +329,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
       .menuTitleTogl {\n\
         float: right;\n\
         width: 10%;\n\
-        font-size: 26px;\n\
-        padding-top: 2px;\n\
+        font-size: 20px;\n\
         margin-right: -8px;\n\
         margin-bottom: -2px;\n\
         text-align: right;\n\
@@ -323,7 +339,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         display: inline-block;\n\
         width: 100%;\n\
         font-family: Verdana, Helvetica, sans-serif;\n\
-        font-size: 16px;\n\
+        font-size: 14px;\n\
         font-weight: bold;\n\
         background-color: #8a93ae;\n\
         color: #fff;\n\
@@ -344,12 +360,12 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         display: inline-block;\n\
         width: 100%;\n\
         font-family: Verdana, Helvetica, sans-serif;\n\
-        font-size: 16px;\n\
+        font-size: 14px;\n\
         font-weight: bold;\n\
         color: #fff;\n\
         height: 36px;\n\
-        line-height: 36px;\n\
-        padding: 0px 15px;\n\
+        line-height: 32px;\n\
+        //padding: 0px 15px;\n\
         text-align: center;\n\
         border-width: 3px;\n\
         border-style: double;\n\
@@ -393,9 +409,9 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
       }\n\
       .menuSubHeader {\n\
         display: inline-block;\n\
-        width: 23%;\n\
+        width: 26%;\n\
         font-family: Verdana, Helvetica, sans-serif;\n\
-        font-size: 16px;\n\
+        font-size: 13px;\n\
         font-weight: bold;\n\
         background-color: #d4dcf1;\n\
         color: #000;\n\
@@ -408,8 +424,8 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         //width: 60%;\n\
         flex-grow: 4;\n\
         font-family: Verdana, Helvetica, sans-serif;\n\
-        font-size: 16px;\n\
-        font-weight: bold;\n\
+        font-size: 13px;\n\
+        font-weight: bolder;\n\
         background-color: #fff;\n\
         color: #000;\n\
         height: 36px;\n\
@@ -418,7 +434,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
       .menuInput {\n\
         box-sizing: border-box;\n\
         font-family: Verdana, Helvetica, sans-serif;\n\
-        font-size: 16px;\n\
+        font-size: 13px;\n\
         height: 100%;\n\
         width: 100%;\n\
         padding: 0px 15px;\n\
@@ -428,22 +444,27 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
       .menuSelect {\n\
         box-sizing: border-box;\n\
         font-family: Verdana, Helvetica, sans-serif;\n\
-        font-size: 16px;\n\
+        font-size: 13px;\n\
         height: 100%;\n\
         width: 100%;\n\
-        padding: 0px 15px;\n\
+        padding: 0px 12px;\n\
         border: none;\n\
         outline: none;\n\
         background-color: #fff;\n\
       }\n\
-      .menuInputErr {\n\
-        background-color: #f2c7c7;\n\
-      }\n\
       .menuInput:focus {\n\
         background-color: #fff8d6;\n\
       }\n\
+      .menuInputErr {\n\
+        background-color: #f2c7c7 !important;\n\
+      }\n\
       .loginInfo {\n\
         padding: 0px 0px 2px 0px;\n\
+        font-family: Verdana, Helvetica, sans-serif;\n\
+        font-size: 13px;\n\
+      }\n\
+      .loginInput {\n\
+        width: 65%;\n\
       }\n\
       #confPwordD {\n\
         display: none;\n\
@@ -453,6 +474,9 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         height: 20px;\n\
         line-height: 28px;\n\
         width: 30%;\n\
+        font-family: Verdana, Helvetica, sans-serif;\n\
+        font-size: 12px;\n\
+        font-weight: bolder;\n\
       }\n\
       .logFrm {\n\
         float: left;\n\
@@ -462,7 +486,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         position: absolute;\n\
         text-align: center;\n\
         font-family: Verdana, Helvetica, sans-serif;\n\
-        font-size: 16px;\n\
+        font-size: 12px;\n\
         font-weight: bold;\n\
         color: #fff;\n\
         border-width: 3px;\n\
@@ -496,7 +520,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         bottom: 15px;\n\
         height: 32px;\n\
         width: 92px;\n\
-        line-height: 28px;\n\
+        //line-height: 28px;\n\
       }\n\
       #submit {\n\
         position: absolute;\n\
@@ -565,6 +589,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
       }\n\
 \n\
       function showMenu() {\n\
+        popSettings();\n\
         var pane = document.getElementById(\"menuDim\");\n\
         pane.style.display = \"block\";\n\
       }\n\
@@ -741,6 +766,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
 \n\
       /* Server communication functions */\n\
       function errHandler(resStr) {\n\
+console.log(resStr);\n\
         var errHTML;\n\
         var errDivT = document.getElementById(\"errTxt\");\n\
         var errDivD = document.getElementById(\"errDim\");\n\
@@ -805,6 +831,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         };\n\
 \n\
         xhr.open(\"POST\", \"/postCreds\");\n\
+        xhr.timeout = 2000;\n\
 \n\
         var formData = new FormData();\n\
 \n\
@@ -830,6 +857,10 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         event.preventDefault();\n\
         var xhr = new XMLHttpRequest();\n\
         var btn = document.getElementById(\"saveSendSets\");\n\
+        var tHost = document.getElementById(\"tHost\");\n\
+        var tHostSave = document.getElementById(\"tHostSave\");\n\
+        var tPort = document.getElementById(\"tPort\");\n\
+        var tPortSave = document.getElementById(\"tPortSave\");\n\
 \n\
         xhr.onreadystatechange = function() {\n\
           if (xhr.readyState === 4) {\n\
@@ -838,9 +869,13 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
                 if (xhr.responseText == \"OK\") {\n\
                   btn.classList.add(\"menuItemButtonGreen\");\n\
                   btn.classList.replace(\"menuItemButton\", \"menuItemButtonInactive\");\n\
+                  tHostSave.value = tHost.value;\n\
+                  tPortSave.value = tPort.value;\n\
                 } else {\n\
                   btn.classList.add(\"menuItemButtonRed\");\n\
                   btn.classList.replace(\"menuItemButton\", \"menuItemButtonInactive\");\n\
+                  tHost.value = tHostSave.value;\n\
+                  tPort.value = tPortSave.value;\n\
                   errHandler(\"ERROR: The backend failed to save your settings, please try again.\");\n\
                 }\n\
               }\n\
@@ -851,13 +886,12 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         };\n\
 \n\
         xhr.open(\"POST\", \"/postSendSets\");\n\
+        xhr.timeout = 2000;\n\
 \n\
         var formData = new FormData();\n\
 \n\
-        var tHost = document.getElementById(\"tHost\").value;\n\
-        formData.append(\"sIP\", tHost);\n\
-        var tPort = document.getElementById(\"tPort\").value;\n\
-        formData.append(\"sPort\", tPort);\n\
+        formData.append(\"sIP\", tHost.value);\n\
+        formData.append(\"sPort\", tPort.value);\n\
 \n\
         xhr.send(formData);\n\
       }\n\
@@ -866,6 +900,8 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         event.preventDefault();\n\
         var xhr = new XMLHttpRequest();\n\
         var btn = document.getElementById(\"saveListSets\");\n\
+        var lPort = document.getElementById(\"lPort\");\n\
+        var lPortSave = document.getElementById(\"lPortSave\");\n\
 \n\
         xhr.onreadystatechange = function() {\n\
           if (xhr.readyState === 4) {\n\
@@ -874,9 +910,18 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
                 if (xhr.responseText == \"OK\") {\n\
                   btn.classList.add(\"menuItemButtonGreen\");\n\
                   btn.classList.replace(\"menuItemButton\", \"menuItemButtonInactive\");\n\
+                  lPortSave.value = lPort.value;\n\
+\n\
+                } else if (xhr.responseText == \"SR\") {\n\
+                  btn.classList.add(\"menuItemButtonRed\");\n\
+                  btn.classList.replace(\"menuItemButton\", \"menuItemButtonInactive\");\n\
+                  lPort.value = lPortSave.value;\n\
+                  errHandler(\"ERROR: Your chosen port number is being used by another user, please try again.\");\n\
+\n\
                 } else {\n\
                   btn.classList.add(\"menuItemButtonRed\");\n\
                   btn.classList.replace(\"menuItemButton\", \"menuItemButtonInactive\");\n\
+                  lPort.value = lPortSave.value;\n\
                   errHandler(\"ERROR: The backend failed to save your settings, please try again.\");\n\
                 }\n\
               }\n\
@@ -887,11 +932,10 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         };\n\
 \n\
         xhr.open(\"POST\", \"/postListSets\");\n\
+        xhr.timeout = 2000;\n\
 \n\
         var formData = new FormData();\n\
-\n\
-        var lPort = document.getElementById(\"lPort\").value;\n\
-        formData.append(\"lPort\", lPort);\n\
+        formData.append(\"lPort\", lPort.value);\n\
 \n\
         xhr.send(formData);\n\
       }\n\
@@ -927,6 +971,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         };\n\
 \n\
         xhr.open(\"POST\", \"/postPwdSets\");\n\
+        xhr.timeout = 2000;\n\
 \n\
         var formData = new FormData();\n\
 \n\
@@ -970,11 +1015,18 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
           if (xhr.readyState === 4) {\n\
             if (xhr.status === 200) {\n\
               if (errHandler(xhr.responseText) == 0) {\n\
-                res.innerHTML = xhr.responseText;\n\
                 if (xhr.responseText == \"AA\" || xhr.responseText == \"CA\") {\n\
                   res.style.backgroundColor = \"#a9dfad\";\n\
-                } else {\n\
+                  res.innerHTML = xhr.responseText;\n\
+\n\
+                } else if (xhr.responseText == \"AE\" || xhr.responseText == \"AR\" ||\n\
+                           xhr.responseText == \"CE\" || xhr.responseText == \"CR\"){\n\
                   res.style.backgroundColor = \"#ff9191\";\n\
+                  res.innerHTML = xhr.responseText;\n\
+\n\
+                } else {\n\
+                  errHandler(xhr.responseText);\n\
+\n\
                 }\n\
               }\n\
             } else {\n\
@@ -984,6 +1036,8 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         };\n\
 \n\
         xhr.open(\"POST\", \"/postHL7\");\n\
+        xhr.timeout = 2000;\n\
+        // TODO - add an xhr.onTimeOut function\n\
 \n\
         var HL7Text = document.getElementById(\"hl7Message\").innerText;\n\
         var formData = new FormData();\n\
@@ -1062,19 +1116,18 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
 \n\
             popServers();\n\
 \n\
+            var sHost = document.getElementById(\"tHost\");\n\
+            var sHostSave = document.getElementById(\"tHostSave\");\n\
             var sPort = document.getElementById(\"tPort\");\n\
+            var sPortSave = document.getElementById(\"tPortSave\");\n\
             var lPort = document.getElementById(\"lPort\");\n\
+            var lPortSave = document.getElementById(\"lPortSave\");\n\
 \n\
-            /* if (jObj.sIP) {\n\
-              sIP.value = jObj.sIP;\n\
-              sIP.classList.remove(\"menuInputErr\");\n\
-            } else {\n\
-              sIP.value = \"\";\n\
-              sIP.classList.add(\"menuInputErr\");\n\
-            } */\n\
+            sHostSave.value = sHost.value;\n\
 \n\
             if (jObj.sPort > 0) {\n\
               sPort.value = jObj.sPort;\n\
+              sPortSave.value = jObj.sPort;\n\
               sPort.classList.remove(\"menuInputErr\");\n\
             } else {\n\
               sPort.value = \"\";\n\
@@ -1083,6 +1136,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
 \n\
             if (jObj.lPort > 0) {\n\
               lPort.value = jObj.lPort;\n\
+              lPortSave.value = jObj.lPort;\n\
               lPort.classList.remove(\"menuInputErr\");\n\
             } else {\n\
               lPort.value = \"\";\n\
@@ -1183,7 +1237,6 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
     <div id=\"headerBar\">\n\
       <img id=\"logo\" src=\"./images/logo.png\" />\n\
       <a href=\"\" onClick=\"showMenu(); return false;\">\n\
-        <!-- <img id=\"person\" src=\"./images/person.png\" /> -->\n\
         <div id=\"person\"></div>\n\
       </a>\n\
     </div>\n\
@@ -1227,24 +1280,26 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         <div id=\"loginMsg\" class=\"popMsg\">\n\
           <div id=\"loginImg\" class=\"popImg\"></div>\n\
           <div id=\"loginTxt\" class=\"popTxt\">\n\
+            <form>\n\
             <div class=\"loginInfo\">\n\
               <div class=\"loginQ\">Username:</div>\n\
               <div class=\"loginFrm\">\n\
-                <input id=\"uname\" class=\"loginInput\" onInput=\"validLogin();\" onChange=\"validLogin();\" />\n\
+                <input name=\"uname\" id=\"uname\" class=\"loginInput\" onInput=\"validLogin();\" onChange=\"validLogin();\" />\n\
               </div>\n\
             </div>\n\
             <div class=\"loginInfo\">\n\
               <div class=\"loginQ\">Password:</div>\n\
               <div class=\"loginFrm\">\n\
-                <input id=\"pword\" type=\"password\" class=\"loginInput\" onInput=\"validLogin();\" onChange=\"validLogin();\" />\n\
+                <input name=\"pword\" id=\"pword\" type=\"password\" autocomplete=\"current-password\" class=\"loginInput\" onInput=\"validLogin();\" onChange=\"validLogin();\" />\n\
               </div>\n\
             </div>\n\
             <div id=\"confPwordD\" class=\"loginInfo\">\n\
               <div class=\"loginQ\">Confirm PW:</div>\n\
               <div class=\"loginFrm\">\n\
-                <input id=\"confPword\" type=\"password\" autocomplete=\"off\" class=\"loginInput\" onInput=\"validLogin();\" onChange=\"validLogin();\" />\n\
+                <input name=\"cpword\" id=\"confPword\" type=\"password\" autocomplete=\"off\" class=\"loginInput\" onInput=\"validLogin();\" onChange=\"validLogin();\" />\n\
               </div>\n\
             </div>\n\
+            </form>\n\
           </div>\n\
         </div>\n\
         <div id=\"loginFooter\" class=\"popFooter\">\n\
@@ -1268,12 +1323,14 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
           <div class=\"menuSubHeader\">Target Host:</div>\n\
           <div class=\"menuDataItem\">\n\
             <select id=\"tHost\" class=\"menuSelect\" onInput=\"validSendSets();\" onChange=\"validSendSets();\"></select>\n\
+            <input type=\"hidden\" id=\"tHostSave\" />\n\
           </div>\n\
         </div>\n\
         <div class=\"menuItem\">\n\
           <div class=\"menuSubHeader\">Target Port:</div>\n\
           <div class=\"menuDataItem\">\n\
             <input id=\"tPort\" class=\"menuInput\" onInput=\"validSendSets();\" onChange=\"validSendSets();\" />\n\
+            <input type=\"hidden\" id=\"tPortSave\" />\n\
           </div>\n\
         </div>\n\
         <button id=\"saveSendSets\" class=\"menuItemButtonInactive\">Save Send Settings</button>\n\
@@ -1283,6 +1340,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
           <div class=\"menuSubHeader\">Listen Port:</div>\n\
           <div class=\"menuDataItem\">\n\
             <input id=\"lPort\" class=\"menuInput\" onInput=\"validListSets();\" onChange=\"validListSets();\" />\n\
+            <input type=\"hidden\" id=\"lPortSave\" />\n\
           </div>\n\
         </div>\n\
         <button id=\"saveListSets\" class=\"menuItemButtonInactive\">Save Listen Settings</button>\n\
@@ -1291,19 +1349,19 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         <div class=\"menuItem\">\n\
           <div class=\"menuSubHeader\">Old Pwd:</div>\n\
           <div class=\"menuDataItem\">\n\
-            <input id=\"oldPwd\" class=\"menuInput\" type=\"password\" onInput=\"validPwdSets();\" onChange=\"validPwdSets();\" />\n\
+            <input id=\"oldPwd\" class=\"menuInput\" type=\"password\" autocomplete=\"off\" onInput=\"validPwdSets();\" onChange=\"validPwdSets();\" />\n\
           </div>\n\
         </div>\n\
         <div class=\"menuItem\">\n\
           <div class=\"menuSubHeader\">New Pwd:</div>\n\
           <div class=\"menuDataItem\">\n\
-            <input id=\"newPwd\" class=\"menuInput\" type=\"password\" autocomplete=\"off\" onInput=\"validPwdSets();\" onChange=\"validPwdSets();\" />\n\
+            <input id=\"newPwd\" class=\"menuInput\" type=\"password\" autocomplete=\"new-password\" onInput=\"validPwdSets();\" onChange=\"validPwdSets();\" />\n\
           </div>\n\
         </div>\n\
         <div class=\"menuItem\">\n\
           <div class=\"menuSubHeader\">Confirm Pwd:</div>\n\
           <div class=\"menuDataItem\">\n\
-            <input id=\"conPwd\" class=\"menuInput\" type=\"password\" autocomplete=\"off\" onInput=\"validPwdSets();\" onChange=\"validPwdSets();\" />\n\
+            <input id=\"conPwd\" class=\"menuInput\" type=\"password\" autocomplete=\"new-password\" onInput=\"validPwdSets();\" onChange=\"validPwdSets();\" />\n\
           </div>\n\
         </div>\n\
         <button id=\"resetPW\" class=\"menuItemButtonInactive\">Reset Password</button>\n\
