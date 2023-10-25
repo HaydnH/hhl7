@@ -404,7 +404,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         box-sizing: border-box;\n\
         display: inline-block;\n\
         width: 100%;\n\
-        height: 0px;\n\
+        height: 100%;\n\
         background-color: #fff;\n\
       }\n\
       .menuSubHeader {\n\

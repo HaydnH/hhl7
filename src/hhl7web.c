@@ -650,6 +650,8 @@ static enum MHD_Result sendHL72Web(struct Session *session,
 }
 
 
+// TODO - clean old fifos (when process exits we don't clean them
+
 // Remove the named pipe and kill the listening child process if required
 static void cleanSession(struct Session *session) {
   // Remove the listeners named pipe if it exists
@@ -1151,9 +1153,6 @@ int listenWeb() {
     exit(1);
   }
 
-  // Create an array of command line arguments to pass to MHD daemon
-  //char *args[] = {sIP, sPort, lPort};
-
 /*
   // Start Daemon
   daemon = MHD_start_daemon(MHD_USE_INTERNAL_POLLING_THREAD | MHD_USE_EPOLL |
@@ -1180,7 +1179,6 @@ int listenWeb() {
 
 */
 
-
   struct timeval tv;
   struct timeval *tvp;
   fd_set rs;
@@ -1189,19 +1187,8 @@ int listenWeb() {
   MHD_socket max;
   MHD_UNSIGNED_LONG_LONG mhd_timeout;
 
-  // TODO - check daemon options
-//  daemon = MHD_start_daemon(MHD_USE_ERROR_LOG | MHD_USE_TLS,
-//                            PORT,
-//                            NULL, NULL,
-//                            &answer_to_connection, args,
-//                            MHD_OPTION_HTTPS_MEM_KEY, key_pem,
-//                            MHD_OPTION_HTTPS_MEM_CERT, cert_pem,
-//                            MHD_OPTION_CONNECTION_TIMEOUT, (unsigned int) 15,
-//                            MHD_OPTION_NOTIFY_COMPLETED,
-//                            &reqComplete, NULL,
-//                            MHD_OPTION_END);
-
-  daemon = MHD_start_daemon(MHD_USE_ERROR_LOG | MHD_USE_TLS,
+  daemon = MHD_start_daemon(MHD_USE_AUTO | MHD_USE_TURBO |
+                            MHD_USE_TLS | MHD_USE_TCP_FASTOPEN,
                             PORT,
                             NULL, NULL,
                             &answer_to_connection, NULL,
@@ -1250,7 +1237,6 @@ int listenWeb() {
 
     MHD_run(daemon);
   }
-
 
   MHD_stop_daemon(daemon);
   return 0;
