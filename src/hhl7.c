@@ -31,6 +31,7 @@ void showHelp() {
 }
 
 
+// TODO - if no arguments are provided then there's no error message, showHelp
 // Main
 int main(int argc, char *argv[]) {
   int sockfd, opt, option_index=0;
@@ -38,7 +39,9 @@ int main(int argc, char *argv[]) {
   FILE *fp;
 
   // TODO - error check for file names, hostnames > 256 etc
-  char ip[256] = "127.0.0.1";
+  // TODO move bind port (sIP) to config file
+  char sIP[256] = "127.0.0.1";
+  char lIP[256] = "127.0.0.1";
   char sPort[10] = "11011";
   char lPort[10] = "22022";
   char tName[256] = "";
@@ -60,7 +63,7 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-  while((opt = getopt_long(argc, argv, ":0Hslt:wh:p:P:f:", long_options, &option_index)) != -1) {
+  while((opt = getopt_long(argc, argv, ":0Hslt:wh:L:p:P:f:", long_options, &option_index)) != -1) {
     switch(opt) {
       case 0:
         exit(1);
@@ -95,7 +98,15 @@ int main(int argc, char *argv[]) {
           fprintf(stderr, "ERROR: Option -h requires a value\n");
           exit(1);
         } 
-        if (optarg) strcpy(ip, optarg);
+        if (optarg) strcpy(sIP, optarg);
+        break;
+
+      case 'L':
+        if (*argv[optind-1] == '-') {
+          fprintf(stderr, "ERROR: Option -L requires a value\n");
+          exit(1);
+        }
+        if (optarg) strcpy(lIP, optarg);
         break;
 
       case 'p':
@@ -140,15 +151,10 @@ int main(int argc, char *argv[]) {
     exit(1);
   }
 
-
-  // Set default ports if not set with -p or -P
-  //if (!strcmp(sPort, "")) strcpy(sPort, "11011");
-  //if (!strcmp(lPort, "")) strcpy(lPort, "22022");
-
   // TODO handle port/ip config etc instead of repeating in other flags.
   if (fSend == 1) {
     // Connect to the server
-    sockfd = connectSvr(ip, sPort);
+    sockfd = connectSvr(sIP, sPort);
 
     // Send a file test
     fp = openFile(fileName, "r");
@@ -158,7 +164,7 @@ int main(int argc, char *argv[]) {
 
   if (fListen == 1) {
     // Listen for incomming messages
-    startMsgListener(ip, sPort);
+    startMsgListener(lIP, lPort);
   }
 
   if (fSendTemplate == 1) {
@@ -183,7 +189,7 @@ int main(int argc, char *argv[]) {
     wrapMLLP(hl7Msg);
 
     // Connect to server, send & listen for ack
-    sockfd = connectSvr(ip, sPort);
+    sockfd = connectSvr(sIP, sPort);
     sendPacket(sockfd, hl7Msg);
 
     listenACK(sockfd, NULL);
@@ -194,7 +200,6 @@ int main(int argc, char *argv[]) {
   }
 
   if (fWeb == 1) {
-    //listenWeb(ip, sPort, lPort);
     listenWeb();
 
   }

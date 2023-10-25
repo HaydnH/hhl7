@@ -73,6 +73,7 @@ int connectSvr(char *ip, char *port) {
   return(sockfd);
 }
 
+
 // Listen for ACK from server
 void listenACK(int sockfd, char *res) {
   char ackBuf[256], app[12], code[12], aCode[3];
@@ -294,7 +295,7 @@ static int createSession(char *ip, const char *port) {
   return svrfd;
 }
 
-// TODO - WORKING - when main process exits, listening from web process remains open
+
 // Start listening for incomming messages
 int startMsgListener(char *ip, const char *port) {
   int svrfd = 0, sessfd = 0;
@@ -343,4 +344,3 @@ int startMsgListener(char *ip, const char *port) {
   }
   return -1;
 }
-
