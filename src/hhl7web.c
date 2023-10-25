@@ -836,6 +836,10 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
         }
       }
 
+      // TODO - can't overwrite data memory as it's defined as const in libmicrohttpd
+      // Overwrite password with nulls for security, we should always compile
+      // with -fno-builtin-memset to ensure no memset optimisation
+      //memset(data, '\0', strlen(data));
       con_info->answerstring = answerstring;
 
     } else if (strcmp(key, "npword") == 0 ) {
@@ -846,6 +850,9 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
           snprintf(answerstring, 3, "%s", "OK");  // Password updated succesfully
         }
       }
+
+      // Overwrite password with nulls for security
+      //memset(data, '\0', strlen(data));
       con_info->answerstring = answerstring;
 
     } else if (strcmp(key, "sIP") == 0 ) {

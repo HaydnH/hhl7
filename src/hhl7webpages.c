@@ -596,7 +596,6 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
 \n\
       var sendPostFunc = function(event) { postSendSets(event); };\n\
       function validSendSets() {\n\
-        //sIPObj = document.getElementById(\"tHost\");\n\
         sPortObj = document.getElementById(\"tPort\");\n\
         sPort = Number(sPortObj.value);\n\
         sButton = document.getElementById(\"saveSendSets\");\n\
@@ -766,7 +765,6 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
 \n\
       /* Server communication functions */\n\
       function errHandler(resStr) {\n\
-console.log(resStr);\n\
         var errHTML;\n\
         var errDivT = document.getElementById(\"errTxt\");\n\
         var errDivD = document.getElementById(\"errDim\");\n\
@@ -831,7 +829,7 @@ console.log(resStr);\n\
         };\n\
 \n\
         xhr.open(\"POST\", \"/postCreds\");\n\
-        xhr.timeout = 2000;\n\
+        xhr.timeout = 1000;\n\
 \n\
         var formData = new FormData();\n\
 \n\
@@ -886,7 +884,7 @@ console.log(resStr);\n\
         };\n\
 \n\
         xhr.open(\"POST\", \"/postSendSets\");\n\
-        xhr.timeout = 2000;\n\
+        xhr.timeout = 1000;\n\
 \n\
         var formData = new FormData();\n\
 \n\
@@ -932,7 +930,7 @@ console.log(resStr);\n\
         };\n\
 \n\
         xhr.open(\"POST\", \"/postListSets\");\n\
-        xhr.timeout = 2000;\n\
+        xhr.timeout = 1000;\n\
 \n\
         var formData = new FormData();\n\
         formData.append(\"lPort\", lPort.value);\n\
@@ -971,7 +969,7 @@ console.log(resStr);\n\
         };\n\
 \n\
         xhr.open(\"POST\", \"/postPwdSets\");\n\
-        xhr.timeout = 2000;\n\
+        xhr.timeout = 1000;\n\
 \n\
         var formData = new FormData();\n\
 \n\
@@ -1036,7 +1034,7 @@ console.log(resStr);\n\
         };\n\
 \n\
         xhr.open(\"POST\", \"/postHL7\");\n\
-        xhr.timeout = 2000;\n\
+        xhr.timeout = 1000;\n\
         // TODO - add an xhr.onTimeOut function\n\
 \n\
         var HL7Text = document.getElementById(\"hl7Message\").innerText;\n\
@@ -1068,7 +1066,7 @@ console.log(resStr);\n\
         }\n\
       }\n\
 \n\
-      async function popServers() {\n\
+      async function popServers(setIP) {\n\
         try {\n\
           const response = await fetch(\"/getServers\");\n\
           const htmlData = await response.text();\n\
@@ -1082,11 +1080,13 @@ console.log(resStr);\n\
           } else if (response.ok) {\n\
             var sIP = document.getElementById(\"tHost\");\n\
             sIP.innerHTML = \"\";\n\
+\n\
             var sObj = JSON.parse(htmlData);\n\
             for (var i = 0; i < sObj.length; i++) {\n\
               var opt = document.createElement(\"option\");\n\
               opt.innerHTML = sObj[i].displayName;\n\
               opt.value = sObj[i].address;\n\
+              if (sObj[i].address == setIP) opt.selected = true;\n\
               sIP.appendChild(opt);\n\
 \n\
             }\n\
@@ -1114,7 +1114,7 @@ console.log(resStr);\n\
               return value;\n\
             });\n\
 \n\
-            popServers();\n\
+            //popServers();\n\
 \n\
             var sHost = document.getElementById(\"tHost\");\n\
             var sHostSave = document.getElementById(\"tHostSave\");\n\
@@ -1123,6 +1123,7 @@ console.log(resStr);\n\
             var lPort = document.getElementById(\"lPort\");\n\
             var lPortSave = document.getElementById(\"lPortSave\");\n\
 \n\
+            popServers(jObj.sIP);\n\
             sHostSave.value = sHost.value;\n\
 \n\
             if (jObj.sPort > 0) {\n\

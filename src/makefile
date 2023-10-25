@@ -1,5 +1,5 @@
 CC     = gcc
-CFLAGS = -O1 -Wall -fcommon -g
+CFLAGS = -O1 -Wall -fcommon -fno-builtin-memset -g
 INCDIR = -I/usr/include/json-c -I/usr/include/microhttpd -I/usr/include/openssl
 DESTDIR= /usr
 MANDIR = /usr/share/man
