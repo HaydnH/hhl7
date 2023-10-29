@@ -732,7 +732,7 @@ static void startListenWeb(struct Session *session, struct MHD_Connection *conne
 }
 
 
-// TODO - iterate post getting too big, split to functions
+// TODO - iterate post getting too big, split to functions?
 static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
               const char *key, const char *filename, const char *content_type,
               const char *transfer_encoding, const char *data, uint64_t off, size_t size) {
@@ -758,35 +758,42 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
   }
 
   if ((size > 0) && (size <= MAXNAMESIZE)) {
-    if (strcmp (key, "hl7MessageText") == 0 ) {
-      if (con_info->session->aStatus != 1) {
+    // TODO - if we don't log, change login to avoid pointless else
+    // Security check, only these pages are allowed without already being authed
+    if (con_info->session->aStatus < 1) {
+      if (strcmp(key, "pcaction") == 0 || strcmp(key, "uname") == 0 ||
+          strcmp(key, "pword") == 0) {
+        // Log?
+      } else {
         snprintf(answerstring, 3, "%s", "L0");  // Require a login
+        con_info->answerstring = answerstring;
+        return MHD_YES;
+      }
+    }
+
+    if (strcmp (key, "hl7MessageText") == 0 ) {
+      char newData[strlen(data) + 5];
+      strcpy(newData, data);
+      wrapMLLP(newData);
+
+      sockfd = connectSvr(con_info->session->sIP, con_info->session->sPort);
+      // TODO - Sock number increases with each message? free? 
+      //printf("Debug SOCK: %d\n", sockfd);
+ 
+      if (sockfd >= 0) {
+        sendPacket(sockfd, newData);
+        listenACK(sockfd, resStr);
+
+        // TODO - Why are we adding newData here? surely just resStr will be fine?
+        snprintf(answerstring, MAXANSWERSIZE, resStr, newData);
         con_info->answerstring = answerstring;
 
       } else {
-        char newData[strlen(data) + 5];
-        strcpy(newData, data);
-        wrapMLLP(newData);
-
-        sockfd = connectSvr(con_info->session->sIP, con_info->session->sPort);
-        // TODO - Sock number increases with each message? free? 
-        //printf("Debug SOCK: %d\n", sockfd);
- 
-        if (sockfd >= 0) {
-          sendPacket(sockfd, newData);
-          listenACK(sockfd, resStr);
-
-          // TODO - Why are we adding newData here? surely just resStr will be fine?
-          snprintf(answerstring, MAXANSWERSIZE, resStr, newData);
-          con_info->answerstring = answerstring;
-
-        } else {
-          // TODO - can't open socket error message - maybe handled by error handler
-        }  
-      }
+        // TODO - can't open socket error message - maybe handled by error handler
+      }  
 
     } else if (strcmp(key, "pcaction") == 0 ) {
-      // TODO sanitise username and password
+      // TODO - sanitise username and password
       con_info->session->pcaction = atoi(data);
       // Temporarily list the answer code as DP (partial data) until we receive passwd
       snprintf(answerstring, 3, "%s", "DP");
@@ -804,6 +811,7 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
         snprintf(answerstring, 3, "%s", "DP");
 
       } else {
+        // TODO - using aStatus as a variable here when it's also the session status is confusing, change one?
         aStatus = checkAuth(con_info->session->userid, data);
 
         if (aStatus == 3 && con_info->session->pcaction == 2) {
@@ -845,6 +853,7 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
       con_info->answerstring = answerstring;
 
     } else if (strcmp(key, "npword") == 0 ) {
+      // TODO - recheck auth here? Seems unrestrictive on chaging a password
       snprintf(answerstring, 3, "%s", "SX");
       if (con_info->session->aStatus == 2) {
         con_info->session->aStatus = 1;
@@ -853,7 +862,7 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
         }
       }
 
-      // Overwrite password with nulls for security
+      // TODO - Overwrite password with nulls for security
       //memset(data, '\0', strlen(data));
       con_info->answerstring = answerstring;
 
@@ -909,7 +918,7 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
 
 
 // TODO - Use this instead of all the individual functions for pages?
-static enum MHD_Result send_page(struct Session *session,
+static enum MHD_Result sendPage(struct Session *session,
                                  struct MHD_Connection *connection,
                                  const char* connectiontype, const char *page) {
 
@@ -927,8 +936,17 @@ static enum MHD_Result send_page(struct Session *session,
     MHD_add_response_header(response, "Content-Type", "text/plain");
   }
 
-  addCookie(session, response);
-  ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
+  if (strcmp(page, "L0") == 0 || strcmp(page, "LR") == 0 ||strcmp(page, "LD") == 0) {
+    ret = MHD_queue_response(connection, MHD_HTTP_UNAUTHORIZED, response);
+
+  } else if (strcmp(page, "DP") == 0) {
+    ret = MHD_queue_response(connection, MHD_HTTP_BAD_REQUEST, response);
+
+  } else {
+    addCookie(session, response);
+    ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
+  }
+
   MHD_destroy_response(response);
   return ret;
 }
@@ -972,13 +990,7 @@ static enum MHD_Result answer_to_connection(void *cls, struct MHD_Connection *co
   struct Session *session;
 
   // Debug - print connection values, e.g user-agent
-  //MHD_get_connection_values (connection, MHD_HEADER_KIND, print_out_key, NULL);
-
-  // Handle command line pass through array, will get overwritten from passwd file
-  //const char **args = (const char **) cls;
-  //const char *sIP   = args[0];
-  //const char *sPort = args[1];
-  //const char *lPort = args[2];
+  //MHD_get_connection_values(connection, MHD_HEADER_KIND, print_out_key, NULL);
 
   // TODO change this to /use/local/share
   char *imagePath = "/images/";
@@ -1072,27 +1084,18 @@ static enum MHD_Result answer_to_connection(void *cls, struct MHD_Connection *co
 
   if (strcmp(method, "POST") == 0) {
     if (*upload_data_size != 0) {
-      // TODO - check if a POST processes the data before requesting a login
- //     if (session->aStatus == 1) {
-        MHD_post_process(con_info->postprocessor, upload_data, *upload_data_size);
-        *upload_data_size = 0;
-        return MHD_YES;
-
-  //    } else {
-  //      snprintf(con_info->answerstring, 3, "%s", "L0");  // Require a login
-        //return send_page(session, connection, method, con_info->answerstring);
-
-  //    }
+      MHD_post_process(con_info->postprocessor, upload_data, *upload_data_size);
+      *upload_data_size = 0;
+      return MHD_YES;
 
     } else if (NULL != con_info->answerstring) {
-      // TODO - should we auth here? We need to for POST somewhere but this seeems to break?
-      //if (session->aStatus != 1) return requestLogin(connection);
-      return send_page(session, connection, method, con_info->answerstring);
+      return sendPage(session, connection, method, con_info->answerstring);
+
     }
   }
 
   // TODO - error page
-  return send_page(session, connection, method, errorPage);
+  return sendPage(session, connection, method, errorPage);
 }
 
 
