@@ -137,8 +137,10 @@ static void parseVals(char ***hl7Msg, int *hl7MsgS, char *vStr, char *nStr, char
                       char *argv[], int lastField, int isWeb, char **webForm,
                       struct json_object *fieldObj) {
 
-  struct json_object *defObj = NULL;
+  struct json_object *defObj = NULL, *lower = NULL, *upper = NULL;
   char *dStr = NULL;
+  // TODO - 32? Random lenght, check it
+  char rndStr[32];
   int varLen = strlen(vStr), varNum = 0, reqS = 0;
   char varNumBuf[varLen];
   char dtNow[26] = "";
@@ -166,6 +168,18 @@ static void parseVals(char ***hl7Msg, int *hl7MsgS, char *vStr, char *nStr, char
         printf("Invalid time adjustment\n");
       }
     }
+
+  } else if (strncmp(vStr, "$RND", 4) == 0) {
+    // TODO- No error checking here
+    json_object_object_get_ex(fieldObj, "lower", &lower);
+    json_object_object_get_ex(fieldObj, "upper", &upper);
+    const char *l = json_object_get_string(lower);
+    const char *u = json_object_get_string(upper);
+
+    getRand(atoi(l), atoi(u), 2, rndStr);
+    reqS = strlen(**hl7Msg) + strlen(rndStr); 
+    if (reqS > *hl7MsgS) **hl7Msg = dblBuf(**hl7Msg, hl7MsgS, reqS);
+    strcat(**hl7Msg, rndStr);
 
   // Replace json value with a command line argument
   } else if (nStr && strncmp(vStr, "$VAR", 4) == 0) {

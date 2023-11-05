@@ -17,6 +17,8 @@ You should have received a copy of the GNU General Public License along with hhl
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <time.h>
+#include <sys/time.h>
+#include <math.h>
 #include "hhl7extern.h"
 
 
@@ -89,6 +91,29 @@ void file2buf(char *buf, FILE *fp, long int fsize) {
   tbuf[fsize] = '\0';
   strcpy(buf, tbuf);
   free(tbuf);
+}
+
+
+// Return a random number between 2 values to the same number of decimal places as input
+void getRand(int lower, int upper, int dp, char *res) {
+  float resF;
+  struct timeval tv;
+  
+  // Get time in ms, needed to use time as a random seed quickly
+  gettimeofday(&tv, NULL);
+  long long msTime = (tv.tv_sec * 1000) + (tv.tv_usec / 1000);
+  
+  // Add 0s to the upper/lower values to allow decimal places
+  lower = lower * pow(10, dp);
+  upper = upper * pow(10, dp);
+
+  // Create the random number and remove 0s to add decimal places
+  srand((unsigned) msTime);
+  resF = (float) (rand() % (upper - lower) + lower);
+  resF = resF / pow(10, dp);
+
+  // Return the final result to the correct DPs
+  sprintf(res, "%.*f", dp, resF);
 }
 
 

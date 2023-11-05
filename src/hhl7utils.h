@@ -16,6 +16,7 @@ int checkFile(char *fileName, int perms);
 FILE *openFile(char *fileName, char *mode);
 long int getFileSize(char *fileName);
 void file2buf(char *buf, FILE *fp, int fsize);
+void getRand(int lower, int upper, int dp, char *res);
 void timeNow(char *dt, int aMins);
 void stripMLLP(char *hl7msg);
 void wrapMLLP(char *hl7msg);
