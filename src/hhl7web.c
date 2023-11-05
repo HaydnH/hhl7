@@ -145,6 +145,7 @@ static void addCookie(struct Session *session, struct MHD_Response *response) {
   char cstr[strlen(COOKIE_NAME) + strlen(session->sessID) + 20];
   sprintf(cstr, "%s=%s; SameSite=Strict", COOKIE_NAME, session->sessID);
   if (MHD_add_response_header(response, MHD_HTTP_HEADER_SET_COOKIE, cstr) == MHD_NO) {
+    // TODO - error handle
     fprintf (stderr, "Failed to set session cookie header!\n");
   }
 }
@@ -315,7 +316,7 @@ static enum MHD_Result getServers(struct Session *session,
 
   json_object_object_get_ex(svrsObj, "servers", &svrObj);
   if (svrObj == NULL) {
-    // Another error to pass to web
+    // TODO - Another error to pass to web
     printf("Failed to get server object, server file corrupt?\n");
     exit(1);
   }
@@ -430,6 +431,7 @@ static enum MHD_Result getTemplateList(struct Session *session,
   // TODO - WORKING - check malloc here
   char *tempOpts = malloc(36);
   if (tempOpts == NULL) {
+    // TODO - error handle
     fprintf(stderr, "ERROR: Cannot cannot allocate memory for template list.\n");
     exit(1);
   }
@@ -438,6 +440,7 @@ static enum MHD_Result getTemplateList(struct Session *session,
 
   dp = opendir(tPath); 
   if (dp == NULL) {
+    // TODO - error handle
     fprintf(stderr, "ERROR: Cannot open path: %s\n", tPath);
     exit(1);
   }
@@ -454,6 +457,7 @@ static enum MHD_Result getTemplateList(struct Session *session,
         strcpy(fullName, tPath);
         strcat(fullName, file->d_name);
 
+        // TODO - change to use json library get json from file
         // Read the template and check if it's hidden:
         int fSize = getFileSize(fullName);
         char *jsonMsg = malloc(fSize + 1);
@@ -470,6 +474,7 @@ static enum MHD_Result getTemplateList(struct Session *session,
           // Increase memory for tempOpts to allow file name etc
           newPtr = realloc(tempOpts, (2*strlen(fName)) + strlen(tempOpts) + 37);
           if (newPtr == NULL) {
+            // TODO - error handle
             fprintf(stderr, "ERROR: Can't allocatate memory\n");
           } else {
             tempOpts = newPtr;
@@ -581,6 +586,7 @@ static enum MHD_Result sendHL72Web(struct Session *session,
   if (strlen(webErrStr) > 0) {
     free(fBuf);
     free(rBuf);
+    // TODO change to session error handler
     return webErrXHR(session, connection);
   }
 
@@ -593,6 +599,7 @@ static enum MHD_Result sendHL72Web(struct Session *session,
       if (readSize > rBufS) {
         char *rBufNew = realloc(rBuf, readSize + 1);
         if (rBufNew == NULL) {
+          // TODO - error handle
           fprintf(stderr, "ERROR: Can't allocatate memory\n");
 
         } else {
@@ -708,15 +715,15 @@ static void startListenWeb(struct Session *session, struct MHD_Connection *conne
   pid_t pidBefore = getpid();
   session->lpid = fork();
 
-  // TODO - move stop child to a function then add an if running kill here
   if (session->lpid == 0) {
-    // Check for parent exiting and repeat
+    // Make the child exit if the  parent exits
     int r = prctl(PR_SET_PDEATHSIG, SIGTERM);
     // TDOD - error handle
     if (r == -1 || getppid() != pidBefore) {
       exit(0);
     }
 
+    // TODO - locahost should be OK for listening, but double check if we need a bind add
     startMsgListener("127.0.0.1", session->lPort);
     _exit(0);
 
@@ -758,7 +765,7 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
   }
 
   if ((size > 0) && (size <= MAXNAMESIZE)) {
-    // TODO - if we don't log, change login to avoid pointless else
+    // TODO - if we don't add logging here, change login to avoid pointless else
     // Security check, only these pages are allowed without already being authed
     if (con_info->session->aStatus < 1) {
       if (strcmp(key, "pcaction") == 0 || strcmp(key, "uname") == 0 ||
@@ -1156,32 +1163,6 @@ int listenWeb() {
     exit(1);
   }
 
-/*
-  // Start Daemon
-  daemon = MHD_start_daemon(MHD_USE_INTERNAL_POLLING_THREAD | MHD_USE_EPOLL |
-                            MHD_USE_TCP_FASTOPEN | MHD_USE_TLS,
-                            PORT, NULL, NULL, &answer_to_connection, args, 
-                            MHD_OPTION_THREAD_POOL_SIZE, (unsigned int) 4,
-                            MHD_OPTION_HTTPS_MEM_KEY, key_pem,
-                            MHD_OPTION_HTTPS_MEM_CERT, cert_pem,
-                            MHD_OPTION_NOTIFY_COMPLETED, &reqComplete, NULL,
-                            MHD_OPTION_END);
-
-  if (daemon == NULL) {
-    free(key_pem);
-    free(cert_pem);
-    fprintf(stderr, "ERROR: Failed to start HTTPS daemon.\n");
-    exit(1);
-
-  } else {
-    webRunning = 1;
-  }
-
-  // TODO - make this while(1) instead of get char
-  (void) getchar();
-
-*/
-
   struct timeval tv;
   struct timeval *tvp;
   fd_set rs;
@@ -1218,25 +1199,25 @@ int listenWeb() {
     FD_ZERO (&rs);
     FD_ZERO (&ws);
     FD_ZERO (&es);
-    if (MHD_YES != MHD_get_fdset (daemon, &rs, &ws, &es, &max))
-      break; // fatal internal error
-    if (MHD_get_timeout (daemon, &mhd_timeout) == MHD_YES)
-    {
+
+    if (MHD_YES != MHD_get_fdset(daemon, &rs, &ws, &es, &max)) break; // internal error
+
+    if (MHD_get_timeout(daemon, &mhd_timeout) == MHD_YES) {
       tv.tv_sec = mhd_timeout / 1000;
       tv.tv_usec = (mhd_timeout - (tv.tv_sec * 1000)) * 1000;
       tvp = &tv;
-    }
-    else
+
+    } else {
       tvp = NULL;
-    if (-1 == select (max + 1, &rs, &ws, &es, tvp))
-    {
-      if (EINTR != errno)
-        fprintf (stderr,
-                 "Aborting due to error during select: %s\n",
-                 strerror (errno));
-      break;
+
     }
 
+    if (select(max + 1, &rs, &ws, &es, tvp) == -1) {
+      if (EINTR != errno) {
+        fprintf(stderr, "Aborting due to error during select: %s\n", strerror(errno));
+      }
+      break;
+    }
 
     MHD_run(daemon);
   }

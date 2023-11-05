@@ -20,7 +20,7 @@ You should have received a copy of the GNU General Public License along with hhl
 #include "hhl7extern.h"
 
 
-// DEBUG function to show ascii characters in a buffer, useful for seeing hidden chars
+// DEBUG function to show ascii character codes in a buffer, useful for seeing hidden chars
 void printChars(char *buf) {
   for (int c =0; c < strlen(buf); c++) {
     printf("%d\n", (int) buf[c]);
@@ -94,8 +94,8 @@ void file2buf(char *buf, FILE *fp, long int fsize) {
 
 // Get the current time on yyymmddhhmmss.ms+tz format
 // TODO - add support for millisenconds and timezone??
-void timeNow(char *dt) {
-  time_t t =time(NULL);
+void timeNow(char *dt, int aMins) {
+  time_t t = time(NULL) + (aMins * 60);
   struct tm *tm = localtime(&t);
 
   strftime(dt, 26, "%Y%m%d%H%M%S", tm);

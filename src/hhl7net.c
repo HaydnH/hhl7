@@ -186,7 +186,7 @@ void sendAck(int sessfd, char *hl7msg) {
   char ackBuf[1024];
 
   // Get current time and control ID of incomming message
-  timeNow(dt); 
+  timeNow(dt, 0); 
   // TODO - if we receive an invalid HL7 msg we can't read MSH-9 so should send reject
   getHL7Field(hl7msg, "MSH", 9, cid);
 

@@ -16,7 +16,7 @@ int checkFile(char *fileName, int perms);
 FILE *openFile(char *fileName, char *mode);
 long int getFileSize(char *fileName);
 void file2buf(char *buf, FILE *fp, int fsize);
-void timeNow(char *dt);
+void timeNow(char *dt, int aMins);
 void stripMLLP(char *hl7msg);
 void wrapMLLP(char *hl7msg);
 void getHL7Field(char *hl7msg, char *seg, int field, char *res);

@@ -19,12 +19,13 @@ You should have received a copy of the GNU General Public License along with hhl
 
 // Read a json file from file pointer
 // TODO change any references of this to use the library json from file
-void readJSONFile(FILE *fp, long int fileSize, char *jsonMsg) {
+int readJSONFile(FILE *fp, long int fileSize, char *jsonMsg) {
   if (!fread(jsonMsg, fileSize, 1, fp)) {
     fprintf(stderr, "ERROR: Could not read contents of json template\n");
-    exit(0);
+    return 1;
   }
   jsonMsg[fileSize] = '\0';
+  return 0;
 }
 
 
@@ -140,15 +141,31 @@ static void parseVals(char ***hl7Msg, int *hl7MsgS, char *vStr, char *nStr, char
   char *dStr = NULL;
   int varLen = strlen(vStr), varNum = 0, reqS = 0;
   char varNumBuf[varLen];
-  char dt[26] = "";
-
+  char dtNow[26] = "";
+  char dtVar[26] = "";
+  int aMins = 0;
 
   // Replace json value with the current datetime.
-  if (strcmp(vStr, "$NOW") == 0) {
-    if (dt[0] == '\0') timeNow(dt);
-    reqS = strlen(**hl7Msg) + 28;
-    if (reqS > *hl7MsgS) **hl7Msg = dblBuf(**hl7Msg, hl7MsgS, reqS);
-    strcat(**hl7Msg, dt);
+  if (strncmp(vStr, "$NOW", 4) == 0) {
+    if (strlen(vStr) == 4) {
+      if (dtNow[0] == '\0') timeNow(dtNow, 0);
+      reqS = strlen(**hl7Msg) + 28;
+      if (reqS > *hl7MsgS) **hl7Msg = dblBuf(**hl7Msg, hl7MsgS, reqS);
+      strcat(**hl7Msg, dtNow);
+
+    } else {
+      if (vStr[4] == '+' || vStr[4] == '-') {
+        aMins = atoi(vStr + 4);
+        timeNow(dtVar, aMins);
+        reqS = strlen(**hl7Msg) + 28;
+        if (reqS > *hl7MsgS) **hl7Msg = dblBuf(**hl7Msg, hl7MsgS, reqS);
+        strcat(**hl7Msg, dtVar);
+
+      } else {
+        // TODO Error handle
+        printf("Invalid time adjustment\n");
+      }
+    }
 
   // Replace json value with a command line argument
   } else if (nStr && strncmp(vStr, "$VAR", 4) == 0) {
