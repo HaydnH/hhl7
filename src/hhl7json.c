@@ -176,6 +176,7 @@ static void parseVals(char ***hl7Msg, int *hl7MsgS, char *vStr, char *nStr, char
     const char *l = json_object_get_string(lower);
     const char *u = json_object_get_string(upper);
 
+    // TODO - WORKING - 2 DP hard coded... get the json value from template 
     getRand(atoi(l), atoi(u), 2, rndStr);
     reqS = strlen(**hl7Msg) + strlen(rndStr); 
     if (reqS > *hl7MsgS) **hl7Msg = dblBuf(**hl7Msg, hl7MsgS, reqS);
