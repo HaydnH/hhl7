@@ -210,9 +210,7 @@ int main(int argc, char *argv[]) {
 
       // Connect to server, send & listen for ack
       sockfd = connectSvr(sIP, sPort);
-      sendPacket(sockfd, hl7Msg);
-
-      listenACK(sockfd, NULL);
+      sendPacket(sockfd, hl7Msg, NULL);
     }
 
     // Free memory

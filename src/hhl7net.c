@@ -156,14 +156,12 @@ void sendFile(FILE *fp, long int fileSize, int sockfd) {
   // Send the data file to the server
   unix2hl7(fileData);
   wrapMLLP(fileData);
-  sendPacket(sockfd, fileData);
-  // TODO - add timeout to listenAck?
-  listenACK(sockfd, resStr);
+  sendPacket(sockfd, fileData, resStr);
 }
 
 
 // Send a string packet over socket
-void sendPacket(int sockfd, char *hl7msg) {
+void sendPacket(int sockfd, char *hl7msg, char *resStr) {
   char eBuf[44];
 
   if (strlen(webErrStr) == 0) {
@@ -173,6 +171,11 @@ void sendPacket(int sockfd, char *hl7msg) {
     if(send(sockfd, hl7msg, strlen(hl7msg), 0)== -1) {
       sprintf(eBuf, "ERROR: Could not send data packet to server");
       handleErr(eBuf, 1, stderr);
+
+    } else {
+      // TODO - add timeout to listenAck?
+      listenACK(sockfd, resStr);
+
     }
   }
 }

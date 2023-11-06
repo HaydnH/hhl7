@@ -788,8 +788,7 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
       //printf("Debug SOCK: %d\n", sockfd);
  
       if (sockfd >= 0) {
-        sendPacket(sockfd, newData);
-        listenACK(sockfd, resStr);
+        sendPacket(sockfd, newData, resStr);
 
         // TODO - Why are we adding newData here? surely just resStr will be fine?
         snprintf(answerstring, MAXANSWERSIZE, resStr, newData);
