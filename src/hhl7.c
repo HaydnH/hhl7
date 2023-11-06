@@ -35,7 +35,7 @@ void showHelp() {
 // Main
 int main(int argc, char *argv[]) {
   int sockfd, opt, option_index=0;
-  int fSend = 0, fListen = 0, fSendTemplate = 0, fWeb = 0;
+  int fSend = 0, fListen = 0, fSendTemplate = 0, fShowTemplate = 0, noSend = 0, fWeb = 0;
   FILE *fp;
 
   // TODO - error check for file names, hostnames > 256 etc
@@ -63,7 +63,7 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-  while((opt = getopt_long(argc, argv, ":0Hslt:wh:L:p:P:f:", long_options, &option_index)) != -1) {
+  while((opt = getopt_long(argc, argv, ":0Hslt:T:owh:L:p:P:f:", long_options, &option_index)) != -1) {
     switch(opt) {
       case 0:
         exit(1);
@@ -87,6 +87,20 @@ int main(int argc, char *argv[]) {
           fprintf(stderr, "ERROR: Option -t requires a value\n");
           exit(1);
         }
+        break;
+
+      case 'T':
+        fSendTemplate = 1;
+        fShowTemplate = 1;
+        if (optarg) strcpy(tName, optarg);
+        if (*argv[optind-1] == '-') {
+          fprintf(stderr, "ERROR: Option -T requires a value\n");
+          exit(1);
+        }
+        break;
+
+      case 'o':
+        noSend = 1;
         break;
 
       case 'w':
@@ -185,14 +199,21 @@ int main(int argc, char *argv[]) {
     // Generate HL7 based on the json template
     parseJSONTemp(jsonMsg, &hl7Msg, &hl7MsgS, NULL, NULL, argc - optind, argv + optind, 0);
 
-    // Wrap the packet as MLLP
-    wrapMLLP(hl7Msg);
+    // Print the HL7 message if requested
+    if (fShowTemplate == 1) {
+       hl72unix(hl7Msg, 1);
+    }
 
-    // Connect to server, send & listen for ack
-    sockfd = connectSvr(sIP, sPort);
-    sendPacket(sockfd, hl7Msg);
+    if (noSend == 0) {
+      // Wrap the packet as MLLP
+      wrapMLLP(hl7Msg);
 
-    listenACK(sockfd, NULL);
+      // Connect to server, send & listen for ack
+      sockfd = connectSvr(sIP, sPort);
+      sendPacket(sockfd, hl7Msg);
+
+      listenACK(sockfd, NULL);
+    }
 
     // Free memory
     free(jsonMsg);

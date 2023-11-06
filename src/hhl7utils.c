@@ -218,7 +218,7 @@ int numLines(char *buf) {
 
 
 // Convert a HL7 message to a unix format (i.e: /r -> /n)
-void hl72unix(char *msg) {
+void hl72unix(char *msg, int onlyPrint) {
   int c, ignore = 0;
   char msgUnix[strlen(msg)+1];
   for (c = 0; c < strlen(msg); c++) {
@@ -231,8 +231,12 @@ void hl72unix(char *msg) {
     }
   }
   msgUnix[c - ignore] = '\0';
-  strcpy(msg, msgUnix);
-  //printf("%s", msgUnix);
+
+  if (onlyPrint == 1) {
+    printf("%s", msgUnix);
+  } else {
+    strcpy(msg, msgUnix);
+  }
 }
 
 

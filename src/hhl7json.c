@@ -345,9 +345,9 @@ void parseJSONTemp(char *jsonMsg, char **hl7Msg, int *hl7MsgS, char **webForm,
   struct json_object *fieldsObj = NULL, *fieldObj = NULL, *subFObj = NULL;
 
   // TODO - make these variable based on MSH segment for CLI (maybe not web?)
-  char fieldTok = '|', sfTok = '^';
+  char fieldTok = '|', sfTok = '^', *vStr = NULL;
   int argcount = 0, segCount = 0, s = 0, fieldCount = 0, f = 0, lastFid = 0;
-  int subFCount = 0, sf = 0;
+  int msgCount = 0, subFCount = 0, sf = 0;
 
   rootObj = json_tokener_parse(jsonMsg);
   json_object_object_get_ex(rootObj, "argcount", &valObj);
@@ -372,6 +372,24 @@ void parseJSONTemp(char *jsonMsg, char **hl7Msg, int *hl7MsgS, char **webForm,
     for (s = 0; s < segCount; s++) {
       // Get individual segment as json
       segObj = json_object_array_get_idx(segsObj, s);
+
+      // Get the name of this segment
+      json_object_object_get_ex(segObj, "name", &valObj);
+      vStr = (char *) json_object_get_string(valObj);
+
+      if (json_object_get_type(valObj) != json_type_string) {
+        fprintf(stderr, "ERROR: Could not read string name for segment from json template.\n");
+        exit(1);
+      }
+
+      // If this is a 2nd or more MSH segment, add a blank line
+      if (strcmp(vStr, "MSH") == 0) {
+        if (msgCount > 0) {
+          endJSONSeg(hl7Msg, hl7MsgS, isWeb);
+        }
+        msgCount++;
+      }
+
       parseJSONSegs(segObj, hl7Msg, hl7MsgS, fieldTok);
 
       // Loop through all fields

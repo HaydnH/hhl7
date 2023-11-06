@@ -128,7 +128,7 @@ void listenACK(int sockfd, char *res) {
         res[3] = '\0';
       }
     }
-    hl72unix(ackBuf);
+    hl72unix(ackBuf, 0);
     // TODO - add option to print ACK response
     //printf("ACK:\n%s\n\n", ackBuf);
   }
@@ -240,7 +240,7 @@ static int handleMsg(int sessfd, int fd) {
 
 
     } else {
-      hl72unix(buf);
+      hl72unix(buf, 0);
       printf("%s\n", buf);
     }
   }
