@@ -169,7 +169,7 @@ void getHL7Field(char *hl7msg, char *seg, int field, char *res) {
     if (hl7msg[m] == '\r' && hl7msg[m-1] != '\\') {
       if (sFound == 1) {
         fprintf(stderr, "ERROR: Failed to find field %d in segment %s\n", field, seg);
-        exit (1); 
+        //exit(1); 
       }
       s = 0;
       fc = 0;

@@ -13,6 +13,7 @@ You should have received a copy of the GNU General Public License along with hhl
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 #include <json.h>
 #include "hhl7utils.h"
 
@@ -135,17 +136,18 @@ static void addVar2WebForm(char **webForm, int *webFormS, struct json_object *fi
 // Function turn json variables in to a value
 static void parseVals(char ***hl7Msg, int *hl7MsgS, char *vStr, char *nStr, char fieldTok,
                       char *argv[], int lastField, int isWeb, char **webForm,
-                      struct json_object *fieldObj) {
+                      struct json_object *fieldObj, int *incArray, int msgCount) {
 
   struct json_object *defObj = NULL, *min = NULL, *max = NULL, *dp = NULL;
+  struct json_object *start = NULL, *iMax = NULL, *iType = NULL;
   char *dStr = NULL;
-  // TODO - 32? Random lenght, check it
+  // TODO - 32? Random length, check it
   char rndStr[32];
   int varLen = strlen(vStr), varNum = 0, reqS = 0;
   char varNumBuf[varLen];
   char dtNow[26] = "";
   char dtVar[26] = "";
-  int aMins = 0;
+  int aMins = 0, incNum = -1;
 
   // Replace json value with the current datetime.
   if (strncmp(vStr, "$NOW", 4) == 0) {
@@ -169,8 +171,39 @@ static void parseVals(char ***hl7Msg, int *hl7MsgS, char *vStr, char *nStr, char
       }
     }
 
+  } else if (strncmp(vStr, "$INC", 4) == 0) {
+    incNum = vStr[4] - 48; 
+    if (incNum >= 0 && incNum <= 9) {
+      // TODO- No error checking here, bad template will seg fault
+      json_object_object_get_ex(fieldObj, "start", &start);
+      json_object_object_get_ex(fieldObj, "max", &iMax);
+      json_object_object_get_ex(fieldObj, "type", &iType);
+
+      const int s = json_object_get_int(start);
+      const int m = json_object_get_int(iMax);
+      const char *t = json_object_get_string(iType);
+
+      if (incArray[incNum] == -1 || incArray[incNum] == m) {
+        incArray[incNum] = s;
+
+      } else if (strncmp(t, "msg", 3) == 0) {
+        incArray[incNum] = msgCount + s - 1;
+
+      } else if (strncmp(t, "use", 3) == 0){
+        incArray[incNum]++;
+
+      }
+
+      int count = (incArray[incNum] == 0) ? 1 : log10(incArray[incNum]) + 1;
+      char numStr[count + 1];
+      sprintf(numStr, "%d", incArray[incNum]);
+      reqS = strlen(**hl7Msg) + count;
+      if (reqS > *hl7MsgS) **hl7Msg = dblBuf(**hl7Msg, hl7MsgS, reqS);
+      strcat(**hl7Msg, numStr);
+    }
+
   } else if (strncmp(vStr, "$RND", 4) == 0) {
-    // TODO- No error checking here
+    // TODO- No error checking here, bad template will seg fault
     json_object_object_get_ex(fieldObj, "min", &min);
     json_object_object_get_ex(fieldObj, "max", &max);
     json_object_object_get_ex(fieldObj, "dp", &dp);
@@ -179,7 +212,6 @@ static void parseVals(char ***hl7Msg, int *hl7MsgS, char *vStr, char *nStr, char
     const char *u = json_object_get_string(max);
     const char *d = json_object_get_string(dp);
 
-    // TODO - WORKING - 2 DP hard coded... get the json value from template 
     // TODO why am I using atoi? Can't we get float above?
     getRand(atoi(l), atoi(u), atoi(d), rndStr);
     reqS = strlen(**hl7Msg) + strlen(rndStr); 
@@ -245,7 +277,7 @@ static void parseVals(char ***hl7Msg, int *hl7MsgS, char *vStr, char *nStr, char
 // Parse the JSON field
 static void parseJSONField(struct json_object *fieldObj, int *lastFid, int lastField, 
                            char **hl7Msg, int *hl7MsgS, char *argv[], char fieldTok,
-                           int isWeb, char **webForm) {
+                           int isWeb, char **webForm, int incArray[], int msgCount) {
 
   struct json_object *valObj = NULL, *idObj = NULL;
   char *vStr = NULL, *nStr = NULL;
@@ -290,7 +322,7 @@ static void parseJSONField(struct json_object *fieldObj, int *lastFid, int lastF
 
     // Parse JSON values
     parseVals(&hl7Msg, hl7MsgS, vStr, nameStr, fieldTok, argv, lastField, 
-              isWeb, webForm, fieldObj);
+              isWeb, webForm, fieldObj, incArray, msgCount);
 
   }
 
@@ -352,6 +384,7 @@ void parseJSONTemp(char *jsonMsg, char **hl7Msg, int *hl7MsgS, char **webForm,
   char fieldTok = '|', sfTok = '^', *vStr = NULL;
   int argcount = 0, segCount = 0, s = 0, fieldCount = 0, f = 0, lastFid = 0;
   int msgCount = 0, subFCount = 0, sf = 0;
+  int incArray[10] = {-1};
 
   rootObj = json_tokener_parse(jsonMsg);
   json_object_object_get_ex(rootObj, "argcount", &valObj);
@@ -407,7 +440,7 @@ void parseJSONTemp(char *jsonMsg, char **hl7Msg, int *hl7MsgS, char **webForm,
         fieldObj = json_object_array_get_idx(fieldsObj, f);
         if (isWeb == 1) addVar2WebForm(webForm, webFormS, fieldObj);
         parseJSONField(fieldObj, &lastFid, fieldCount - f, hl7Msg, hl7MsgS, argv,
-                       fieldTok, isWeb, webForm);
+                       fieldTok, isWeb, webForm, incArray, msgCount);
 
         json_object_object_get_ex(fieldObj, "subfields", &subFObj);
         if (subFObj) {
@@ -417,7 +450,7 @@ void parseJSONTemp(char *jsonMsg, char **hl7Msg, int *hl7MsgS, char **webForm,
             fieldObj = json_object_array_get_idx(subFObj, sf);
             if (isWeb == 1) addVar2WebForm(webForm, webFormS, fieldObj);
             parseJSONField(fieldObj, &lastFid, subFCount - sf, hl7Msg, hl7MsgS,
-                           argv, sfTok, isWeb, webForm);
+                           argv, sfTok, isWeb, webForm, incArray, msgCount);
           }
         }
       }
