@@ -206,7 +206,7 @@ int main(int argc, char *argv[]) {
 
     if (noSend == 0) {
       // Wrap the packet as MLLP
-      wrapMLLP(hl7Msg);
+      //wrapMLLP(hl7Msg);
 
       // Connect to server, send & listen for ack
       sockfd = connectSvr(sIP, sPort);

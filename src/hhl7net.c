@@ -129,6 +129,7 @@ void listenACK(int sockfd, char *res) {
       }
     }
     hl72unix(ackBuf, 0);
+
     // TODO - add option to print ACK response
     //printf("ACK:\n%s\n\n", ackBuf);
   }
@@ -155,7 +156,6 @@ void sendFile(FILE *fp, long int fileSize, int sockfd) {
 
   // Send the data file to the server
   unix2hl7(fileData);
-  wrapMLLP(fileData);
   sendPacket(sockfd, fileData, resStr);
 }
 
@@ -163,12 +163,30 @@ void sendFile(FILE *fp, long int fileSize, int sockfd) {
 // Send a string packet over socket
 void sendPacket(int sockfd, char *hl7msg, char *resStr) {
   char eBuf[44];
+  const char msgDelim[6] = "MSH|";
+  char tokMsg[strlen(hl7msg) + 5];
+  char *curMsg = hl7msg, *nextMsg;
+  int msgCount = 0;
+ 
+  while (curMsg != NULL) {
+    msgCount++;
+    nextMsg = strstr(curMsg + 1, msgDelim);
+    //printf("S: %ld - %ld\n", strlen(nextMsg), strlen(curMsg));   
 
-  if (strlen(webErrStr) == 0) {
+    if (nextMsg == NULL) { 
+      sprintf(tokMsg, "%s", curMsg);
+      curMsg = NULL;
+    } else {
+      snprintf(tokMsg, strlen(curMsg) - strlen(nextMsg), "%s", curMsg);
+      curMsg = nextMsg;
+    }
+
     // Send the data file to the server
-    fprintf(stderr, "INFO:  Sending HL7 message to server\n");
+    fprintf(stderr, "INFO:  Sending HL7 message %d to server\n", msgCount);
 
-    if(send(sockfd, hl7msg, strlen(hl7msg), 0)== -1) {
+    wrapMLLP(tokMsg);
+
+    if(send(sockfd, tokMsg, strlen(tokMsg), 0) == -1) {
       sprintf(eBuf, "ERROR: Could not send data packet to server");
       handleErr(eBuf, 1, stderr);
 
@@ -184,6 +202,7 @@ void sendPacket(int sockfd, char *hl7msg, char *resStr) {
 // Send and ACK after receiving a message
 // TODO - rewrite to use json template? Performance vs portability (e.g: FIX)
 void sendAck(int sessfd, char *hl7msg) {
+  // TODO - control id seems long at 201 characters, check hl7 spec for max length
   char dt[26] = "", cid[201] = "";
   char eBuf[46];
   char ackBuf[1024];
@@ -192,6 +211,7 @@ void sendAck(int sessfd, char *hl7msg) {
   timeNow(dt, 0); 
   // TODO - if we receive an invalid HL7 msg we can't read MSH-9 so should send reject
   getHL7Field(hl7msg, "MSH", 9, cid);
+  if (strlen(cid) == 0) sprintf(cid, "%s", "<UNKNOWN>");
 
   sprintf(ackBuf, "%c%s%s%s%s%s%s%s%c%c", 0x0B, "MSH|^~\\&|||||", dt, "||ACK|", cid,
                                           "|P|2.4|\rMSA|AA|", cid, "|OK|", 0x1C, 0x0D);
@@ -204,52 +224,82 @@ void sendAck(int sessfd, char *hl7msg) {
   } else {
     fprintf(stderr, "INFO:  Message with control ID %s received OK and ACK sent\n\n", cid);
   }
-
-  close(sessfd);
 }
 
 
 // Handle an incomming message
-static int handleMsg(int sessfd, int fd) {
-  // TODO - change this to a malloc
-  char buf[1024];
+static void handleMsg(int sessfd, int fd) {
+  int readSize = 512, msgSize = 0, maxSize = readSize + msgSize, rcvSize = 1;
+  int msgCount = 0, ignoreNext = 0;
+  int *ms = &maxSize;
+  char rcvBuf[readSize+1];
+  char *msgBuf = malloc(maxSize);
   char eBuf[57];
   char writeSize[11];
+  msgBuf[0] = '\0';
 
-  memset(buf, 0, sizeof(buf));
-  if ((read(sessfd, buf, sizeof(buf)) - 1) == -1) {
-    sprintf(eBuf, "ERROR: Failed to read incomming HL7 message from server");
-    handleErr(eBuf, 1, stderr);
+  while (rcvSize > 0) {
+    rcvSize = read(sessfd, rcvBuf, readSize);
+    rcvBuf[rcvSize] = '\0';
 
-  } else {
-    stripMLLP(buf);
-    sendAck(sessfd, buf);
-
-    if (webRunning == 1) {
-      if (strlen(webErrStr) != 0) {
-        strcpy(buf, webErrStr);
-      }
-
-      sprintf(writeSize, "%d", (int) strlen(buf));
-      if (write(fd, writeSize, 11) == -1) {
-        sprintf(eBuf, "ERROR: Failed to write to named pipe");
-        handleErr(eBuf, 1, stderr);
-      }
-
-      if (write(fd, buf, strlen(buf)) == -1) {
-        sprintf(eBuf, "ERROR: Failed to write to named pipe");
-        handleErr(eBuf, 1, stderr);
-      }
-
+    if (ignoreNext == 1) {
+      ignoreNext = 0;
 
     } else {
-      hl72unix(buf, 0);
-      printf("%s\n", buf);
+      if (rcvSize == -1 && msgCount == 0) {
+        sprintf(eBuf, "ERROR: Failed to read incomming HL7 message from server");
+        handleErr(eBuf, 1, stderr);
+      }
+
+      if (rcvSize > 0 && rcvSize <= readSize) {
+        msgSize = msgSize + rcvSize;
+        if ((msgSize + 1) > maxSize) msgBuf = dblBuf(msgBuf, ms, msgSize);
+        sprintf(msgBuf, "%s%s", msgBuf, rcvBuf);
+
+        // Full hl7 message received, handle the msg
+        if (rcvBuf[rcvSize - 2] == 28 || rcvBuf[rcvSize - 1] == 28) {
+          // If the EOB character is the last in the message, there is still a CR to
+          // receive which we can ignore
+          if (rcvBuf[rcvSize - 1] == 28) ignoreNext = 1;
+        
+          stripMLLP(msgBuf);
+          sendAck(sessfd, msgBuf);
+          msgCount++;
+
+          if (webRunning == 1) {
+            if (strlen(webErrStr) != 0) {
+              strcpy(msgBuf, webErrStr);
+            }
+
+            sprintf(writeSize, "%d", (int) strlen(msgBuf));
+            if (write(fd, writeSize, 11) == -1) {
+              sprintf(eBuf, "ERROR: Failed to write to named pipe");
+              handleErr(eBuf, 1, stderr);
+            }
+
+            if (write(fd, msgBuf, strlen(msgBuf)) == -1) {
+              sprintf(eBuf, "ERROR: Failed to write to named pipe");
+              handleErr(eBuf, 1, stderr);
+            }
+
+          } else {
+             hl72unix(msgBuf, 1);
+          }
+
+          // Clean u counters and buffers
+          msgSize = 0;
+          msgBuf[0] = '\0';
+        }
+      }
     }
+
+    rcvBuf[rcvSize - 1] = '\0';
+    rcvBuf[0] = '\0';
+
   }
 
+  free(msgBuf);
   close(sessfd);
-  return strlen(buf);
 }
 
 

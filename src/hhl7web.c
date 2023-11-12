@@ -781,7 +781,7 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
     if (strcmp (key, "hl7MessageText") == 0 ) {
       char newData[strlen(data) + 5];
       strcpy(newData, data);
-      wrapMLLP(newData);
+      //wrapMLLP(newData);
 
       sockfd = connectSvr(con_info->session->sIP, con_info->session->sPort);
       // TODO - Sock number increases with each message? free? 

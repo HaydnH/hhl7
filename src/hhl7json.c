@@ -137,7 +137,7 @@ static void parseVals(char ***hl7Msg, int *hl7MsgS, char *vStr, char *nStr, char
                       char *argv[], int lastField, int isWeb, char **webForm,
                       struct json_object *fieldObj) {
 
-  struct json_object *defObj = NULL, *lower = NULL, *upper = NULL;
+  struct json_object *defObj = NULL, *min = NULL, *max = NULL, *dp = NULL;
   char *dStr = NULL;
   // TODO - 32? Random lenght, check it
   char rndStr[32];
@@ -171,13 +171,17 @@ static void parseVals(char ***hl7Msg, int *hl7MsgS, char *vStr, char *nStr, char
 
   } else if (strncmp(vStr, "$RND", 4) == 0) {
     // TODO- No error checking here
-    json_object_object_get_ex(fieldObj, "lower", &lower);
-    json_object_object_get_ex(fieldObj, "upper", &upper);
-    const char *l = json_object_get_string(lower);
-    const char *u = json_object_get_string(upper);
+    json_object_object_get_ex(fieldObj, "min", &min);
+    json_object_object_get_ex(fieldObj, "max", &max);
+    json_object_object_get_ex(fieldObj, "dp", &dp);
+
+    const char *l = json_object_get_string(min);
+    const char *u = json_object_get_string(max);
+    const char *d = json_object_get_string(dp);
 
     // TODO - WORKING - 2 DP hard coded... get the json value from template 
-    getRand(atoi(l), atoi(u), 2, rndStr);
+    // TODO why am I using atoi? Can't we get float above?
+    getRand(atoi(l), atoi(u), atoi(d), rndStr);
     reqS = strlen(**hl7Msg) + strlen(rndStr); 
     if (reqS > *hl7MsgS) **hl7Msg = dblBuf(**hl7Msg, hl7MsgS, reqS);
     strcat(**hl7Msg, rndStr);
