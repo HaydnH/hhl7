@@ -136,7 +136,8 @@ static void addVar2WebForm(char **webForm, int *webFormS, struct json_object *fi
 // Function turn json variables in to a value
 static void parseVals(char ***hl7Msg, int *hl7MsgS, char *vStr, char *nStr, char fieldTok,
                       char *argv[], int lastField, int isWeb, char **webForm,
-                      struct json_object *fieldObj, int *incArray, int msgCount) {
+                      struct json_object *fieldObj, int *incArray,
+                      int msgCount, char *post) {
 
   struct json_object *defObj = NULL, *min = NULL, *max = NULL, *dp = NULL;
   struct json_object *start = NULL, *iMax = NULL, *iType = NULL;
@@ -267,6 +268,12 @@ static void parseVals(char ***hl7Msg, int *hl7MsgS, char *vStr, char *nStr, char
 
   }
 
+  if (post != NULL) {
+    reqS = strlen(**hl7Msg) + strlen(post) + 1;
+    if (reqS > *hl7MsgS) **hl7Msg = dblBuf(**hl7Msg, hl7MsgS, reqS);
+    strcat(**hl7Msg, post);
+  }
+
   if (lastField > 1) {
     // No need to add mem with dblBuf, the above +N values handle it
     sprintf(**hl7Msg + strlen(**hl7Msg), "%c", fieldTok);
@@ -280,22 +287,36 @@ static void parseJSONField(struct json_object *fieldObj, int *lastFid, int lastF
                            int isWeb, char **webForm, int incArray[], int msgCount) {
 
   struct json_object *valObj = NULL, *idObj = NULL;
-  char *vStr = NULL, *nStr = NULL;
+  char *vStr = NULL, *nStr = NULL, *pre = NULL, *post = NULL;
   char nameStr[65] = "";
-  int f = 0, fid = 0, reqS = 0;
+  int f = 0, fid = 0, reqS = 0, preL = 0;
 
   // Get the ID of the current field value
   json_object_object_get_ex(fieldObj, "id", &idObj);
   fid = (int) json_object_get_int(idObj);
 
+  // Get pre and post values for the field if they exist
+  json_object_object_get_ex(fieldObj, "pre", &valObj);
+  if (json_object_get_type(valObj) == json_type_string) {
+    pre = (char *) json_object_get_string(valObj);
+    preL = strlen(pre);
+  }
+  json_object_object_get_ex(fieldObj, "post", &valObj);
+  if (json_object_get_type(valObj) == json_type_string) {
+    post = (char *) json_object_get_string(valObj);
+  }
+
   // Add memory to hl7Msg if needed
-  reqS = strlen(*hl7Msg) + (fid - *lastFid);
+  reqS = strlen(*hl7Msg) + (fid - *lastFid) + preL;
   if (reqS > *hl7MsgS) *hl7Msg = dblBuf(*hl7Msg, hl7MsgS, reqS);
 
   while (f < fid - *lastFid - 1) {
     sprintf(*hl7Msg + strlen(*hl7Msg), "%c", fieldTok);
     f++;
   }
+
+  // Add the prefix to to the field
+  if (preL > 0) sprintf(*hl7Msg + strlen(*hl7Msg), "%s", pre);
 
   // TODO - remove a value and/or name from a template to test error checking
   // Parse the value for this field
@@ -322,7 +343,7 @@ static void parseJSONField(struct json_object *fieldObj, int *lastFid, int lastF
 
     // Parse JSON values
     parseVals(&hl7Msg, hl7MsgS, vStr, nameStr, fieldTok, argv, lastField, 
-              isWeb, webForm, fieldObj, incArray, msgCount);
+              isWeb, webForm, fieldObj, incArray, msgCount, post);
 
   }
 

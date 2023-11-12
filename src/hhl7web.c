@@ -50,9 +50,6 @@ You should have received a copy of the GNU General Public License along with hhl
 // TODO - IMPORTANT - webErrStr needs to go in the session somehow
 char webErrStr[256] = "";
 int webRunning = 0;
-//int isListening = 0;
-//int readFD = 0;
-//pid_t wpid;
 
 
 // Connection info
