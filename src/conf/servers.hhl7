@@ -1,0 +1,12 @@
+{
+  "servers": [
+    {
+      "displayName": "localhost",
+      "address": "127.0.0.1"
+    },
+    {
+      "displayName": "Virtual Machine",
+      "address": "192.168.0.28"
+    }
+  ]
+}

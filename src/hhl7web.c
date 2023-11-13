@@ -1142,6 +1142,12 @@ int listenWeb() {
   #define SKEY "server.key"
   #define SPEM "server.pem"
 
+  // Check the cert files exist
+  if (checkFile(SKEY, 4) == 1 || checkFile(SPEM, 4) == 1 ) {
+    fprintf(stderr, "ERROR: The HTTPS key/certificate files could not be read. Please read INSTALL.txt and create certificates.\n");
+    exit(1);
+  }
+
   int keySize = getFileSize(SKEY);
   int pemSize = getFileSize(SPEM);
   char key_pem[keySize + 1];
@@ -1149,15 +1155,15 @@ int listenWeb() {
   FILE *fpSKEY = openFile(SKEY, "r");
   FILE *fpSPEM = openFile(SPEM, "r");
 
+  if ((fpSKEY == NULL) || (fpSPEM == NULL)) {
+    fprintf(stderr, "ERROR: The HTTPS key/certificate files could not be read.\n");
+    exit(1);
+  }
+
   file2buf(key_pem, fpSKEY, keySize);
   file2buf(cert_pem, fpSPEM, pemSize);
   fclose(fpSKEY);
   fclose(fpSPEM);
-
-  if ((key_pem == NULL) || (cert_pem == NULL)) {
-    fprintf(stderr, "ERROR: The HTTPS key/certificate files could not be read.\n");
-    exit(1);
-  }
 
   struct timeval tv;
   struct timeval *tvp;
