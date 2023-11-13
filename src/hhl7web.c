@@ -1138,6 +1138,7 @@ static void expireSessions() {
 int listenWeb() {
   struct MHD_Daemon *daemon;
 
+  // TODO - WORKING - allow this to use /usr/local/hhl7/certs or ./certs
   #define SKEY "server.key"
   #define SPEM "server.pem"
 

@@ -15,8 +15,16 @@ make
 ----------
 sudo make install
 
-3) Make ssh keys (example, please be secure):
----------------------------------------------
-openssl genrsa -out server.key 1024
-openssl req -days 365 -out server.pem -new -x509 -key server.key
+4) For new installations only:
+------------------------------
 
+  4.a) Create a clean servers.hhl7 and configure for use, e.g: 
+  --------------------------------------
+  sudo mv /usr/local/hhl7/conf/servers.hhl7.example /usr/local/hhl7/conf/servers.hhl7
+  vi /usr/local/hhl7/conf/servers.hhl7
+
+  4.b) Make ssh keys (example, please be secure):
+  -----------------------------------------------
+  openssl genrsa -out server.key 1024
+  openssl req -days 365 -out server.pem -new -x509 -key server.key
+  sudo mv server.* /usr/local/hhl7/certs/
