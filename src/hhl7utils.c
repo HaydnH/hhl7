@@ -282,8 +282,8 @@ FILE *findTemplate(char *fileName, char *tName) {
   int p = 0;
   const char *homeDir = getenv("HOME");
   char tPaths[3][33] = { "/.config/hhl7/templates/",
-                         "./conf/templates/",
-                         "/usr/local/share/hhl7/templates/" };
+                         "./templates/",
+                         "/usr/local/hhl7/templates/" };
 
   // Create the full file path/name of the found template location
   for (p = 0; p < 3; p++) {

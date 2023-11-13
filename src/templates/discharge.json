@@ -1,0 +1,30 @@
+{
+  "name":"Discharge",
+  "argcount":3,
+  "cmdhelp":"hhl7 -t discharge <hospnum> <patientClass> <ward>",
+  "segments": [
+    { "name":"MSH",
+      "fieldcount":11,
+      "fields": [
+        { "id":1,  "value":"^~\\&" },
+        { "id":6,  "value":"$NOW" },
+        { "id":8,  "value":"ADT^A03" },
+        { "id":9,  "value":"1" },
+        { "id":10, "value":"P" },
+        { "id":11, "value":"2.4" }
+      ]
+    },
+    { "name":"EVN",
+      "fieldcount":1,
+      "fields": [
+        { "id":1,  "value":"A03" }
+      ]
+    },
+    { "name":"PID",
+      "fieldcount":3,
+      "fields": [  
+        { "id":3,  "value":"$VAR1", "name":"Hospital Number" }
+      ]
+    }
+  ]
+}

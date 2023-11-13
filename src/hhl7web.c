@@ -419,8 +419,7 @@ static enum MHD_Result getTemplateList(struct Session *session,
   DIR *dp;
   FILE *fp = 0;
   struct dirent *file;
-  // TODO: Get templates from all possible directories...
-  const char *tPath = "/usr/local/share/hhl7/templates/";
+  const char *tPath = "/usr/local/hhl7/templates/";
   const char *nOpt = "<option value=\"None\">None</option>\n";
   char fName[128], tName[128], fullName[128+strlen(tPath)], *ext; //, *tempOpts;
   char *newPtr;
@@ -519,7 +518,7 @@ static enum MHD_Result getTempForm(struct Session *session,
   jsonReply[0] = '\0';
 
   // TODO: Get templates from all possible directories...
-  char *tPath = "/usr/local/share/hhl7";
+  char *tPath = "/usr/local/hhl7";
   char *fileName = malloc(strlen(tPath) + strlen(url) + 1);
 
   strcpy(fileName, tPath);

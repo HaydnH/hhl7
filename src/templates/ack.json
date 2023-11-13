@@ -1,0 +1,27 @@
+{
+  "name":"ack",
+  "hidden":true,
+  "argcount":0,
+  "cmdhelp":"hhl7 -st ack",
+  "segments": [
+    { "name":"MSH",
+      "fieldcount":11,
+      "fields": [
+        { "id":1,  "value":"^~\\&" },
+        { "id":6,  "value":"$NOW" },
+        { "id":8,  "value":"ACK" },
+        { "id":9, "value":"$CID" },
+        { "id":10, "value":"P" },
+        { "id":11, "value":"2.4" }
+      ]
+    },
+    { "name":"MSA",
+      "fieldcount":3,
+      "fields": [
+        { "id":1,  "value":"AA" },
+        { "id":2,  "value":"$CID" },
+        { "id":3,  "value":"OK" }
+      ]
+    }
+  ]
+}

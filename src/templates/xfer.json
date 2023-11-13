@@ -1,0 +1,43 @@
+{
+  "name":"Xfer",
+  "argcount":4,
+  "cmdhelp":"hhl7 -t admit <hospnum> <patientClass> <ward> <bed>",
+  "segments": [
+    { "name":"MSH",
+      "fields": [
+        { "id":1,  "value":"^~\\&" },
+        { "id":6,  "value":"$NOW" },
+        { "id":8,  "value":"ADT^A02" },
+        { "id":9,  "value":"1" },
+        { "id":10, "value":"P" },
+        { "id":11, "value":"2.4" }
+      ]
+    },
+    { "name":"EVN",
+      "fields": [
+        { "id":1,  "value":"A02" },
+        { "id":6,  "value":"$NOW" }
+      ]
+    },
+    { "name":"PID",
+      "fields": [  
+        { "id":2,  "value":"$VAR1", "name":"Hospital Number" },
+        { "id":3,  "value":"$VAR1", "name":"Hospital Number" },
+        { "id":4,  "value":"$VAR1", "name":"Hospital Number" }
+      ]
+    },
+    { "name":"PV1",
+      "fields": [
+        { "id":2,  "value":"$VAR2", "name":"Patient Class", "default":"I", "options": [
+          { "id":1,  "option":"A" },
+	  { "id":2,  "option":"E" },
+	  { "id":3,  "option":"I" }
+	]},
+        { "id":3,  "subfields": [
+          { "id":1, "value":"$VAR3", "name":"Ward (HL7)" },
+          { "id":3, "value":"$VAR4", "name":"Bed (HL7)" }
+        ]}
+      ]
+    }
+  ]
+}
