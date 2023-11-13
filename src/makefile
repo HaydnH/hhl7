@@ -2,6 +2,7 @@ CC     = gcc
 CFLAGS = -O1 -Wall -fcommon
 INCDIR = -I/usr/include/json-c -I/usr/include/microhttpd -I/usr/include/openssl
 DESTDIR= /usr/local/hhl7
+BINDIR = /usr/local/bin
 MANDIR = /usr/share/man
 LIBDIR = 
 LIBS   = -lm -ljson-c -lmicrohttpd -lssl -lcrypto
@@ -35,4 +36,6 @@ install:: hhl7
 	install -c -m 0644 $(SVRS) $(DESTDIR)/conf
 	install -c -m 0644 $(TEMPS) $(DESTDIR)/templates
 	install -c -m 0644 $(IMAGES) $(DESTDIR)/images
+	ln -sf $(DESTDIR)/bin/$(BIN) $(BINDIR)/$(BIN)
+#	TODO - install man page when created
 #	install -c -m 0644 $(MAN) $(MANDIR)/man1 
