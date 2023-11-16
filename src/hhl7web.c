@@ -36,7 +36,7 @@ You should have received a copy of the GNU General Public License along with hhl
 #include <errno.h>
 
 // TODO - make these variable
-#define PORT            8888
+#define PORT            5377
 #define REALM           "\"Maintenance\""
 #define COOKIE_NAME      "hhl7Session"
 #define GET             0
@@ -92,25 +92,27 @@ static struct Session *getSession(struct MHD_Connection *connection) {
   struct Session *ret;
   const char *cookie;
 
-  cookie = MHD_lookup_connection_value(connection, MHD_COOKIE_KIND, COOKIE_NAME);
+  if (connection) {
+    cookie = MHD_lookup_connection_value(connection, MHD_COOKIE_KIND, COOKIE_NAME);
 
-  if (cookie != NULL) {
-    // Try to find an existing session
-    ret = sessions;
-    while (NULL != ret) {
-      if (strcmp(cookie, ret->sessID) == 0) {
-        break;
-      } else if (strcmp(cookie, ret->oldSessID) == 0) {
-        break;
+    if (cookie != NULL) {
+      // Try to find an existing session
+      ret = sessions;
+      while (NULL != ret) {
+        if (strcmp(cookie, ret->sessID) == 0) {
+          break;
+        } else if (strcmp(cookie, ret->oldSessID) == 0) {
+          break;
+        }
+        ret = ret->next;
       }
-      ret = ret->next;
-    }
-    if (NULL != ret) {
-      ret->rc++;
-      return ret;
+      if (NULL != ret) {
+        ret->rc++;
+        return ret;
+      }
     }
   }
-  
+
   // If no session exists, create a new session
   ret = calloc (1, sizeof (struct Session));
   if (NULL == ret) {
@@ -233,10 +235,12 @@ static enum MHD_Result getImage(struct Session *session,
   int ret;
   const char *errorstr ="<html><body>An internal server error has occurred!</body></html>";
 
-  // TODO change this to work with /usr/share or ./?
-  char *serverURL = malloc(strlen(url) + 2);
-  strcpy(serverURL, ".");
-  strcat(serverURL, url);
+  char serverURL[strlen(url) + 17];
+  if (isDaemon == 1) {
+    sprintf(serverURL, "%s%s", "/usr/local/hhl7", url);
+  } else {
+    sprintf(serverURL, "%c%s", '.', url);
+  }
 
   fp = openFile(serverURL, "r");
   int fSize = getFileSize(serverURL); 
@@ -244,7 +248,6 @@ static enum MHD_Result getImage(struct Session *session,
   // Error accessing file
   if (fp == NULL) {
     fclose(fp);
-    free(serverURL);
 
     response = MHD_create_response_from_buffer(strlen (errorstr), 
                                                (void *) errorstr,
@@ -288,7 +291,6 @@ static enum MHD_Result getImage(struct Session *session,
   ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
   MHD_destroy_response(response);
 
-  free(serverURL);
   return ret;
 }
 
@@ -299,10 +301,15 @@ static enum MHD_Result getServers(struct Session *session,
                                    struct connection_info_struct *con_info) {
   enum MHD_Result ret;
   struct MHD_Response *response;
-
-  // TODO - change svr file location (check for other references to it as well)
-  char svrsFile[] = "./conf/servers.hhl7";
   struct json_object *svrsObj = NULL, *svrObj = NULL;
+
+  // Define server file location
+  char svrsFile[34];
+  if (isDaemon == 1) {
+    sprintf(svrsFile, "%s", "/usr/local/hhl7/conf/servers.hhl7");
+  } else {
+    sprintf(svrsFile, "%s", "./conf/servers.hhl7");
+  }
 
   svrsObj = json_object_from_file(svrsFile);
   if (svrsObj == NULL) {
@@ -344,8 +351,14 @@ static enum MHD_Result getSettings(struct Session *session,
   enum MHD_Result ret;
   struct MHD_Response *response;
 
-  // TODO - change pw file location (check for other references to it as well)
-  char pwFile[] = "./conf/passwd.hhl7";
+  // Define passwd file location
+  char pwFile[34];
+  if (isDaemon == 1) {
+    sprintf(pwFile, "%s", "/usr/local/hhl7/conf/passwd.hhl7");
+  } else {
+    sprintf(pwFile, "%s", "./conf/passwd.hhl7");
+  }
+
   struct json_object *resObj = json_object_new_object();
   struct json_object *pwObj = NULL, *userArray = NULL, *userObj = NULL;
   struct json_object  *uidStr = NULL, *sIP = NULL, *sPort = NULL, *lPort = NULL;
@@ -994,8 +1007,12 @@ static enum MHD_Result answer_to_connection(void *cls, struct MHD_Connection *co
   // Debug - print connection values, e.g user-agent
   //MHD_get_connection_values(connection, MHD_HEADER_KIND, print_out_key, NULL);
 
-  // TODO change this to /use/local/share
-  char *imagePath = "/images/";
+//  char imagePath[25];
+//  if (isDaemon == 1) {
+//    sprintf(imagePath, "%s", "/usr/local/hhl7/images/");
+//  } else {
+//    sprintf(imagePath, "%s", "./images/");
+//  }
  
   if (*con_cls == NULL) {
     con_info = malloc(sizeof(struct connection_info_struct));
@@ -1035,7 +1052,7 @@ static enum MHD_Result answer_to_connection(void *cls, struct MHD_Connection *co
   session->lastSeen = time(NULL);
 
   if (strcmp(method, "GET") == 0) {
-    if (strstr(url, imagePath)) {
+    if (strstr(url, "/images/")) {
       return getImage(session, connection, url);
 
     } else if (strstr(url, "/templates/")) {
@@ -1107,15 +1124,17 @@ static void expireSessions() {
   struct Session *prev;
   struct Session *next;
   time_t now;
+  int sessCount = 0;
 
   now = time(NULL);
   prev = NULL;
   pos = sessions;
 
   while (NULL != pos) {
+    sessCount++;
     next = pos->next;
-    // Expire old sessions after 1 hour
-    if (now - pos->lastSeen > 3600) {
+    // Expire old sessions after 15 mins
+    if (now - pos->lastSeen > 900) {
       cleanSession(pos);
 
       if (NULL == prev) {
@@ -1131,16 +1150,33 @@ static void expireSessions() {
 
     pos = next;
   }
+
+  // If the last session has expired, close the daemon
+  if (sessCount < 1 && isDaemon == 1) {
+    // TODO - log the exit
+    exit(0);
+  }
 }
 
 
 // Start the web interface
-int listenWeb() {
+int listenWeb(int daemonSock) {
   struct MHD_Daemon *daemon;
+  char SKEY[34];
+  char SPEM[34];
 
-  // TODO - WORKING - allow this to use /usr/local/hhl7/certs or ./certs
-  #define SKEY "server.key"
-  #define SPEM "server.pem"
+  // Configure the cert location dependant on if we're a daemon or dev mode
+  if (isDaemon == 1) {
+    sprintf(SKEY, "%s", "/usr/local/hhl7/certs/server.key");
+    sprintf(SPEM, "%s", "/usr/local/hhl7/certs/server.pem");
+
+  } else {
+    sprintf(SKEY, "%s", "./server.key");
+    sprintf(SPEM, "%s", "./server.pem");
+    //#define SKEY "./server.key"
+    //#define SPEM "./server.pem"
+
+  }
 
   // Check the cert files exist
   if (checkFile(SKEY, 4) == 1 || checkFile(SPEM, 4) == 1 ) {
@@ -1173,23 +1209,42 @@ int listenWeb() {
   MHD_socket max;
   MHD_UNSIGNED_LONG_LONG mhd_timeout;
 
-  daemon = MHD_start_daemon(MHD_USE_AUTO | MHD_USE_TURBO |
-                            MHD_USE_TLS | MHD_USE_TCP_FASTOPEN,
-                            PORT,
-                            NULL, NULL,
-                            &answer_to_connection, NULL,
-                            MHD_OPTION_HTTPS_MEM_KEY, key_pem,
-                            MHD_OPTION_HTTPS_MEM_CERT, cert_pem,
-                            MHD_OPTION_CONNECTION_TIMEOUT, (unsigned int) 15,
-                            MHD_OPTION_NOTIFY_COMPLETED,
-                            &reqComplete, NULL,
-                            MHD_OPTION_END);
+  if (isDaemon == 1) {
+    daemon = MHD_start_daemon(MHD_USE_AUTO | MHD_USE_TURBO |
+                              MHD_USE_TLS | MHD_USE_TCP_FASTOPEN,
+                              PORT,
+                              NULL, NULL,
+                              &answer_to_connection, NULL,
+                              MHD_OPTION_HTTPS_MEM_KEY, key_pem,
+                              MHD_OPTION_HTTPS_MEM_CERT, cert_pem,
+                              MHD_OPTION_CONNECTION_TIMEOUT, (unsigned int) 15,
+                              MHD_OPTION_NOTIFY_COMPLETED, &reqComplete, NULL,
+                              MHD_OPTION_LISTEN_SOCKET, daemonSock,
+                              MHD_OPTION_END);
+
+  } else {
+    daemon = MHD_start_daemon(MHD_USE_AUTO | MHD_USE_TURBO |
+                              MHD_USE_TLS | MHD_USE_TCP_FASTOPEN,
+                              PORT,
+                              NULL, NULL,
+                              &answer_to_connection, NULL,
+                              MHD_OPTION_HTTPS_MEM_KEY, key_pem,
+                              MHD_OPTION_HTTPS_MEM_CERT, cert_pem,
+                              MHD_OPTION_CONNECTION_TIMEOUT, (unsigned int) 15,
+                              MHD_OPTION_NOTIFY_COMPLETED, &reqComplete, NULL,
+                              MHD_OPTION_END);
+  }
 
   if (daemon == NULL) {
     fprintf(stderr, "ERROR: Failed to start HTTPS daemon.\n");
     exit(1);
 
   } else {
+    if (isDaemon == 1) {
+      // TODO Logging...
+      // Start a single session to prevent daemon closing until login
+      getSession(NULL);
+    }
     webRunning = 1;
   }
 

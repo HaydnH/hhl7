@@ -1,0 +1,8 @@
+[Unit]
+Description=HHL7
+After=network-online.target
+Documentation=man:hhl7(8)
+
+[Service]
+Type=simple
+ExecStart=/usr/local/hhl7/bin/hhl7 -D %i

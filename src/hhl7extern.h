@@ -10,6 +10,7 @@ hhl7 is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY
 You should have received a copy of the GNU General Public License along with hhl7. If not, see <https://www.gnu.org/licenses/>. 
 */
 
+extern int isDaemon;
 extern char hl7Buf[1024];
 extern char webErrStr[256];
 extern int webRunning;

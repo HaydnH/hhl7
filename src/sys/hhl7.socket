@@ -1,0 +1,10 @@
+[Unit]
+Description=HHL7 incoming socket
+
+[Socket]
+ListenStream=127.0.0.1:5376
+#Accept=yes
+MaxConnections=64
+
+[Install]
+WantedBy=sockets.target

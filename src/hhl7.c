@@ -16,12 +16,14 @@ You should have received a copy of the GNU General Public License along with hhl
 #include <time.h>
 #include <string.h>
 #include <getopt.h>
+#include <systemd/sd-daemon.h>
 #include "hhl7extern.h"
 #include "hhl7utils.h"
 #include "hhl7json.h"
 #include "hhl7net.h"
 #include "hhl7web.h"
 
+int isDaemon = 0;
 char hl7Buf[1024] = "";
 
 // Show help message
@@ -34,7 +36,7 @@ void showHelp() {
 // TODO - if no arguments are provided then there's no error message, showHelp
 // Main
 int main(int argc, char *argv[]) {
-  int sockfd, opt, option_index=0;
+  int daemonSock = 0, sockfd, opt, option_index = 0;
   int fSend = 0, fListen = 0, fSendTemplate = 0, fShowTemplate = 0, noSend = 0, fWeb = 0;
   FILE *fp;
 
@@ -63,7 +65,7 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-  while((opt = getopt_long(argc, argv, ":0Hslt:T:owh:L:p:P:f:", long_options, &option_index)) != -1) {
+  while((opt = getopt_long(argc, argv, ":0HD:slt:T:owh:L:p:P:f:", long_options, &option_index)) != -1) {
     switch(opt) {
       case 0:
         exit(1);
@@ -71,6 +73,11 @@ int main(int argc, char *argv[]) {
       case 'H':
         showHelp();
         exit(0);
+
+      case 'D':
+        isDaemon = 1;
+        if (optarg) daemonSock = atoi(optarg);
+        break;
 
       case 's':
         fSend = 1;
@@ -158,7 +165,23 @@ int main(int argc, char *argv[]) {
         exit(1);
     } 
   } 
-      
+
+
+  // Check for valid options when running as Daemon
+  if (isDaemon == 1) {
+    if (fSend + fListen + fSendTemplate + fWeb > 0) {
+      fprintf(stderr, "ERROR: -D can only be used on it's own, no other functional flags.\n");
+      exit(1);
+    }
+
+    if (sd_listen_fds(0) != 1) {
+      fprintf(stderr, "No or too many file descriptors received.\n");
+      exit(1);
+    }
+
+    daemonSock = SD_LISTEN_FDS_START + 0;
+  }
+
   // Check we're only using 1 of listen, send, template or web option
   if (fSend + fListen + fSendTemplate + fWeb > 1) {
     fprintf(stderr, "ERROR: Only one of -f, -l, -s, -t or -w may be used at a time.\n");
@@ -218,8 +241,8 @@ int main(int argc, char *argv[]) {
     fclose(fp);
   }
 
-  if (fWeb == 1) {
-    listenWeb();
+  if (fWeb > 0 || isDaemon == 1) {
+    listenWeb(daemonSock);
 
   }
 

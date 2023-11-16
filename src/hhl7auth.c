@@ -18,6 +18,7 @@ You should have received a copy of the GNU General Public License along with hhl
 #include <json.h>
 #include "hhl7utils.h"
 #include "hhl7json.h"
+#include "hhl7extern.h"
 
 static int PWLOCK = 0;
 
@@ -112,7 +113,6 @@ static int userExists(struct json_object *userArray, char *uid) {
 
 // Add new user to passwd file
 int regNewUser(char *uid, char *passwd) {
-  char pwFile[] = "./conf/passwd.hhl7";
   struct json_object *newUserObj = json_object_new_object();
   struct json_object *pwObj = NULL, *userArray = NULL;
 
@@ -122,6 +122,14 @@ int regNewUser(char *uid, char *passwd) {
   char salt[maxPassL + 1];
   char saltPasswd[saltedL];
   char pwdHash[4* maxPassL];
+
+  // Define passwd file location
+  char pwFile[34];
+  if (isDaemon == 1) {
+    sprintf(pwFile, "%s", "/usr/local/hhl7/conf/passwd.hhl7");
+  } else {
+    sprintf(pwFile, "%s", "./conf/passwd.hhl7");
+  }
 
   // Create a new passwd file with a user JSON array if needed 
   if (checkFile(pwFile, 2) != 0) {
@@ -188,7 +196,6 @@ int regNewUser(char *uid, char *passwd) {
 //    2 - User exists but password is incorrect
 //    3 - User doesn't exist
 int checkAuth(char *uid, const char *passwd) {
-  char pwFile[] = "./conf/passwd.hhl7";
   struct json_object *pwObj = NULL, *userArray = NULL, *userObj = NULL;
   struct json_object  *uidStr = NULL, *saltStr = NULL, *pwdStr = NULL;
   int uCount = 0, u = 0, uExists = 0;
@@ -196,6 +203,14 @@ int checkAuth(char *uid, const char *passwd) {
   size_t saltedL = 3 * maxPassL;
   char saltPasswd[saltedL];
   char pwdHash[4* maxPassL];
+
+  // Define passwd file location
+  char pwFile[34];
+  if (isDaemon == 1) {
+    sprintf(pwFile, "%s", "/usr/local/hhl7/conf/passwd.hhl7");
+  } else {
+    sprintf(pwFile, "%s", "./conf/passwd.hhl7");
+  }
 
   // Create a new passwd file with a user JSON array if needed 
   if (checkFile(pwFile, 2) != 0) {
@@ -267,10 +282,16 @@ int checkAuth(char *uid, const char *passwd) {
 // Update an entry in the password file
 // TODO - allow multiple updates at once
 int updatePasswdFile(char *uid, const char *key, const char *val) {
-  // TODO make config item - check for other references
-  char pwFile[] = "./conf/passwd.hhl7";
   int uExists = 0, u = 0, uCount = 0;
   struct json_object *pwObj = NULL, *userArray = NULL, *userObj = NULL, *uidStr = NULL;
+
+  // Define passwd file location
+  char pwFile[34];
+  if (isDaemon == 1) {
+    sprintf(pwFile, "%s", "/usr/local/hhl7/conf/passwd.hhl7");
+  } else {
+    sprintf(pwFile, "%s", "./conf/passwd.hhl7");
+  }
 
   // This should not be needed under normal use, however it's here for security purposes
   if (strcmp(key, "uid") == 0 || strcmp(key, "salt") == 0 || strcmp(key, "passwd") == 0 ||
@@ -336,8 +357,6 @@ int updatePasswdFile(char *uid, const char *key, const char *val) {
 //    0 - Password updated
 //    1 - An error occured, user doesn't exist, couldn't write file etc
 int updatePasswd(char *uid, const char *password) {
-  // TODO - change this file location plus any others links to it
-  char pwFile[] = "./conf/passwd.hhl7";
   struct json_object *pwObj = NULL, *userArray = NULL, *userObj = NULL, *uidStr = NULL;
 
   int uExists = 0, u = 0, uCount = 0;
@@ -346,6 +365,14 @@ int updatePasswd(char *uid, const char *password) {
   char salt[maxPassL + 1];
   char saltPasswd[saltedL];
   char pwdHash[4* maxPassL];
+
+  // Define passwd file location
+  char pwFile[34];
+  if (isDaemon == 1) {
+    sprintf(pwFile, "%s", "/usr/local/hhl7/conf/passwd.hhl7");
+  } else {
+    sprintf(pwFile, "%s", "./conf/passwd.hhl7");
+  }
 
   // If lock is true, sleep until lock is cleared
   while (PWLOCK == 1) {
@@ -406,11 +433,18 @@ int updatePasswd(char *uid, const char *password) {
 
 // Check if someone else has the same listening port configured
 int lPortUsed(char *uid, const char *lPort) {
-  char pwFile[] = "./conf/passwd.hhl7";
   int u = 0, uCount = 0;
 
   struct json_object *pwObj = NULL, *lPortStr = NULL;
   struct json_object *userArray = NULL, *userObj = NULL, *uidStr = NULL;
+
+  // Define passwd file location
+  char pwFile[34];
+  if (isDaemon == 1) {
+    sprintf(pwFile, "%s", "/usr/local/hhl7/conf/passwd.hhl7");
+  } else {
+    sprintf(pwFile, "%s", "./conf/passwd.hhl7");
+  }
 
   pwObj = json_object_from_file(pwFile);
   if (pwObj == NULL) {
