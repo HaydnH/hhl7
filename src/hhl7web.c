@@ -19,6 +19,7 @@ You should have received a copy of the GNU General Public License along with hhl
 #include <fcntl.h>
 #include <signal.h>
 #include <dirent.h>
+#include <syslog.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
 #include <sys/prctl.h>
@@ -1007,13 +1008,6 @@ static enum MHD_Result answer_to_connection(void *cls, struct MHD_Connection *co
   // Debug - print connection values, e.g user-agent
   //MHD_get_connection_values(connection, MHD_HEADER_KIND, print_out_key, NULL);
 
-//  char imagePath[25];
-//  if (isDaemon == 1) {
-//    sprintf(imagePath, "%s", "/usr/local/hhl7/images/");
-//  } else {
-//    sprintf(imagePath, "%s", "./images/");
-//  }
- 
   if (*con_cls == NULL) {
     con_info = malloc(sizeof(struct connection_info_struct));
     if (con_info == NULL) return MHD_NO;
@@ -1154,6 +1148,8 @@ static void expireSessions() {
   // If the last session has expired, close the daemon
   if (sessCount < 1 && isDaemon == 1) {
     // TODO - log the exit
+    // TODO - Tidy up before close... maybe create tidy function
+    closelog();
     exit(0);
   }
 }
@@ -1171,10 +1167,8 @@ int listenWeb(int daemonSock) {
     sprintf(SPEM, "%s", "/usr/local/hhl7/certs/server.pem");
 
   } else {
-    sprintf(SKEY, "%s", "./server.key");
-    sprintf(SPEM, "%s", "./server.pem");
-    //#define SKEY "./server.key"
-    //#define SPEM "./server.pem"
+    sprintf(SKEY, "%s", "./certs/server.key");
+    sprintf(SPEM, "%s", "./certs/server.pem");
 
   }
 

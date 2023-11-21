@@ -16,6 +16,7 @@ You should have received a copy of the GNU General Public License along with hhl
 #include <time.h>
 #include <string.h>
 #include <getopt.h>
+#include <syslog.h>
 #include <systemd/sd-daemon.h>
 #include "hhl7extern.h"
 #include "hhl7utils.h"
@@ -44,8 +45,8 @@ int main(int argc, char *argv[]) {
   // TODO move bind port (sIP) to config file
   char sIP[256] = "127.0.0.1";
   char lIP[256] = "127.0.0.1";
-  char sPort[10] = "11011";
-  char lPort[10] = "22022";
+  char sPort[6] = "11011";
+  char lPort[6] = "22022";
   char tName[256] = "";
   char fileName[256] = "file.txt";
 
@@ -119,6 +120,7 @@ int main(int argc, char *argv[]) {
           fprintf(stderr, "ERROR: Option -h requires a value\n");
           exit(1);
         } 
+        // TODO error check all command line arguments (length etc)
         if (optarg) strcpy(sIP, optarg);
         break;
 
@@ -135,6 +137,13 @@ int main(int argc, char *argv[]) {
           fprintf(stderr, "ERROR: Option -p requires a value\n");
           exit(1);
         } 
+
+        // TODO, also check for port range is valid
+        if (validPort(optarg) > 0) {
+          fprintf(stderr, "ERROR: Port provided by -p is invalid (valid: 1024-65535).\n");
+          exit(1);
+        }
+
         if (optarg) strcpy(sPort, optarg);
         break;
 
@@ -143,6 +152,12 @@ int main(int argc, char *argv[]) {
           fprintf(stderr, "ERROR: Option -P requires a value\n");
           exit(1);
         }
+
+        if (validPort(optarg) > 0) {
+          fprintf(stderr, "ERROR: Port provided by -P is invalid (valid: 1024-65535).\n");
+          exit(1);
+        }
+
         if (optarg) strcpy(lPort, optarg);
         break;
 
@@ -166,16 +181,22 @@ int main(int argc, char *argv[]) {
     } 
   } 
 
-
-  // Check for valid options when running as Daemon
   if (isDaemon == 1) {
+    // Check for valid options when running as Daemon
     if (fSend + fListen + fSendTemplate + fWeb > 0) {
       fprintf(stderr, "ERROR: -D can only be used on it's own, no other functional flags.\n");
       exit(1);
     }
 
+    // Open the syslog file
+    openlog("HHL7", LOG_NDELAY, LOG_USER);
+    // TODO - Conf file log level
+    //setlogmask(LOG_UPTO(LOG_WARNING));
+    setlogmask(LOG_UPTO(LOG_DEBUG));
+
     if (sd_listen_fds(0) != 1) {
-      fprintf(stderr, "No or too many file descriptors received.\n");
+      // TODO syslog
+      fprintf(stderr, "Systemd has sent an unexpected number of socket file descriptors, expected 1.\n");
       exit(1);
     }
 
@@ -188,7 +209,6 @@ int main(int argc, char *argv[]) {
     exit(1);
   }
 
-  // TODO handle port/ip config etc instead of repeating in other flags.
   if (fSend == 1) {
     // Connect to the server
     sockfd = connectSvr(sIP, sPort);
@@ -196,7 +216,6 @@ int main(int argc, char *argv[]) {
     // Send a file test
     fp = openFile(fileName, "r");
     sendFile(fp, getFileSize(fileName), sockfd);
-    //fclose(fp);
   } 
 
   if (fListen == 1) {
@@ -228,9 +247,6 @@ int main(int argc, char *argv[]) {
     }
 
     if (noSend == 0) {
-      // Wrap the packet as MLLP
-      //wrapMLLP(hl7Msg);
-
       // Connect to server, send & listen for ack
       sockfd = connectSvr(sIP, sPort);
       sendPacket(sockfd, hl7Msg, NULL);
@@ -241,9 +257,16 @@ int main(int argc, char *argv[]) {
     fclose(fp);
   }
 
-  if (fWeb > 0 || isDaemon == 1) {
+  if (fWeb == 1) {
     listenWeb(daemonSock);
+  }
 
+  if (isDaemon == 1) {
+    syslog(LOG_DEBUG, "DEBUG Daemon starting...");
+    syslog(LOG_INFO, "Daemon starting...");
+    syslog(LOG_WARNING, "WARN starting...");
+    syslog(LOG_CRIT, "CRIT starting...");
+    listenWeb(daemonSock);
   }
 
 // TODO - Make sure we're closing fp etc etc - not much here!

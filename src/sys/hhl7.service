@@ -1,5 +1,5 @@
 [Unit]
-Description=HHL7
+Description=HHL7 service
 After=network-online.target
 Documentation=man:hhl7(8)
 

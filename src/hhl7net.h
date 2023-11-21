@@ -11,6 +11,7 @@ You should have received a copy of the GNU General Public License along with hhl
 */
 
 // Function Prototypes
+int validPort(char *port);
 int connectSvr(char *ip, char *port);
 void listenACK(int sockfd, char *res);
 void sendFile(FILE *fp, long int fileSize, int sockfd);

@@ -32,6 +32,22 @@ You should have received a copy of the GNU General Public License along with hhl
 #include "hhl7web.h"
 
 
+// Check if a port is valid (ret 0=valid, 1=string too long, 2=out of range)
+int validPort(char *port) {
+  int portLen = strlen(port);
+  int portNum = atoi(port);
+
+  if (portLen < 4 || portLen > 5) {
+    return 1;
+
+  } else if (portNum < 1024 || portNum > 65535) {
+    return 2;
+
+  }
+  return 0;
+}
+
+
 // Connect to server on IP:Port
 int connectSvr(char *ip, char *port) {
   int sockfd = -1;

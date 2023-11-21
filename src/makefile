@@ -13,6 +13,7 @@ CERTS   = certs/*.example
 IMAGES  = images/*
 SVRS    = conf/servers.hhl7
 SYSD    = sys/hhl7.s*
+SYSLOG  = sys/76-hhl7.conf
 TEMPS   = templates/*
 
 .c.o:
@@ -41,6 +42,7 @@ install:: hhl7
 	install -c -m 0644 $(IMAGES) $(DESTDIR)/images
 	install -c -m 0644 $(SVRS) $(DESTDIR)/$(SVRS).example
 	install -c -m 0644 $(SYSD) /lib/systemd/system
+	install -c -m 0644 $(SYSLOG) /etc/rsyslog.d
 	install -c -m 0644 $(TEMPS) $(DESTDIR)/templates
 
 #	TODO - install man page when created
