@@ -11,6 +11,7 @@ BIN     = hhl7
 MAN     = hhl7.1
 CERTS   = certs/*.example
 IMAGES  = images/*
+LOGROT  = sys/hhl7.logrotate
 SVRS    = conf/servers.hhl7
 SYSD    = sys/hhl7.s*
 SYSLOG  = sys/76-hhl7.conf
@@ -40,6 +41,7 @@ install:: hhl7
 	ln -sf $(DESTDIR)/bin/$(BIN) $(BINDIR)/$(BIN)
 	install -c -m 0644 $(CERTS) $(DESTDIR)/certs
 	install -c -m 0644 $(IMAGES) $(DESTDIR)/images
+	install -c -m 0644 $(LOGROT) /etc/logrotate.d/$(BIN)
 	install -c -m 0644 $(SVRS) $(DESTDIR)/$(SVRS).example
 	install -c -m 0644 $(SYSD) /lib/systemd/system
 	install -c -m 0644 $(SYSLOG) /etc/rsyslog.d

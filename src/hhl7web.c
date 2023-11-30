@@ -42,14 +42,11 @@ You should have received a copy of the GNU General Public License along with hhl
 #define COOKIE_NAME      "hhl7Session"
 #define GET             0
 #define POST            1
-// TODO - allow more space if needed?
 #define MAXNAMESIZE     1024
 #define MAXANSWERSIZE   50 
 #define POSTBUFFERSIZE  65536
 
 // Global variables TODO - review these to see if we can not use globals
-// TODO - IMPORTANT - webErrStr needs to go in the session somehow
-char webErrStr[256] = "";
 int webRunning = 0;
 
 
@@ -70,6 +67,7 @@ struct Session {
   // Session id, previous session ID, connection counter, time last active
   char sessID[33];
   char oldSessID[33];
+  int shortID;
   int aStatus;
   unsigned int rc;
   time_t lastSeen;
@@ -88,18 +86,24 @@ struct Session {
 // Linked list of sessions
 static struct Session *sessions;
 
+
 // Get the session ID from cookie or create a new session
 static struct Session *getSession(struct MHD_Connection *connection) {
   struct Session *ret;
   const char *cookie;
+  int maxShortID = 0, baseSession = 0;
 
   if (connection) {
     cookie = MHD_lookup_connection_value(connection, MHD_COOKIE_KIND, COOKIE_NAME);
 
     if (cookie != NULL) {
+      sprintf(infoStr, "Retrieved session from cookie: %s", cookie);
+      writeLog(LOG_DEBUG, infoStr, 0);
+
       // Try to find an existing session
       ret = sessions;
-      while (NULL != ret) {
+      while (ret != NULL) {
+        if (ret->shortID > maxShortID) maxShortID = ret->shortID;
         if (strcmp(cookie, ret->sessID) == 0) {
           break;
         } else if (strcmp(cookie, ret->oldSessID) == 0) {
@@ -107,18 +111,24 @@ static struct Session *getSession(struct MHD_Connection *connection) {
         }
         ret = ret->next;
       }
-      if (NULL != ret) {
+      if (ret != NULL) {
+
+        sprintf(infoStr, "[S: %03d] Session matched to an active session: %s",
+                         ret->shortID, ret->sessID);
+        writeLog(LOG_DEBUG, infoStr, 0);
         ret->rc++;
         return ret;
       }
     }
+
+  } else {
+    baseSession = 1;
   }
 
   // If no session exists, create a new session
-  ret = calloc (1, sizeof (struct Session));
-  if (NULL == ret) {
-    // TODO - error handle function
-    fprintf(stderr, "calloc error");
+  ret = calloc(1, sizeof (struct Session));
+  if (ret == NULL) {
+    handleError(LOG_ERR, "Could not allocate memory to create session ID, out of memory?", -1, 0, 0);
     return NULL;
   }
 
@@ -131,11 +141,22 @@ static struct Session *getSession(struct MHD_Connection *connection) {
             (unsigned int) rand (),
             (unsigned int) rand ());
 
-  sprintf(ret->oldSessID, "%s", cookie);
+  if (baseSession == 0) {
+    sprintf(ret->oldSessID, "%s", cookie);
+  } else {
+    sprintf(ret->oldSessID, "%s", "BaseSession");
+  }
+
+  ret->shortID = maxShortID + 1;
   ret->rc++;
   ret->lastSeen = time(NULL);
   ret->next = sessions;
   sessions = ret;
+
+  sprintf(infoStr, "[S: %03d] No active session found for: %s, created: %s",
+                   ret->shortID, ret->oldSessID, ret->sessID);
+  writeLog(LOG_INFO, infoStr, 0);
+
   return ret;
 }
 
@@ -144,9 +165,16 @@ static struct Session *getSession(struct MHD_Connection *connection) {
 static void addCookie(struct Session *session, struct MHD_Response *response) {
   char cstr[strlen(COOKIE_NAME) + strlen(session->sessID) + 20];
   sprintf(cstr, "%s=%s; SameSite=Strict", COOKIE_NAME, session->sessID);
+
   if (MHD_add_response_header(response, MHD_HTTP_HEADER_SET_COOKIE, cstr) == MHD_NO) {
-    // TODO - error handle
-    fprintf (stderr, "Failed to set session cookie header!\n");
+    sprintf(infoStr, "[S: %03d] Failed to set session cookie header", session->shortID);
+    handleError(LOG_WARNING, infoStr, -1, 0, 0);
+
+  } else {
+    sprintf(infoStr, "[S: %03d] Cookie session header added: %s",
+                     session->shortID, session->sessID);
+    handleError(LOG_DEBUG, infoStr, -1, 0, 0);
+
   }
 }
 
@@ -160,41 +188,14 @@ static void reqComplete(void *cls, struct MHD_Connection *connection,
   (void) connection;  // Unused. Silent compiler warning.
   (void) toe;         // Unused. Silent compiler warning.
 
-  if (request == NULL)
-    return;
-  if (request->session != NULL)
-    request->session->rc--;
-  // TODO - commented out due to seg fault, check for memory leak
-  //if (NULL != request->postprocessor)
-  //  MHD_destroy_post_processor (request->postprocessor);
+  if (request == NULL) return;
+  if (request->session != NULL) request->session->rc--;
   free (request);
 }
 
 
-// Send error message web browser
-static enum MHD_Result webErrXHR(struct Session *session,
-                                 struct MHD_Connection *connection) {
-  enum MHD_Result ret;
-  struct MHD_Response *response;
-
-  response = MHD_create_response_from_buffer(strlen(webErrStr), (void *) webErrStr,
-             MHD_RESPMEM_MUST_COPY);
-
-  if (!response) return MHD_NO;
-
-  MHD_add_response_header(response, "Content-Type", "text/plain");
-  MHD_add_response_header(response, "Cache-Control", "no-cache");
-
-  //addCookie(session, response);
-  ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
-  MHD_destroy_response(response);
-
-  webErrStr[0] = '\0';
-  return ret;
-}
-
-
-static enum MHD_Result requestLogin(struct MHD_Connection *connection) {
+static enum MHD_Result requestLogin(struct Session *session,
+                                    struct MHD_Connection *connection, const char *url) {
   enum MHD_Result ret;
   struct MHD_Response *response;
 
@@ -204,13 +205,16 @@ static enum MHD_Result requestLogin(struct MHD_Connection *connection) {
     return MHD_NO;
 
   ret = MHD_queue_response(connection, MHD_HTTP_UNAUTHORIZED, response);
+  sprintf(infoStr, "[S: %03d][401] Request: %s", session->shortID, url);
+  writeLog(LOG_INFO, infoStr, 0);
+
   MHD_destroy_response(response);
   return ret;
 }
 
 
 static enum MHD_Result main_page(struct Session *session,
-                                 struct MHD_Connection *connection) {
+                                 struct MHD_Connection *connection, const char *url) {
   enum MHD_Result ret;
   struct MHD_Response *response;
   const char *page = mainPage;
@@ -222,6 +226,9 @@ static enum MHD_Result main_page(struct Session *session,
 
   addCookie(session, response);
   ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
+  sprintf(infoStr, "[S: %03d][200] Request: %s", session->shortID, url);
+  writeLog(LOG_INFO, infoStr, 0);
+
   MHD_destroy_response(response);
   return ret;
 }
@@ -250,12 +257,15 @@ static enum MHD_Result getImage(struct Session *session,
   if (fp == NULL) {
     fclose(fp);
 
+    // TODO... need to pass this to error handler, check for all 501 errors
     response = MHD_create_response_from_buffer(strlen (errorstr), 
                                                (void *) errorstr,
                                                MHD_RESPMEM_PERSISTENT);
     if (response) {
-      //addCookie(session, response);
-      ret = MHD_queue_response(connection, MHD_HTTP_INTERNAL_SERVER_ERROR, response);
+      ret = MHD_queue_response(connection, MHD_HTTP_NOT_FOUND, response);
+      sprintf(infoStr, "[S: %03d][404] Request: %s", session->shortID, url);
+      writeLog(LOG_WARNING, infoStr, 0);
+
       MHD_destroy_response(response);
       return MHD_YES;
 
@@ -271,9 +281,10 @@ static enum MHD_Result getImage(struct Session *session,
                                                  MHD_RESPMEM_PERSISTENT);
 
       if (response) {
-        // TODO - no cookie needed here, but check everywhere else
-        //addCookie(session, response);
         ret = MHD_queue_response(connection, MHD_HTTP_INTERNAL_SERVER_ERROR, response);
+        sprintf(infoStr, "[S: %03d][501] Request: %s", session->shortID, url);
+        writeLog(LOG_WARNING, infoStr, 0);
+
         MHD_destroy_response(response);
         fclose(fp);
         return MHD_YES;    
@@ -288,18 +299,21 @@ static enum MHD_Result getImage(struct Session *session,
   // Successful image retrieval
   response = MHD_create_response_from_fd_at_offset64(fSize, fileno(fp), 0);
   MHD_add_response_header(response, "Content-Type", "image/png");
-  //addCookie(session, response);
-  ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
-  MHD_destroy_response(response);
 
+  ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
+  sprintf(infoStr, "[S: %03d][200] Request: %s", session->shortID, url);
+  writeLog(LOG_INFO, infoStr, 0);
+
+  MHD_destroy_response(response);
   return ret;
 }
 
 
 // Get the list of servers that we can send to from the servers config file
 static enum MHD_Result getServers(struct Session *session,
-                                   struct MHD_Connection *connection,
-                                   struct connection_info_struct *con_info) {
+                                  struct MHD_Connection *connection,
+                                  struct connection_info_struct *con_info,
+                                  const char *url) {
   enum MHD_Result ret;
   struct MHD_Response *response;
   struct json_object *svrsObj = NULL, *svrObj = NULL;
@@ -314,16 +328,15 @@ static enum MHD_Result getServers(struct Session *session,
 
   svrsObj = json_object_from_file(svrsFile);
   if (svrsObj == NULL) {
-    // TODO - another error to handle
-    printf("Failed to read server config file\n");
-    exit(1);
+    sprintf(infoStr, "[S: %03d] Failed to read server config file", session->shortID);
+    handleError(LOG_ERR, infoStr, 1, 0, 1);
   }
 
   json_object_object_get_ex(svrsObj, "servers", &svrObj);
   if (svrObj == NULL) {
-    // TODO - Another error to pass to web
-    printf("Failed to get server object, server file corrupt?\n");
-    exit(1);
+    sprintf(infoStr, "[S: %03d] Failed to get server object, server file corrupt?",
+                     session->shortID);
+    handleError(LOG_ERR, infoStr, 1, 0, 1);
   }
 
   const char *svrList = json_object_to_json_string_ext(svrObj, JSON_C_TO_STRING_PLAIN);
@@ -338,6 +351,9 @@ static enum MHD_Result getServers(struct Session *session,
 
   addCookie(session, response);
   ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
+  sprintf(infoStr, "[S: %03d][200] Request: %s", session->shortID, url);
+  writeLog(LOG_INFO, infoStr, 0);
+
   MHD_destroy_response(response);
 
   json_object_put(svrObj);
@@ -348,7 +364,8 @@ static enum MHD_Result getServers(struct Session *session,
 // Get users settings from the password file
 static enum MHD_Result getSettings(struct Session *session,
                                    struct MHD_Connection *connection,
-                                   struct connection_info_struct *con_info) {
+                                   struct connection_info_struct *con_info,
+                                   const char *url) {
   enum MHD_Result ret;
   struct MHD_Response *response;
 
@@ -369,16 +386,15 @@ static enum MHD_Result getSettings(struct Session *session,
 
   pwObj = json_object_from_file(pwFile);
   if (pwObj == NULL) {
-    // TODO - another error to handle
-    printf("Failed to read password file\n");
-    exit(1);
+    sprintf(infoStr, "[S: %03d] Failed to read passwd file", session->shortID);
+    handleError(LOG_ERR, infoStr, 1, 0, 1);
   }
 
   json_object_object_get_ex(pwObj, "users", &userArray);
   if (userArray == NULL) {
-    // Another error to pass to web
-    printf("Failed to get user object, passwd file corrupt?\n");
-    exit(1);
+    sprintf(infoStr, "[S: %03d] Failed to get user object, passwd file corrupt?",
+                     session->shortID);
+    handleError(LOG_ERR, infoStr, 1, 0, 1);
   }
 
   // TODO - using a lot of for i in userArrays throughout code, hash table?
@@ -417,8 +433,10 @@ static enum MHD_Result getSettings(struct Session *session,
 
   addCookie(session, response);
   ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
-  MHD_destroy_response(response);
+  sprintf(infoStr, "[S: %03d][200] Request: %s", session->shortID, url);
+  writeLog(LOG_INFO, infoStr, 0);
 
+  MHD_destroy_response(response);
   json_object_put(pwObj);
   return ret;
 }
@@ -426,7 +444,7 @@ static enum MHD_Result getSettings(struct Session *session,
 
 // Get a list of template files and return them as a set of <select> <option>s
 static enum MHD_Result getTemplateList(struct Session *session,
-                                       struct MHD_Connection *connection) {
+                                       struct MHD_Connection *connection, const char *url) {
 
   enum MHD_Result ret;
   struct MHD_Response *response;
@@ -441,18 +459,17 @@ static enum MHD_Result getTemplateList(struct Session *session,
   // TODO - WORKING - check malloc here
   char *tempOpts = malloc(36);
   if (tempOpts == NULL) {
-    // TODO - error handle
-    fprintf(stderr, "ERROR: Cannot cannot allocate memory for template list.\n");
-    exit(1);
+    sprintf(infoStr, "[S: %03d] Cannot cannot allocate memory for template list",
+                     session->shortID);
+    handleError(LOG_ERR, infoStr, 1, 0, 1);
   }
 
   strcpy(tempOpts, nOpt);
 
   dp = opendir(tPath); 
   if (dp == NULL) {
-    // TODO - error handle
-    fprintf(stderr, "ERROR: Cannot open path: %s\n", tPath);
-    exit(1);
+    sprintf(infoStr, "[S: %03d] Cannot open path: %s", session->shortID, tPath);
+    handleError(LOG_ERR, infoStr, 1, 0, 1);
   }
 
   while ((file = readdir(dp)) != NULL) {
@@ -484,8 +501,10 @@ static enum MHD_Result getTemplateList(struct Session *session,
           // Increase memory for tempOpts to allow file name etc
           newPtr = realloc(tempOpts, (2*strlen(fName)) + strlen(tempOpts) + 37);
           if (newPtr == NULL) {
-            // TODO - error handle
-            fprintf(stderr, "ERROR: Can't allocatate memory\n");
+            sprintf(infoStr, "[S: %03d] Can't realloc memory for template list (tempopts)",
+                             session->shortID);
+            handleError(LOG_ERR, infoStr, 1, 0, 1);
+
           } else {
             tempOpts = newPtr;
           }
@@ -512,6 +531,9 @@ static enum MHD_Result getTemplateList(struct Session *session,
 
   addCookie(session, response);
   ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
+  sprintf(infoStr, "[S: %03d][200] Request: %s", session->shortID, url);
+  writeLog(LOG_INFO, infoStr, 0);
+
   MHD_destroy_response(response);
   return ret;
 }
@@ -577,13 +599,17 @@ static enum MHD_Result getTempForm(struct Session *session,
   if (! response) return MHD_NO;
   addCookie(session, response);
   ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
+  sprintf(infoStr, "[S: %03d][200] Request: %s", session->shortID, url);
+  writeLog(LOG_INFO, infoStr, 0);
+
   MHD_destroy_response(response);
   return ret;
 }
 
 
 static enum MHD_Result sendHL72Web(struct Session *session,
-                                   struct MHD_Connection *connection, int fd) {
+                                   struct MHD_Connection *connection, int fd,
+                                   const char *url) {
 
   enum MHD_Result ret;
   struct MHD_Response *response;
@@ -592,13 +618,6 @@ static enum MHD_Result sendHL72Web(struct Session *session,
   char *rBuf = malloc(rBufS);
   char readSizeBuf[11];
   int p = 0, pLen = 1, maxPkts = 250, readSize = 0;
-
-  if (strlen(webErrStr) > 0) {
-    free(fBuf);
-    free(rBuf);
-    // TODO change to session error handler
-    return webErrXHR(session, connection);
-  }
 
   strcpy(fBuf, "event: rcvHL7\ndata: ");
 
@@ -609,8 +628,9 @@ static enum MHD_Result sendHL72Web(struct Session *session,
       if (readSize > rBufS) {
         char *rBufNew = realloc(rBuf, readSize + 1);
         if (rBufNew == NULL) {
-          // TODO - error handle
-          fprintf(stderr, "ERROR: Can't allocatate memory\n");
+          sprintf(infoStr, "[S: %03d] Can't realloc memory sendHL72Web, rBuf",
+                           session->shortID);
+          handleError(LOG_ERR, infoStr, 1, 0, 1);
 
         } else {
           rBuf = rBufNew;
@@ -657,6 +677,14 @@ static enum MHD_Result sendHL72Web(struct Session *session,
   addCookie(session, response);
 
   ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
+  if (p == 0) {
+    sprintf(infoStr, "[S: %03d][200] Web listener sent heart beat", session->shortID);
+    writeLog(LOG_DEBUG, infoStr, 0);
+  } else {
+    sprintf(infoStr, "[S: %03d][200] Web listener sent %ld byte packet", session->shortID, strlen(fBuf));
+    writeLog(LOG_INFO, infoStr, 0);
+  }
+
   MHD_destroy_response(response);
 
   // Free memory from buffers
@@ -689,7 +717,7 @@ static void cleanSession(struct Session *session) {
 
 // Stop the backend listening for packets from hl7 server
 static enum MHD_Result stopListenWeb(struct Session *session,
-                                     struct MHD_Connection *connection) {
+                                     struct MHD_Connection *connection, const char *url) {
 
   enum MHD_Result ret;
   struct MHD_Response *response;
@@ -707,19 +735,24 @@ static enum MHD_Result stopListenWeb(struct Session *session,
   addCookie(session, response);
 
   ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
+  sprintf(infoStr, "[S: %03d][200] Request: %s", session->shortID, url);
+  writeLog(LOG_INFO, infoStr, 0);
+
   MHD_destroy_response(response);
   return ret;
 }
 
 
 // Start a HL7 Listener in a forked child process
-static void startListenWeb(struct Session *session, struct MHD_Connection *connection) {
+static void startListenWeb(struct Session *session, struct MHD_Connection *connection,
+                           const char *url) {
+
   // Make children ignore waiting for parent process before closing
   signal(SIGCHLD, SIG_IGN);
 
   // Ensure we've stopped the previous listener before starting another
   if (session->lpid > 0) {
-    stopListenWeb(session, connection);
+    stopListenWeb(session, connection, url);
   }
 
   pid_t pidBefore = getpid();
@@ -728,12 +761,11 @@ static void startListenWeb(struct Session *session, struct MHD_Connection *conne
   if (session->lpid == 0) {
     // Make the child exit if the  parent exits
     int r = prctl(PR_SET_PDEATHSIG, SIGTERM);
-    // TDOD - error handle
     if (r == -1 || getppid() != pidBefore) {
       exit(0);
     }
 
-    // TODO - locahost should be OK for listening, but double check if we need a bind add
+    // 127.0.0.1 should be fine for daemon on systemd socket, -w may need bind address
     startMsgListener("127.0.0.1", session->lPort);
     _exit(0);
 
@@ -745,11 +777,11 @@ static void startListenWeb(struct Session *session, struct MHD_Connection *conne
   mkfifo(hhl7fifo, 0666);
   session->readFD = open(hhl7fifo, O_RDONLY | O_NONBLOCK);
   session->isListening = 1;
-  //fcntl(readFD, F_SETPIPE_SZ, 1048576);
+  //fcntl(readFD, F_SETPIPE_SZ, 1048576); // Change size of pipe, default seems OK
 }
 
 
-// TODO - iterate post getting too big, split to functions?
+// TODO - iterate post getting too big, split to functions...
 static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
               const char *key, const char *filename, const char *content_type,
               const char *transfer_encoding, const char *data, uint64_t off, size_t size) {
@@ -780,7 +812,7 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
     if (con_info->session->aStatus < 1) {
       if (strcmp(key, "pcaction") == 0 || strcmp(key, "uname") == 0 ||
           strcmp(key, "pword") == 0) {
-        // Log?
+
       } else {
         snprintf(answerstring, 3, "%s", "L0");  // Require a login
         con_info->answerstring = answerstring;
@@ -791,7 +823,6 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
     if (strcmp (key, "hl7MessageText") == 0 ) {
       char newData[strlen(data) + 5];
       strcpy(newData, data);
-      //wrapMLLP(newData);
 
       sockfd = connectSvr(con_info->session->sIP, con_info->session->sPort);
       // TODO - Sock number increases with each message? free? 
@@ -799,13 +830,18 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
  
       if (sockfd >= 0) {
         sendPacket(sockfd, newData, resStr);
+        sprintf(infoStr, "[S: %03d][%s] Sent %ld byte packet to socket: %d",
+                         con_info->session->shortID, resStr, strlen(newData), sockfd);
+        writeLog(LOG_INFO, infoStr, 0);
 
-        // TODO - Why are we adding newData here? surely just resStr will be fine?
         snprintf(answerstring, MAXANSWERSIZE, resStr, newData);
         con_info->answerstring = answerstring;
 
       } else {
-        // TODO - can't open socket error message - maybe handled by error handler
+        sprintf(infoStr, "[S: %03d] Can't open socket to send packet",
+                         con_info->session->shortID);
+        handleError(LOG_ERR, infoStr, 1, 0, 1);
+
       }  
 
     } else if (strcmp(key, "pcaction") == 0 ) {
@@ -835,18 +871,35 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
 
           if (nStatus == 0) {
             snprintf(answerstring, 3, "%s", "LC");  // New account created
+            sprintf(infoStr, "[S: %03d] New user account created, uid: %s",
+                             con_info->session->shortID, con_info->session->userid);
+            writeLog(LOG_INFO, infoStr, 0);
+
           } else {
             snprintf(answerstring, 3, "%s", "LF");  // New account creation failure
+            sprintf(infoStr, "[S: %03d] New user account creation failed, uid: %s",
+                             con_info->session->shortID, con_info->session->userid);
+            writeLog(LOG_INFO, infoStr, 0);
+
           }
 
         } else if (aStatus == 3 && con_info->session->pcaction == 1) {
           snprintf(answerstring, 3, "%s", "LR");  // Reject login, no account
+          sprintf(infoStr, "[S: %03d] Login rejected (no account), uid: %s",
+                           con_info->session->shortID, con_info->session->userid);
+          writeLog(LOG_INFO, infoStr, 0);
 
         } else if (aStatus == 2) {
           snprintf(answerstring, 3, "%s", "LR");  // Reject login, wrong password
+          sprintf(infoStr, "[S: %03d] Login rejected (wrong password), uid: %s",
+                           con_info->session->shortID, con_info->session->userid);
+          writeLog(LOG_INFO, infoStr, 0);
 
         } else if (aStatus == 1) {
           snprintf(answerstring, 3, "%s", "LD");  // Account disabled, but login OK
+          sprintf(infoStr, "[S: %03d] Login rejected (account disabled), uid: %s",
+                           con_info->session->shortID, con_info->session->userid);
+          writeLog(LOG_INFO, infoStr, 0);
 
         } else if (aStatus == 0 && con_info->session->pcaction == 3) {
           con_info->session->aStatus = 2;
@@ -855,6 +908,9 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
         } else if (aStatus == 0) {
           con_info->session->aStatus = 1;
           snprintf(answerstring, 3, "%s", "LA");  // Accept login
+          sprintf(infoStr, "[S: %03d] Login accepted, uid: %s",
+                           con_info->session->shortID, con_info->session->userid);
+          writeLog(LOG_INFO, infoStr, 0);
 
         } else {
           snprintf(answerstring, 3, "%s", "DP");
@@ -862,19 +918,20 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
         }
       }
 
-      // TODO - can't overwrite data memory as it's defined as const in libmicrohttpd
-      // Overwrite password with nulls for security, we should always compile
-      // with -fno-builtin-memset to ensure no memset optimisation
-      //memset(data, '\0', strlen(data));
       con_info->answerstring = answerstring;
 
     } else if (strcmp(key, "npword") == 0 ) {
-      // TODO - recheck auth here? Seems unrestrictive on chaging a password
+      // NOTE: con_info->session->aStatus = 2 can only be true after a succesful
+      // username/passwd check from a username/passwd/newPasswd post.
       snprintf(answerstring, 3, "%s", "SX");
       if (con_info->session->aStatus == 2) {
         con_info->session->aStatus = 1;
         if (updatePasswd(con_info->session->userid, data) == 0) {
           snprintf(answerstring, 3, "%s", "OK");  // Password updated succesfully
+          sprintf(infoStr, "[S: %03d] Password changed, uid: %s",
+                           con_info->session->shortID, con_info->session->userid);
+          writeLog(LOG_INFO, infoStr, 0);
+
         }
       }
 
@@ -886,9 +943,15 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
       if (updatePasswdFile(con_info->session->userid, key, data) == 0) {
         sprintf(con_info->session->sIP, "%s", data);
         snprintf(answerstring, 3, "%s", "OK");  // Save OK
+        sprintf(infoStr, "[S: %03d] Send IP settings saved OK, uid: %s",
+                         con_info->session->shortID, con_info->session->userid);
+        writeLog(LOG_INFO, infoStr, 0);
 
       } else {
         snprintf(answerstring, 3, "%s", "SX");  // Save failed
+        sprintf(infoStr, "[S: %03d] Failed to save send IP settings, uid: %s",
+                         con_info->session->shortID, con_info->session->userid);
+        writeLog(LOG_WARNING, infoStr, 0);
 
       }
       con_info->answerstring = answerstring;
@@ -897,9 +960,15 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
       if (updatePasswdFile(con_info->session->userid, key, data) == 0) {
         sprintf(con_info->session->sPort, "%s", data);
         snprintf(answerstring, 3, "%s", "OK");  // Save OK
+        sprintf(infoStr, "[S: %03d] Send port settings saved OK, uid: %s",
+                         con_info->session->shortID, con_info->session->userid);
+        writeLog(LOG_INFO, infoStr, 0);
 
       } else {
         snprintf(answerstring, 3, "%s", "SX");  // Save failed
+        sprintf(infoStr, "[S: %03d] Failed to save send port settings, uid: %s",
+                         con_info->session->shortID, con_info->session->userid);
+        writeLog(LOG_WARNING, infoStr, 0);
 
       }
       con_info->answerstring = answerstring;
@@ -907,15 +976,24 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
     } else if (strcmp(key, "lPort") == 0 ) {
       if (lPortUsed(con_info->session->userid, data) == 1) {
         snprintf(answerstring, 3, "%s", "SR");  // Save Rejected (port in use)
+        sprintf(infoStr, "[S: %03d] Rejected listen port change, port in use, uid: %s",
+                         con_info->session->shortID, con_info->session->userid);
+        writeLog(LOG_INFO, infoStr, 0);
 
       } else if (updatePasswdFile(con_info->session->userid, key, data) == 0) {
         sprintf(con_info->session->lPort, "%s", data);
-        stopListenWeb(con_info->session, con_info->connection);
-        startListenWeb(con_info->session, con_info->connection);
+        stopListenWeb(con_info->session, con_info->connection, "/postListSets");
+        startListenWeb(con_info->session, con_info->connection, "/postListSets");
         snprintf(answerstring, 3, "%s", "OK");  // Save OK
+        sprintf(infoStr, "[S: %03d] Listen port settings saved OK, uid: %s",
+                         con_info->session->shortID, con_info->session->userid);
+        writeLog(LOG_INFO, infoStr, 0);
 
       } else {
         snprintf(answerstring, 3, "%s", "SX");  // Save failed
+        sprintf(infoStr, "[S: %03d] Failed to save send port settings, uid: %s",
+                         con_info->session->shortID, con_info->session->userid);
+        writeLog(LOG_WARNING, infoStr, 0);
 
       }
       con_info->answerstring = answerstring;
@@ -925,6 +1003,10 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
   } else {
     // No post data was received, reply with code "D0" (no data)
     strcpy(answerstring, "D0");
+    sprintf(infoStr, "[S: %03d] Post received with no data, uid: %s",
+                     con_info->session->shortID, con_info->session->userid);
+    writeLog(LOG_WARNING, infoStr, 0);
+
     con_info->answerstring = answerstring;
     return MHD_NO;
 
@@ -934,16 +1016,11 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
 
 
 // TODO - Use this instead of all the individual functions for pages?
-static enum MHD_Result sendPage(struct Session *session,
-                                 struct MHD_Connection *connection,
-                                 const char* connectiontype, const char *page) {
+static enum MHD_Result sendPage(struct Session *session, struct MHD_Connection *connection,                                const char* connectiontype, const char *page,
+                                const char *url) {
 
   enum MHD_Result ret;
   struct MHD_Response *response;
-
-  if (strlen(webErrStr) > 0) {
-    return webErrXHR(session, connection);
-  }
 
   response = MHD_create_response_from_buffer(strlen(page), (void *) page, MHD_RESPMEM_PERSISTENT);
 
@@ -954,13 +1031,21 @@ static enum MHD_Result sendPage(struct Session *session,
 
   if (strcmp(page, "L0") == 0 || strcmp(page, "LR") == 0 ||strcmp(page, "LD") == 0) {
     ret = MHD_queue_response(connection, MHD_HTTP_UNAUTHORIZED, response);
+    sprintf(infoStr, "[S: %03d][401] Request: %s", session->shortID, url);
+    writeLog(LOG_INFO, infoStr, 0);
+
 
   } else if (strcmp(page, "DP") == 0) {
     ret = MHD_queue_response(connection, MHD_HTTP_BAD_REQUEST, response);
+    sprintf(infoStr, "[S: %03d][400] Request: %s", session->shortID, url);
+    writeLog(LOG_INFO, infoStr, 0);
 
   } else {
     addCookie(session, response);
     ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
+    sprintf(infoStr, "[S: %03d][200] Request: %s", session->shortID, url);
+    writeLog(LOG_INFO, infoStr, 0);
+
   }
 
   MHD_destroy_response(response);
@@ -969,7 +1054,8 @@ static enum MHD_Result sendPage(struct Session *session,
 
 
 // Logout of the web front end and close backend session
-static enum MHD_Result logout(struct Session *session, struct MHD_Connection *connection) {
+static enum MHD_Result logout(struct Session *session, struct MHD_Connection *connection,
+                              const char *url) {
   enum MHD_Result ret;
   struct MHD_Response *response;
 
@@ -981,6 +1067,12 @@ static enum MHD_Result logout(struct Session *session, struct MHD_Connection *co
 
   MHD_add_response_header(response, "Content-Type", "text/plain");
   ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
+  sprintf(infoStr, "[S: %03d][200] Request: %s", session->shortID, url);
+  writeLog(LOG_INFO, infoStr, 0);
+  sprintf(infoStr, "[S: %03d] User logged out, uid: %s", session->shortID, session->userid);
+  writeLog(LOG_INFO, infoStr, 0);
+
+
   MHD_destroy_response(response);
   return ret;
 }
@@ -1038,7 +1130,7 @@ static enum MHD_Result answer_to_connection(void *cls, struct MHD_Connection *co
     con_info->session = getSession(connection);
 
     if (con_info->session == NULL) {
-      fprintf (stderr, "Failed to setup session for `%s'\n", url);
+      fprintf (stderr, "Failed to setup session for %s\n", url);
       return MHD_NO;
     }
   }
@@ -1054,36 +1146,36 @@ static enum MHD_Result answer_to_connection(void *cls, struct MHD_Connection *co
 
     } else if (strcmp(url, "/getTemplateList") == 0) {
       // Request login if not logged in
-      if (session->aStatus != 1) return requestLogin(connection);
-      return getTemplateList(session, connection);
+      if (session->aStatus != 1) return requestLogin(session, connection, url);
+      return getTemplateList(session, connection, url);
 
     } else if (strcmp(url, "/getServers") == 0) {
       // Request login if not logged in
-      if (session->aStatus != 1) return requestLogin(connection);
-      return getServers(session, connection, con_info);
+      if (session->aStatus != 1) return requestLogin(session, connection, url);
+      return getServers(session, connection, con_info, url);
 
     } else if (strcmp(url, "/getSettings") == 0) {
       // Request login if not logged in
-      if (session->aStatus != 1) return requestLogin(connection);
-      return getSettings(session, connection, con_info);
+      if (session->aStatus != 1) return requestLogin(session, connection, url);
+      return getSettings(session, connection, con_info, url);
 
     } else if (strcmp(url, "/stopListenHL7") == 0) {
-      if (session->aStatus != 1) return requestLogin(connection);
-      return stopListenWeb(session, connection);
+      if (session->aStatus != 1) return requestLogin(session, connection, url);
+      return stopListenWeb(session, connection, url);
 
     } else if (strcmp(url, "/logout") == 0) {
-      if (session->aStatus != 1) return requestLogin(connection);
-      return logout(session, connection);
+      if (session->aStatus != 1) return requestLogin(session, connection, url);
+      return logout(session, connection, url);
 
     // TODO pull this out to a function?? 
     } else if (strcmp(url, "/listenHL7") == 0) {
-      if (session->aStatus != 1) return requestLogin(connection);
+      if (session->aStatus != 1) return requestLogin(session, connection, url);
       if (session->isListening == 0) {
-        startListenWeb(con_info->session, con_info->connection);
+        startListenWeb(con_info->session, con_info->connection, url);
       }
 
       if (session->isListening == 1) {
-        return sendHL72Web(session, connection, session->readFD);
+        return sendHL72Web(session, connection, session->readFD, url);
 
       } else {
         session->isListening = 1;
@@ -1091,7 +1183,7 @@ static enum MHD_Result answer_to_connection(void *cls, struct MHD_Connection *co
       }
 
     } else {
-      return main_page(session, connection);
+      return main_page(session, connection, url);
     }
   }
 
@@ -1102,62 +1194,85 @@ static enum MHD_Result answer_to_connection(void *cls, struct MHD_Connection *co
       return MHD_YES;
 
     } else if (NULL != con_info->answerstring) {
-      return sendPage(session, connection, method, con_info->answerstring);
+      return sendPage(session, connection, method, con_info->answerstring, url);
 
     }
   }
 
   // TODO - error page
-  return sendPage(session, connection, method, errorPage);
+  return sendPage(session, connection, method, errorPage, url);
 }
 
 
 // Clear down old sessions
-static void expireSessions() {
+static int expireSessions(int expireAfter) {
   struct Session *pos;
   struct Session *prev;
   struct Session *next;
   time_t now;
-  int sessCount = 0;
+  int sessCount = 0, rmCount = 0, expireSecs = 0, maxExpire = 0;
 
   now = time(NULL);
   prev = NULL;
   pos = sessions;
 
-  while (NULL != pos) {
+  writeLog(LOG_INFO, "Checking for expired session...", 0);
+
+  // Loop through all sessions
+  while (pos != NULL) {
     sessCount++;
     next = pos->next;
-    // Expire old sessions after 15 mins
-    if (now - pos->lastSeen > 900) {
+
+    // Expire old sessions
+    if ((now - pos->lastSeen) > expireAfter) {
+      rmCount++;
+      sprintf(infoStr, "[S: %03d] Session expired, removing session", pos->shortID);
+      writeLog(LOG_INFO, infoStr, 0);
+
       cleanSession(pos);
 
-      if (NULL == prev) {
+      if (prev == NULL) {
         sessions = pos->next;
       } else {
         prev->next = next;
       }
-      free (pos);
+      free(pos);
 
     } else {
+      // Log the maximum expiry time for return value
+      expireSecs = expireAfter - (now - pos->lastSeen);
+      if (expireSecs > maxExpire) maxExpire = expireSecs;
       prev = pos;
     }
 
     pos = next;
   }
 
+  // Log the current session status
+  sprintf(infoStr, "%d sessions total, %d sessions expired, %d sessions left active",
+                   sessCount, rmCount, sessCount - rmCount);
+  writeLog(LOG_INFO, infoStr, 0);
+
   // If the last session has expired, close the daemon
+  sessCount = sessCount - rmCount;
   if (sessCount < 1 && isDaemon == 1) {
-    // TODO - log the exit
     // TODO - Tidy up before close... maybe create tidy function
-    closelog();
+    writeLog(LOG_INFO, "No active sessions remaining, exiting", 0);
+
+    closeLog();
     exit(0);
   }
+
+  return maxExpire;
 }
 
 
 // Start the web interface
 int listenWeb(int daemonSock) {
   struct MHD_Daemon *daemon;
+  // TODO - Change expire times to config file?
+  int maxExpire = 0, expireSecs = 900, expireDelay = 10;
+  time_t now, last = time(NULL) - (expireSecs + expireDelay + 1) ;
   char SKEY[34];
   char SPEM[34];
 
@@ -1174,8 +1289,7 @@ int listenWeb(int daemonSock) {
 
   // Check the cert files exist
   if (checkFile(SKEY, 4) == 1 || checkFile(SPEM, 4) == 1 ) {
-    fprintf(stderr, "ERROR: The HTTPS key/certificate files could not be read. Please read INSTALL.txt and create certificates.\n");
-    exit(1);
+    handleError(LOG_CRIT, "The HTTPS key/cert files could not be read", 1, 1, 1);
   }
 
   int keySize = getFileSize(SKEY);
@@ -1186,8 +1300,7 @@ int listenWeb(int daemonSock) {
   FILE *fpSPEM = openFile(SPEM, "r");
 
   if ((fpSKEY == NULL) || (fpSPEM == NULL)) {
-    fprintf(stderr, "ERROR: The HTTPS key/certificate files could not be read.\n");
-    exit(1);
+    handleError(LOG_CRIT, "The HTTPS key/cert files could not be read", 1, 1, 1);
   }
 
   file2buf(key_pem, fpSKEY, keySize);
@@ -1195,14 +1308,15 @@ int listenWeb(int daemonSock) {
   fclose(fpSKEY);
   fclose(fpSPEM);
 
-  struct timeval tv;
-  struct timeval *tvp;
+  struct timeval tv, *tvp;
+  //struct timeval *tvp;
   fd_set rs;
   fd_set ws;
   fd_set es;
   MHD_socket max;
   MHD_UNSIGNED_LONG_LONG mhd_timeout;
 
+  // Daemon uses systemd socket with MHD_OPTION_LISTEN_SOCKET, -w uses PORT
   if (isDaemon == 1) {
     daemon = MHD_start_daemon(MHD_USE_AUTO | MHD_USE_TURBO |
                               MHD_USE_TLS | MHD_USE_TCP_FASTOPEN,
@@ -1230,13 +1344,11 @@ int listenWeb(int daemonSock) {
   }
 
   if (daemon == NULL) {
-    fprintf(stderr, "ERROR: Failed to start HTTPS daemon.\n");
-    exit(1);
+    handleError(LOG_CRIT, "ERROR: Failed to start HTTPS daemon", 1, 1, 1);
 
   } else {
     if (isDaemon == 1) {
-      // TODO Logging...
-      // Start a single session to prevent daemon closing until login
+      // Start a single session to prevent daemon closing until a real session exists
       getSession(NULL);
     }
     webRunning = 1;
@@ -1244,28 +1356,42 @@ int listenWeb(int daemonSock) {
 
 
   while (1) {
-    expireSessions();
+    writeLog(LOG_DEBUG, "Main loop running...", 0);
+    // Expire any old sessions and get the time of the last session expiry
+    now = time(NULL);
+    if (now >= (last + expireSecs + expireDelay)) {
+      maxExpire = expireSessions(expireSecs) + expireDelay;
+      last = time(NULL);
+    }
 
     max = 0;
     FD_ZERO (&rs);
     FD_ZERO (&ws);
     FD_ZERO (&es);
 
+    // Set MHD file descriptiors to watch fo activity...
     if (MHD_YES != MHD_get_fdset(daemon, &rs, &ws, &es, &max)) break; // internal error
 
+    // See if MHD wants to set a time to next poll
     if (MHD_get_timeout(daemon, &mhd_timeout) == MHD_YES) {
       tv.tv_sec = mhd_timeout / 1000;
       tv.tv_usec = (mhd_timeout - (tv.tv_sec * 1000)) * 1000;
       tvp = &tv;
 
+    // ... or we poll again after the last session expiry is expected
     } else {
-      tvp = NULL;
+      tv.tv_sec = maxExpire;
+      tv.tv_usec = 0;
+      sprintf(infoStr, "Sessions inactive, last expiry in %d seconds", maxExpire);
+      writeLog(LOG_INFO, infoStr, 0);
 
     }
 
+    // watch until FDs are active or timeout reached (TODO: consider using EPOLL?)
     if (select(max + 1, &rs, &ws, &es, tvp) == -1) {
-      if (EINTR != errno) {
-        fprintf(stderr, "Aborting due to error during select: %s\n", strerror(errno));
+      if (errno != EINTR) {
+        sprintf(infoStr, "Aborting due to error during select: %s", strerror(errno));
+        handleError(LOG_ERR, infoStr, 1, 1, 1);
       }
       break;
     }

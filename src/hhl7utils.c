@@ -18,9 +18,13 @@ You should have received a copy of the GNU General Public License along with hhl
 #include <sys/stat.h>
 #include <time.h>
 #include <sys/time.h>
+#include <syslog.h>
 #include <math.h>
 #include "hhl7extern.h"
 
+char infoStr[301] = "";
+static const char logLevels[8][9] = { "[EMERG] ", "[ALERT] ", "[CRIT]  ", "[ERROR] ",
+                                      "[WARN]  ", "[NOTIC] ", "[INFO]  ", "[DUBUG] " };
 
 // DEBUG function to show ascii character codes in a buffer, useful for seeing hidden chars
 void printChars(char *buf) {
@@ -30,21 +34,37 @@ void printChars(char *buf) {
 }
 
 
-// TODO - add log files here...
-// TODO - grep code for this function and create error code list, currently all fail = 1
-// TODO - maybe send error level (warn, error etc) for processsing?
-// Handle any error messages
-void handleErr(char *message, int eCode, FILE *fStream) {
-  if (webRunning == 0) {
-    fprintf(fStream, "%s [E: %d]\n", message , eCode);
-    if (eCode >= 0) exit(eCode);
+// Open log file for reading, wrapper for syslog openlog()
+void openLog() {
+  openlog("HHL7", LOG_NDELAY, LOG_USER);
+  // TODO - Conf file log level?
+  setlogmask(LOG_UPTO(LOG_DEBUG));
+}
 
-  } else {
-    // Only send the first web error.
-    if (strlen(webErrStr) == 0) {
-      sprintf(webErrStr, "%s. [E: %d]", message, eCode);
-    }
+
+// Close syslog log files, wrapper for syslog closelog()
+void closeLog() {
+  closelog();
+}
+
+
+// TODO - rework this? Useful to auto write to syslog or stsdout depending on -D or -w?
+// Write to the logs, either syslog or stderr if not running as daemon
+// See sys/syslog.h for int <-> log level values
+void writeLog(int logLvl, char *logStr, int stdErr) {
+  if (isDaemon == 1) {
+    syslog(logLvl, "%s%s", logLevels[logLvl], logStr);
+  } else if (stdErr == 1) {
+    fprintf(stderr, "%s%s\n", logLevels[logLvl], logStr);
   }
+}
+
+
+// Handle an error
+void handleError(int logLvl, char *logStr, int exitCode, int exitWeb, int stdErr) {
+  writeLog(logLvl, logStr, stdErr);
+  if (exitCode >= 0 && isDaemon == 1 && exitWeb == 1) exit(exitCode);
+  if (exitCode >= 0 && isDaemon == 0) exit(exitCode);
 }
 
 

@@ -11,7 +11,10 @@ You should have received a copy of the GNU General Public License along with hhl
 */
 
 // Function prototypes
-void handleErr(char *message, int eCode, FILE *fStream);
+void openLog();
+void closeLog();
+void writeLog(int logLvl, char *logStr, int stdErr);
+void handleError(int logLvl, char *logStr, int exitCode, int exitWeb, int stdErr);
 int checkFile(char *fileName, int perms);
 FILE *openFile(char *fileName, char *mode);
 long int getFileSize(char *fileName);

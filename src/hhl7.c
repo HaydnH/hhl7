@@ -16,7 +16,6 @@ You should have received a copy of the GNU General Public License along with hhl
 #include <time.h>
 #include <string.h>
 #include <getopt.h>
-#include <syslog.h>
 #include <systemd/sd-daemon.h>
 #include "hhl7extern.h"
 #include "hhl7utils.h"
@@ -25,7 +24,7 @@ You should have received a copy of the GNU General Public License along with hhl
 #include "hhl7web.h"
 
 int isDaemon = 0;
-char hl7Buf[1024] = "";
+
 
 // Show help message
 // TODO: Write help message, no point doing it until we've coded it...
@@ -54,10 +53,9 @@ int main(int argc, char *argv[]) {
   struct timespec ts;
   if (clock_gettime(CLOCK_MONOTONIC_RAW, &ts) == -1) {
     // TODO - use error handle function
-    printf("ERROR: Failed to obtain system timestamp.\n");
+    handleError(2, "Failed to obtain system timestamp", 1, 1, 1);
   }
   srand((uint64_t) ts.tv_nsec);
-  //srand ((unsigned int) time (NULL));
 
   // TODO: Check error message for unknown long options works properly
   // Parse command line options
@@ -66,7 +64,7 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-  while((opt = getopt_long(argc, argv, ":0HD:slt:T:owh:L:p:P:f:", long_options, &option_index)) != -1) {
+  while((opt = getopt_long(argc, argv, ":0HD:slt:T:owWh:L:p:P:f:", long_options, &option_index)) != -1) {
     switch(opt) {
       case 0:
         exit(1);
@@ -76,6 +74,7 @@ int main(int argc, char *argv[]) {
         exit(0);
 
       case 'D':
+        if (*argv[optind-1] == '-') handleError(3, "Option -D requires a value", 1, 1, 1);
         isDaemon = 1;
         if (optarg) daemonSock = atoi(optarg);
         break;
@@ -89,22 +88,16 @@ int main(int argc, char *argv[]) {
         break;
 
       case 't':
+        if (*argv[optind-1] == '-') handleError(3, "Option -t requires a value", 1, 1, 1);
         fSendTemplate = 1;
         if (optarg) strcpy(tName, optarg);
-        if (*argv[optind-1] == '-') {
-          fprintf(stderr, "ERROR: Option -t requires a value\n");
-          exit(1);
-        }
         break;
 
       case 'T':
+        if (*argv[optind-1] == '-') handleError(3, "Option -T requires a value", 1, 1, 1);
         fSendTemplate = 1;
         fShowTemplate = 1;
         if (optarg) strcpy(tName, optarg);
-        if (*argv[optind-1] == '-') {
-          fprintf(stderr, "ERROR: Option -T requires a value\n");
-          exit(1);
-        }
         break;
 
       case 'o':
@@ -116,98 +109,63 @@ int main(int argc, char *argv[]) {
         break;
 
       case 'h':
-        if (*argv[optind-1] == '-') {
-          fprintf(stderr, "ERROR: Option -h requires a value\n");
-          exit(1);
-        } 
+        if (*argv[optind-1] == '-') handleError(3, "Option -h requires a value", 1, 1, 1);
         // TODO error check all command line arguments (length etc)
         if (optarg) strcpy(sIP, optarg);
         break;
 
       case 'L':
-        if (*argv[optind-1] == '-') {
-          fprintf(stderr, "ERROR: Option -L requires a value\n");
-          exit(1);
-        }
+        if (*argv[optind-1] == '-') handleError(3, "Option -L requires a value", 1, 1, 1);
         if (optarg) strcpy(lIP, optarg);
         break;
 
       case 'p':
-        if (*argv[optind-1] == '-') {
-          fprintf(stderr, "ERROR: Option -p requires a value\n");
-          exit(1);
-        } 
-
-        // TODO, also check for port range is valid
-        if (validPort(optarg) > 0) {
-          fprintf(stderr, "ERROR: Port provided by -p is invalid (valid: 1024-65535).\n");
-          exit(1);
-        }
-
+        if (*argv[optind-1] == '-') handleError(3, "Option -p requires a value", 1, 1, 1);
+        if (validPort(optarg) > 0) handleError(3, "Port provided by -p is invalid (valid: 1024-65535)", 1, 1, 1);
         if (optarg) strcpy(sPort, optarg);
         break;
 
       case 'P':
-        if (*argv[optind-1] == '-') {
-          fprintf(stderr, "ERROR: Option -P requires a value\n");
-          exit(1);
-        }
-
-        if (validPort(optarg) > 0) {
-          fprintf(stderr, "ERROR: Port provided by -P is invalid (valid: 1024-65535).\n");
-          exit(1);
-        }
-
+        if (*argv[optind-1] == '-') handleError(3, "Option -P requires a value", 1, 1, 1);
+        if (validPort(optarg) > 0) handleError(3, "Port provided by -P is invalid (valid: 1024-65535)", 1, 1, 1);
         if (optarg) strcpy(lPort, optarg);
         break;
 
-// TODO - -f without an argument seems to try to connect to server 1st before failing
       case 'f':
         fSend = 1;
-        if (*argv[optind-1] == '-') {
-          fprintf(stderr, "ERROR: Option -f requires a value\n");
-          exit(1);
-        } 
+        if (*argv[optind-1] == '-') handleError(3, "Option -f requires a value", 1, 1, 1);
         if (optarg) strcpy(fileName, optarg);
         break;
 
       case ':':
-        fprintf(stderr, "ERROR: Option -%c requires a value\n", optopt);
-        exit(1);
+        sprintf(infoStr, "Option -%c requires a value", optopt);
+        handleError(3, infoStr, 1, 1, 1);
 
       case '?':
-        printf("ERROR: Unknown option: %c\n", optopt);
-        exit(1);
+        sprintf(infoStr, "Unknown option: -%c", optopt);
+        handleError(3, infoStr, 1, 1, 1);
     } 
   } 
 
+
   if (isDaemon == 1) {
     // Check for valid options when running as Daemon
-    if (fSend + fListen + fSendTemplate + fWeb > 0) {
-      fprintf(stderr, "ERROR: -D can only be used on it's own, no other functional flags.\n");
-      exit(1);
-    }
+    if (fSend + fListen + fSendTemplate + fWeb > 0)
+      handleError(3, "-D can only be used on it's own, no other functional flags", 1, 1, 1);
 
     // Open the syslog file
-    openlog("HHL7", LOG_NDELAY, LOG_USER);
-    // TODO - Conf file log level
-    //setlogmask(LOG_UPTO(LOG_WARNING));
-    setlogmask(LOG_UPTO(LOG_DEBUG));
+    openLog();
 
-    if (sd_listen_fds(0) != 1) {
-      // TODO syslog
-      fprintf(stderr, "Systemd has sent an unexpected number of socket file descriptors, expected 1.\n");
-      exit(1);
-    }
+    if (sd_listen_fds(0) != 1) 
+      handleError(3, "Systemd has sent an unexpected number of socket file descriptors", 1, 1, 0);   
 
     daemonSock = SD_LISTEN_FDS_START + 0;
   }
 
+
   // Check we're only using 1 of listen, send, template or web option
-  if (fSend + fListen + fSendTemplate + fWeb > 1) {
-    fprintf(stderr, "ERROR: Only one of -f, -l, -s, -t or -w may be used at a time.\n");
-    exit(1);
-  }
+  if (fSend + fListen + fSendTemplate + fWeb > 1)
+    handleError(3, "Only one of -f, -l, -s, -t or -w may be used at a time", 1, 1, 1);
 
   if (fSend == 1) {
     // Connect to the server
@@ -218,16 +176,20 @@ int main(int argc, char *argv[]) {
     sendFile(fp, getFileSize(fileName), sockfd);
   } 
 
+
   if (fListen == 1) {
     // Listen for incomming messages
     startMsgListener(lIP, lPort);
   }
 
+
   if (fSendTemplate == 1) {
     // Find the template file
     fp = findTemplate(fileName, tName);
     int fSize = getFileSize(fileName);
-    fprintf(stderr, "INFO:  Using template file: %s\n", fileName);
+
+    sprintf(infoStr, "Using template file: %s", fileName);
+    writeLog(6, infoStr, 1);
 
     char *jsonMsg = malloc(fSize + 1);
     // TODO - max hl7 size is 1024? Need to malloc here!
@@ -258,14 +220,17 @@ int main(int argc, char *argv[]) {
   }
 
   if (fWeb == 1) {
+    writeLog(6, "Local web process starting...", 1);
     listenWeb(daemonSock);
   }
 
   if (isDaemon == 1) {
-    syslog(LOG_DEBUG, "DEBUG Daemon starting...");
-    syslog(LOG_INFO, "Daemon starting...");
-    syslog(LOG_WARNING, "WARN starting...");
-    syslog(LOG_CRIT, "CRIT starting...");
+    writeLog(6, "Daemon starting...", 0);
+    listenWeb(daemonSock);
+  }
+
+  if (fWeb == 1) {
+    writeLog(6, "Local web process starting...", 1);
     listenWeb(daemonSock);
   }
 

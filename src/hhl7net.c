@@ -17,6 +17,7 @@ You should have received a copy of the GNU General Public License along with hhl
 #include <unistd.h>
 #include <string.h>
 #include <signal.h>
+#include <syslog.h>
 #include <sys/prctl.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
@@ -54,15 +55,15 @@ int connectSvr(char *ip, char *port) {
   struct addrinfo hints, *servinfo, *p;
   int rv;
   // TODO - this may need malloc or resize due to variables
-  char eBuf[256] = "";
 
   memset(&hints, 0, sizeof hints);
   hints.ai_family = AF_INET;
   hints.ai_socktype = SOCK_STREAM;
 
   if ((rv = getaddrinfo(ip, port, &hints, &servinfo)) != 0) {
-    sprintf(eBuf, "ERROR: Can't obtain address info: %s", gai_strerror(rv));
-    handleErr(eBuf, 1, stderr);
+    sprintf(infoStr, "Can't obtain address info: %s", gai_strerror(rv));
+    handleError(LOG_ERR, infoStr, -1, 0, 1);
+    return(-1);
   }
 
   // Loop through results and try to connect
@@ -75,13 +76,14 @@ int connectSvr(char *ip, char *port) {
       close(sockfd);
       continue;
     }
-    fprintf(stderr, "INFO:  Connected to server %s on port %s\n", ip, port);
+    sprintf(infoStr, "Connected to server %s on port %s", ip, port);
+    writeLog(LOG_INFO, infoStr, 1);
     break;
   }
 
   if (p == NULL) {
-    sprintf(eBuf, "ERROR: Failed to connect to server %s on port %s", ip, port);
-    handleErr(eBuf, 1, stderr);
+    sprintf(infoStr, "Failed to connect to server %s on port %s", ip, port);
+    handleError(LOG_ERR, infoStr, -1, 0, 1);
     return(-1);
   }
 
@@ -91,19 +93,27 @@ int connectSvr(char *ip, char *port) {
 
 
 // Listen for ACK from server
-void listenACK(int sockfd, char *res) {
+int listenACK(int sockfd, char *res) {
   char ackBuf[256], app[12], code[12], aCode[3];
-  int ackErr = 0;
-  char eBuf[53];
+  int ackErr = 0, recvL = 0;
 
-  if (webRunning == 0) {
-    fprintf(stderr, "INFO:  Listening for ACK...\n");
-  }
+  // TODO Add timeout to config file
+  // Set ListenACK timeout
+  struct timeval tv, *tvp;
+  tv.tv_sec = 3;
+  tv.tv_usec = 0;
+  tvp = &tv;
+  setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, tvp, sizeof tv);
 
-  if (strlen(webErrStr) == 0) {
-    // Receive the response from the server and strip MLLP wrapper
-    // TODO - change 256: malloc a big buffer, read 256, check if complete ack, expand if needed
-    recv(sockfd, ackBuf, 256, 0);
+  writeLog(LOG_INFO, "Listening for ACK...", 1);
+
+  // Receive the response from the server and strip MLLP wrapper
+  // TODO - change 256: malloc a big buffer, read 256, check if complete ack, expand if needed
+  if ((recvL = recv(sockfd, ackBuf, 256, 0)) == -1) {
+    handleError(LOG_ERR, "Timeout listening for ACK response", 1, 0, 1);
+    return -1;
+
+  } else {
     stripMLLP(ackBuf);
     ackBuf[strlen(ackBuf) - 1] = '\0';
 
@@ -118,7 +128,7 @@ void listenACK(int sockfd, char *res) {
     } else {
       ackErr = 1;
     }
- 
+
     if ((char) aCode[1] == 'A') {
       strcpy(code, "Accept");
     } else if ((char) aCode[1] == 'E') {
@@ -131,13 +141,13 @@ void listenACK(int sockfd, char *res) {
 
     // Print error or response
     if (ackErr > 0) {
-      sprintf(eBuf, "ERROR: Client could not understand ACK response: %s", aCode);
-      handleErr(eBuf, 1, stderr);
+      handleError(LOG_ERR, "Could not understand ACK response", 1, 0, 1);
+      sprintf(res, "%s", "EE");
+      return -1;
 
     } else {
-      if (webRunning == 0) {
-        fprintf(stderr, "INFO:  Server response: %s %s (%s)\n", app, code, aCode);
-      }
+      sprintf(infoStr, "Server ACK response: %s %s (%s)", app, code, aCode);
+      writeLog(LOG_INFO, infoStr, 1);
 
       if (res) {
         strncpy(res, aCode, 2);
@@ -145,24 +155,23 @@ void listenACK(int sockfd, char *res) {
       }
     }
     hl72unix(ackBuf, 0);
-
     // TODO - add option to print ACK response
     //printf("ACK:\n%s\n\n", ackBuf);
+
   }
+  return recvL;
 }
 
 
 // Send a file over socket
 void sendFile(FILE *fp, long int fileSize, int sockfd) {
-  char eBuf[43];
   char fileData[fileSize + 4];
   char resStr[3] = "";
 
   // Read file to buffer
   size_t newLen = fread(fileData, sizeof(char), fileSize, fp);
   if (ferror(fp) != 0) {
-    sprintf(eBuf, "ERROR: Could not read data file to send");
-    handleErr(eBuf, 1, stderr);
+    handleError(LOG_ERR, "Could not read data file to send", 1, 0, 1);
 
   } else {
     fileData[newLen++] = '\0';
@@ -177,8 +186,7 @@ void sendFile(FILE *fp, long int fileSize, int sockfd) {
 
 
 // Send a string packet over socket
-void sendPacket(int sockfd, char *hl7msg, char *resStr) {
-  char eBuf[44];
+int sendPacket(int sockfd, char *hl7msg, char *resStr) {
   const char msgDelim[6] = "MSH|";
   char tokMsg[strlen(hl7msg) + 5];
   char *curMsg = hl7msg, *nextMsg;
@@ -187,7 +195,6 @@ void sendPacket(int sockfd, char *hl7msg, char *resStr) {
   while (curMsg != NULL) {
     msgCount++;
     nextMsg = strstr(curMsg + 1, msgDelim);
-    //printf("S: %ld - %ld\n", strlen(nextMsg), strlen(curMsg));   
 
     if (nextMsg == NULL) { 
       sprintf(tokMsg, "%s", curMsg);
@@ -198,59 +205,62 @@ void sendPacket(int sockfd, char *hl7msg, char *resStr) {
     }
 
     // Send the data file to the server
-    fprintf(stderr, "INFO:  Sending HL7 message %d to server\n", msgCount);
+    sprintf(infoStr, "Sending HL7 message %d to server", msgCount);
+    writeLog(LOG_INFO, infoStr, 1);
 
+    // Add MLLP wrappre to this message
     wrapMLLP(tokMsg);
 
+    // Send the message to the server
     if(send(sockfd, tokMsg, strlen(tokMsg), 0) == -1) {
-      sprintf(eBuf, "ERROR: Could not send data packet to server");
-      handleErr(eBuf, 1, stderr);
+      handleError(LOG_ERR, "Could not send data packet to server", -1, 0, 1);
+      return -1;
 
     } else {
-      // TODO - add timeout to listenAck?
-      listenACK(sockfd, resStr);
+      return listenACK(sockfd, resStr);
 
     }
   }
+  return 0;
 }
 
 
 // Send and ACK after receiving a message
 // TODO - rewrite to use json template? Performance vs portability (e.g: FIX)
-void sendAck(int sessfd, char *hl7msg) {
+int sendAck(int sessfd, char *hl7msg) {
   // TODO - control id seems long at 201 characters, check hl7 spec for max length
   char dt[26] = "", cid[201] = "";
-  char eBuf[46];
   char ackBuf[1024];
+  int writeL = 0;
 
   // Get current time and control ID of incomming message
   timeNow(dt, 0); 
-  // TODO - if we receive an invalid HL7 msg we can't read MSH-9 so should send reject
   getHL7Field(hl7msg, "MSH", 9, cid);
   if (strlen(cid) == 0) sprintf(cid, "%s", "<UNKNOWN>");
 
   sprintf(ackBuf, "%c%s%s%s%s%s%s%s%c%c", 0x0B, "MSH|^~\\&|||||", dt, "||ACK|", cid,
                                           "|P|2.4|\rMSA|AA|", cid, "|OK|", 0x1C, 0x0D);
 
-  if (write(sessfd, ackBuf, strlen(ackBuf)) == -1 ) {
+  if ((writeL = write(sessfd, ackBuf, strlen(ackBuf))) == -1) {
     close(sessfd);
-    sprintf(eBuf, "ERROR: Failed to send ACK response to server");
-    handleErr(eBuf, 1, stderr);
+    handleError(LOG_ERR, "Failed to send ACK response to server", -1, 0, 1);
+    return -1;
 
   } else {
-    fprintf(stderr, "INFO:  Message with control ID %s received OK and ACK sent\n\n", cid);
+    sprintf(infoStr, "Message with control ID %s received OK and ACK sent", cid);
+    writeLog(LOG_INFO, infoStr, 1);
   }
+  return writeL;
 }
 
 
 // Handle an incomming message
 static void handleMsg(int sessfd, int fd) {
   int readSize = 512, msgSize = 0, maxSize = readSize + msgSize, rcvSize = 1;
-  int msgCount = 0, ignoreNext = 0;
+  int msgCount = 0, ignoreNext = 0, webErr = 0;
   int *ms = &maxSize;
   char rcvBuf[readSize+1];
   char *msgBuf = malloc(maxSize);
-  char eBuf[57];
   char writeSize[11];
   msgBuf[0] = '\0';
 
@@ -263,8 +273,8 @@ static void handleMsg(int sessfd, int fd) {
 
     } else {
       if (rcvSize == -1 && msgCount == 0) {
-        sprintf(eBuf, "ERROR: Failed to read incomming HL7 message from server");
-        handleErr(eBuf, 1, stderr);
+        handleError(LOG_ERR, "Failed to read incomming message from server", 1, 0, 1);
+        webErr = 1;
       }
 
       if (rcvSize > 0 && rcvSize <= readSize) {
@@ -279,30 +289,30 @@ static void handleMsg(int sessfd, int fd) {
           if (rcvBuf[rcvSize - 1] == 28) ignoreNext = 1;
         
           stripMLLP(msgBuf);
-          sendAck(sessfd, msgBuf);
+          if (sendAck(sessfd, msgBuf) == -1) webErr = 1;
           msgCount++;
 
           if (webRunning == 1) {
-            if (strlen(webErrStr) != 0) {
-              strcpy(msgBuf, webErrStr);
+            if (webErr > 0) {
+              sprintf(msgBuf, "ERROR: The backend failed to receive or process a message from the sending server");
+              // TODO  WORKING - rework how errors get sent to web listener
+              //  strcpy(msgBuf, webErrStr);
             }
 
             sprintf(writeSize, "%d", (int) strlen(msgBuf));
             if (write(fd, writeSize, 11) == -1) {
-              sprintf(eBuf, "ERROR: Failed to write to named pipe");
-              handleErr(eBuf, 1, stderr);
+              handleError(LOG_ERR, "ERROR: Failed to write to named pipe", 1, 0, 1);
             }
 
             if (write(fd, msgBuf, strlen(msgBuf)) == -1) {
-              sprintf(eBuf, "ERROR: Failed to write to named pipe");
-              handleErr(eBuf, 1, stderr);
+              handleError(LOG_ERR, "ERROR: Failed to write to named pipe", 1, 0, 1);
             }
 
           } else {
              hl72unix(msgBuf, 1);
           }
 
-          // Clean u counters and buffers
+          // Clean up counters and buffers
           msgSize = 0;
           msgBuf[0] = '\0';
         }
@@ -323,7 +333,6 @@ static void handleMsg(int sessfd, int fd) {
 static int createSession(char *ip, const char *port) {
   int svrfd, rv;
   struct addrinfo hints, *res = 0;
-  char eBuf[256];
 
   memset(&hints, 0, sizeof hints);
   hints.ai_family = AF_INET;
@@ -332,32 +341,32 @@ static int createSession(char *ip, const char *port) {
   hints.ai_flags=AI_PASSIVE|AI_ADDRCONFIG;
 
   if ((rv = getaddrinfo(ip, port, &hints, &res)) != 0) {
-    fprintf(stderr, "ERROR: Can't obtain address info: %s\n", gai_strerror(rv));
-    exit(1);
+    sprintf(infoStr, "Can't obtain address info: %s", gai_strerror(rv));
+    handleError(LOG_ERR, infoStr, 1, 0, 1);
+    return -1;
   }
 
   svrfd = socket(res->ai_family,res->ai_socktype,res->ai_protocol);
 
   if (svrfd == -1) {
-    sprintf(eBuf, "ERROR: Can't obtain socket address info");
-    handleErr(eBuf, 1, stderr);
-
+    handleError(LOG_ERR, "Can't obtain socket address info", 1, 0, 1);
+    return -1;
   }
 
   int reuseaddr = 1;
   if (setsockopt(svrfd, SOL_SOCKET, SO_REUSEADDR, &reuseaddr, sizeof(reuseaddr)) == -1) {
-    sprintf(eBuf, "ERROR: Can't set socket options");
-    handleErr(eBuf, 1, stderr);
+    handleError(LOG_ERR, "Can't set socket options", 1, 0, 1);
+    return -1;
   }
 
   if (bind(svrfd, res->ai_addr, res->ai_addrlen) == -1) {
-    sprintf(eBuf, "ERROR: Can't bind address");
-    handleErr(eBuf, 1, stderr);
+    handleError(LOG_ERR, "Can't bind address", 1, 0, 1);
+    return -1;
   }
 
   if (listen(svrfd, SOMAXCONN)) {
-    sprintf(eBuf, "ERROR: Can't listen for connections");
-    handleErr(eBuf, 1, stderr);
+    handleError(LOG_ERR, "Can't listen for connections", 1, 0, 1);
+    return -1;
   }
 
   freeaddrinfo(res);
@@ -369,9 +378,8 @@ static int createSession(char *ip, const char *port) {
 int startMsgListener(char *ip, const char *port) {
   int svrfd = 0, sessfd = 0;
   int fd = 0;
-  char eBuf[256];
 
-  svrfd = createSession(ip, port);
+  if ((svrfd = createSession(ip, port)) == -1) return -1;
 
   // Create a named pipe to write to
   char hhl7fifo[21]; 
@@ -382,8 +390,8 @@ int startMsgListener(char *ip, const char *port) {
   for (;;) {
     sessfd = accept(svrfd, 0, 0);
     if (sessfd == -1) {
-      sprintf(eBuf, "ERROR: Can't accept connections");
-      handleErr(eBuf, 1, stderr);
+      handleError(LOG_ERR, "Can't accept connections", 1, 0, 1);
+      return -1;
     }
 
     // Make children ignore waiting for parent process before closing
@@ -392,8 +400,8 @@ int startMsgListener(char *ip, const char *port) {
     pid_t pidBefore = getpid();
     pid_t pid=fork();
     if (pid == -1) {
-      sprintf(eBuf, "ERROR: Can't fork child process to listen");
-      handleErr(eBuf, 1, stderr);
+      handleError(LOG_ERR, "Can't fork a child process for listener", 1, 0, 1);
+      return -1;
 
     }  else if (pid == 0) {
       // Check for parent exiting and repeat
@@ -411,5 +419,5 @@ int startMsgListener(char *ip, const char *port) {
 
     }
   }
-  return -1;
+  return 0;
 }
