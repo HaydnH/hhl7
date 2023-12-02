@@ -841,6 +841,9 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
         sprintf(infoStr, "[S: %03d] Can't open socket to send packet",
                          con_info->session->shortID);
         handleError(LOG_ERR, infoStr, 1, 0, 1);
+        sprintf(answerstring, "%s", "CX"); // Connection to target server failed
+        con_info->answerstring = answerstring;
+        return MHD_YES;
 
       }  
 
@@ -1369,7 +1372,7 @@ int listenWeb(int daemonSock) {
     FD_ZERO (&ws);
     FD_ZERO (&es);
 
-    // Set MHD file descriptiors to watch fo activity...
+    // Set MHD file descriptiors to watch for activity...
     if (MHD_YES != MHD_get_fdset(daemon, &rs, &ws, &es, &max)) break; // internal error
 
     // See if MHD wants to set a time to next poll

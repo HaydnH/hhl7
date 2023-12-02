@@ -1022,8 +1022,11 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
                   res.style.backgroundColor = \"#ff9191\";\n\
                   res.innerHTML = xhr.responseText;\n\
 \n\
+                } else if (xhr.responseText == \"CX\") {\n\
+                  errHandler(\"ERROR: Failed to connect to server.\");\n\
+\n\
                 } else {\n\
-                  errHandler(xhr.responseText);\n\
+                  errHandler(\"ERROR: An unknown backend error occured.\");\n\
 \n\
                 }\n\
               }\n\
