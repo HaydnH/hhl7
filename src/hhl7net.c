@@ -26,8 +26,11 @@ You should have received a copy of the GNU General Public License along with hhl
 #include <netinet/in.h>
 #include <getopt.h>
 #include <time.h>
+#include <errno.h>
 #include <microhttpd.h>
+#include <json.h>
 #include "hhl7extern.h"
+#include "hhl7json.h"
 #include "hhl7net.h"
 #include "hhl7utils.h"
 #include "hhl7web.h"
@@ -225,6 +228,50 @@ int sendPacket(int sockfd, char *hl7msg, char *resStr) {
 }
 
 
+// Send a json template
+void sendTemp(char *sIP, char *sPort, char *tName, int noSend, int fShowTemplate,
+              int optind, int argc, char *argv[]) {
+
+  FILE *fp;
+  int sockfd;
+  char fileName[256] = "";
+
+  // Find the template file
+  fp = findTemplate(fileName, tName);
+  int fSize = getFileSize(fileName);
+
+  sprintf(infoStr, "Using template file: %s", fileName);
+  writeLog(6, infoStr, 1);
+
+  char *jsonMsg = malloc(fSize + 1);
+  // TODO - max hl7 size is 1024? Need to malloc here!
+  int hl7MsgS = 1024;
+  char *hl7Msg = malloc(hl7MsgS);
+  hl7Msg[0] = '\0';
+
+  // Read the json template to jsonMsg
+  readJSONFile(fp, fSize, jsonMsg);
+
+  // Generate HL7 based on the json template
+  parseJSONTemp(jsonMsg, &hl7Msg, &hl7MsgS, NULL, NULL, argc - optind, argv + optind, 0);
+
+  // Print the HL7 message if requested
+  if (fShowTemplate == 1) {
+     hl72unix(hl7Msg, 1);
+  }
+
+  if (noSend == 0) {
+    // Connect to server, send & listen for ack
+    sockfd = connectSvr(sIP, sPort);
+    sendPacket(sockfd, hl7Msg, NULL);
+  }
+
+  // Free memory
+  free(jsonMsg);
+  fclose(fp);
+}
+
+
 // Send and ACK after receiving a message
 // TODO - rewrite to use json template? Performance vs portability (e.g: FIX)
 int sendAck(int sessfd, char *hl7msg) {
@@ -254,8 +301,103 @@ int sendAck(int sessfd, char *hl7msg) {
 }
 
 
+// TODO - WORKING: write this, need to more hhl7.c fSendTemplate == 1 code to a function
+// Check incomming message for responder match and send response
+static int checkResponse(char *msg, char *tName) {
+  struct json_object *resObj = NULL, *jArray = NULL, *matchObj = NULL;
+  struct json_object *segStr = NULL, *fldObj = NULL, *valStr = NULL;
+  struct json_object *minObj = NULL, *maxObj = NULL, *sendT = NULL;
+  int m = 0, mCount = 0, fldInt = 0, minT = 0, maxT = 0;
+  // TODO - check values, malloc?
+  char resFile[290], fldStr[256]; //, sendArgs[10][256];
+
+  // Define template location
+  if (isDaemon == 1) {
+    sprintf(resFile, "/usr/local/hhl7/responders/%s.json", tName);
+  } else {
+    sprintf(resFile, "./responders/%s.json", tName);
+  }
+
+  // Read the template file
+  resObj = json_object_from_file(resFile);
+  if (resObj == NULL) {
+    // TODO - use error handler
+    printf("Failed to read responder template\n");
+    exit(1);
+  }
+
+  json_object_object_get_ex(resObj, "matches", &jArray);
+  if (jArray == NULL) {
+    // TODO - use error handler
+    printf("Responder template contains no matches\n");
+    exit(1);
+  }
+
+  mCount = json_object_array_length(jArray);
+
+  // Check that each mathes item matches, return -1 if no match
+  for (m = 0; m < mCount; m++) {
+    // TODO - error handling
+    matchObj = json_object_array_get_idx(jArray, m);
+    segStr = json_object_object_get(matchObj, "segment"); 
+    json_object_object_get_ex(matchObj, "field", &fldObj);
+    fldInt = json_object_get_int(fldObj);
+    valStr = json_object_object_get(matchObj, "value");
+
+    getHL7Field(msg, (char *) json_object_get_string(segStr), fldInt, fldStr);
+
+    // TODO - log function
+    printf("Comparing %s against %s...\n", json_object_get_string(valStr), fldStr);
+    if (strcmp(json_object_get_string(valStr), fldStr) != 0) {
+      printf("No Match\n");
+      return -1;
+    }
+  }
+
+  // We've matched a responder, handle the response
+  json_object_object_get_ex(resObj, "reponseTimeMin", &minObj);
+  minT = json_object_get_int(minObj);
+  json_object_object_get_ex(resObj, "reponseTimeMax", &maxObj);
+  maxT = json_object_get_int(maxObj);
+  sendT = json_object_object_get(resObj, "sendTemplate");
+
+  json_object_object_get_ex(resObj, "sendArgs", &jArray);
+  if (jArray == NULL) {
+    // TODO - use error handler
+    printf("Responder template contains no matches\n");
+    exit(1);
+  }
+
+  mCount = json_object_array_length(jArray);
+  char sendArgs[mCount][256], *sendPtrs[mCount];
+
+  for (m = 0; m < mCount; m++) {
+    matchObj = json_object_array_get_idx(jArray, m);
+    segStr = json_object_object_get(matchObj, "segment");
+    json_object_object_get_ex(matchObj, "field", &fldObj);
+    fldInt = json_object_get_int(fldObj);
+    getHL7Field(msg, (char *) json_object_get_string(segStr), fldInt, fldStr);
+    strcpy(sendArgs[m], fldStr);
+    sendPtrs[m] = sendArgs[m];
+  }
+
+  if (minT == 0 && maxT == 0) {
+    // TODO - use sIP and sPort....
+    // Send response now...
+    sendTemp("127.0.0.1", "11011", (char *) json_object_get_string(sendT), 0, 1, 0,
+             mCount, sendPtrs);
+  } else {
+    // schedule response
+  }
+
+  //printf("Match\n");
+  json_object_put(jArray);
+  return 0;
+}
+
+
 // Handle an incomming message
-static void handleMsg(int sessfd, int fd) {
+static void handleMsg(int sessfd, int fd, char *tName) {
   int readSize = 512, msgSize = 0, maxSize = readSize + msgSize, rcvSize = 1;
   int msgCount = 0, ignoreNext = 0, webErr = 0;
   int *ms = &maxSize;
@@ -307,6 +449,9 @@ static void handleMsg(int sessfd, int fd) {
             if (write(fd, msgBuf, strlen(msgBuf)) == -1) {
               handleError(LOG_ERR, "ERROR: Failed to write to named pipe", 1, 0, 1);
             }
+
+          } else if (tName) {
+            checkResponse(msgBuf, tName);
 
           } else {
              hl72unix(msgBuf, 1);
@@ -375,7 +520,7 @@ static int createSession(char *ip, const char *port) {
 
 
 // Start listening for incomming messages
-int startMsgListener(char *ip, const char *port) {
+int startMsgListener(char *ip, const char *port, char *tName) {
   int svrfd = 0, sessfd = 0;
   int fd = 0;
 
@@ -388,36 +533,37 @@ int startMsgListener(char *ip, const char *port) {
   fd = open(hhl7fifo, O_WRONLY | O_NONBLOCK);
 
   for (;;) {
-    sessfd = accept(svrfd, 0, 0);
-    if (sessfd == -1) {
-      handleError(LOG_ERR, "Can't accept connections", 1, 0, 1);
-      return -1;
-    }
+    struct timeval tv, *tvp;
+    fd_set rs;
+    FD_ZERO(&rs);
+    FD_SET(svrfd, &rs);
+    tv.tv_sec = 5;
+    tv.tv_usec = 0;
+    tvp = &tv;
 
-    // Make children ignore waiting for parent process before closing
-    signal(SIGCHLD, SIG_IGN);
-
-    pid_t pidBefore = getpid();
-    pid_t pid=fork();
-    if (pid == -1) {
-      handleError(LOG_ERR, "Can't fork a child process for listener", 1, 0, 1);
-      return -1;
-
-    }  else if (pid == 0) {
-      // Check for parent exiting and repeat
-      int r = prctl(PR_SET_PDEATHSIG, SIGTERM);
-      if (r == -1 || getppid() != pidBefore) {
-        exit(0);
+    int res = select(svrfd + 1, &rs, NULL, NULL, tvp);
+    if (res == -1) {
+      if (errno != EINTR) {
+        sprintf(infoStr, "Aborting due to error during select: %s", strerror(errno));
+        handleError(LOG_ERR, infoStr, 1, 1, 1);
+        break;
       }
 
-      handleMsg(sessfd, fd);
-      close(sessfd);
-      _exit(0);
+    } else if (res == 0) {
+      // TODO - WORKING - add auto response sending here
+      //printf("Timeout\n");
 
     } else {
-      close(sessfd);
+      sessfd = accept(svrfd, 0, 0);
+      if (sessfd == -1) {
+        handleError(LOG_ERR, "Can't accept connections", 1, 0, 1);
+        return -1;
+      }
 
+      handleMsg(sessfd, fd, tName);
+      close(sessfd);
     }
   }
+
   return 0;
 }

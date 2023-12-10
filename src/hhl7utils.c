@@ -179,7 +179,7 @@ void wrapMLLP(char *hl7msg) {
 
 
 // TODO - let rBuf expand if field size > 255
-void getHL7Field(char *hl7msg, char *seg, int field, char *res) {
+int getHL7Field(char *hl7msg, char *seg, int field, char *res) {
   int msgLen = strlen(hl7msg), segLen = strlen(seg);
   int m = 0, s = 0, f = 0, fc = 0, sFound = 0, fFound = 0;
   char sBuf[segLen + 1];
@@ -187,10 +187,11 @@ void getHL7Field(char *hl7msg, char *seg, int field, char *res) {
  
   for (m = 0; m < msgLen; m++) {
     if (hl7msg[m] == '\r' && hl7msg[m-1] != '\\') {
-      if (sFound == 1) {
-        fprintf(stderr, "ERROR: Failed to find field %d in segment %s\n", field, seg);
+      // TODO - This always prints the error... need to check error handling
+      //if (sFound == 1) {
+      //  fprintf(stderr, "ERROR: Failed to find field %d in segment %s\n", field, seg);
         //exit(1); 
-      }
+      //}
       s = 0;
       fc = 0;
 
@@ -205,7 +206,7 @@ void getHL7Field(char *hl7msg, char *seg, int field, char *res) {
       }
       s++;
 
-    } else if (s == segLen  && sFound == 0) {
+    } else if (s == segLen && sFound == 0) {
       continue;
    
     } else if (hl7msg[m] == '|' && hl7msg[m - 1] != '\\') {
@@ -214,7 +215,8 @@ void getHL7Field(char *hl7msg, char *seg, int field, char *res) {
         fFound = 1;
       } else if (fFound == 1) {
         res[f] = '\0';
-        break;
+        return 0;
+        //break;
 
       }
     } else if (fFound == 1) {
@@ -223,6 +225,7 @@ void getHL7Field(char *hl7msg, char *seg, int field, char *res) {
 
     }
   }
+  return 1;
 }
 
 

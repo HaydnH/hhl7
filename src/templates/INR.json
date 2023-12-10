@@ -1,0 +1,52 @@
+{
+  "name":"INR",
+  "author":"Haydn Haines",
+  "version":"1.0",
+  "argcount":2,
+  "cmdhelp":"hhl7 -t admit <hospnum> <FT|SC> <Result Value>",
+  "segments": [
+    { "name":"MSH",
+      "fields": [
+        { "id":1,  "value":"^~\\&" },
+        { "id":2,  "value":"ILAB" },
+        { "id":6,  "value":"$NOW" },
+        { "id":8,  "value":"ORU^R01" },
+        { "id":9,  "value":"1" },
+        { "id":10, "value":"P" },
+        { "id":11, "value":"2.4" }
+      ]
+    },
+    { "name":"PID",
+      "fields": [  
+        { "id":2,  "value":"$VAR1", "name":"Hospital Number" },
+        { "id":3,  "value":"$VAR1", "name":"Hospital Number" },
+        { "id":4,  "value":"$VAR1", "name":"Hospital Number" }
+      ]
+    },
+    { "name":"ORC",
+      "fields": [
+        { "id":1,  "value":"SC" },
+        { "id":2,  "value":"$VAR2", "name":"Order Number", "post":"_001" },
+        { "id":4,  "value":"$VAR2", "name":"Order Number" }
+      ]
+    },
+    { "name":"OBR",
+      "fields": [  
+        { "id":2,  "value":"$VAR2", "name":"Order Number", "post":"_001" },
+        { "id":4,  "value":"INR^INR" },
+        { "id":7,  "value":"$NOW" }
+      ]
+    },
+    { "name":"OBX",
+      "fields": [
+        { "id":1,  "value":"1" },
+        { "id":2,  "value":"NM" },
+        { "id":3,  "value":"INR^INR" },
+        { "id":5,  "value":"$RND", "min":0, "max":4, "dp":2 },
+        { "id":7,  "value":"0.4 - 4.0" },
+        { "id":8,  "value":"" },
+        { "id":11,  "value":"F" }
+      ]
+    }
+  ]
+}

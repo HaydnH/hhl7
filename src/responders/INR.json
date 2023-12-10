@@ -1,0 +1,14 @@
+{
+  "name":"INR",
+  "reponseTimeMin":0,
+  "reponseTimeMax":0,
+  "matches": [
+    { "segment":"MSH", "field":8, "value":"OMG^O19" },
+    { "segment":"OBR", "field":4, "value":"INR^INR" }
+  ],
+  "sendTemplate":"INR",
+  "sendArgs": [
+    { "segment":"PID", "field":4 },
+    { "segment":"ORC", "field":4 }
+  ]
+}

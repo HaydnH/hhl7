@@ -766,7 +766,7 @@ static void startListenWeb(struct Session *session, struct MHD_Connection *conne
     }
 
     // 127.0.0.1 should be fine for daemon on systemd socket, -w may need bind address
-    startMsgListener("127.0.0.1", session->lPort);
+    startMsgListener("127.0.0.1", session->lPort, NULL);
     _exit(0);
 
   }
@@ -1368,9 +1368,9 @@ int listenWeb(int daemonSock) {
     }
 
     max = 0;
-    FD_ZERO (&rs);
-    FD_ZERO (&ws);
-    FD_ZERO (&es);
+    FD_ZERO(&rs);
+    FD_ZERO(&ws);
+    FD_ZERO(&es);
 
     // Set MHD file descriptiors to watch for activity...
     if (MHD_YES != MHD_get_fdset(daemon, &rs, &ws, &es, &max)) break; // internal error
@@ -1385,6 +1385,7 @@ int listenWeb(int daemonSock) {
     } else {
       tv.tv_sec = maxExpire;
       tv.tv_usec = 0;
+      tvp = &tv;
       sprintf(infoStr, "Sessions inactive, last expiry in %d seconds", maxExpire);
       writeLog(LOG_INFO, infoStr, 0);
 

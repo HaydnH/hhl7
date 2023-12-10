@@ -37,7 +37,8 @@ void showHelp() {
 // Main
 int main(int argc, char *argv[]) {
   int daemonSock = 0, sockfd, opt, option_index = 0;
-  int fSend = 0, fListen = 0, fSendTemplate = 0, fShowTemplate = 0, noSend = 0, fWeb = 0;
+  int fSend = 0, fListen = 0, fRespond = 0, fSendTemplate = 0, fShowTemplate = 0;
+  int noSend = 0, fWeb = 0;
   FILE *fp;
 
   // TODO - error check for file names, hostnames > 256 etc
@@ -64,7 +65,7 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-  while((opt = getopt_long(argc, argv, ":0HD:slt:T:owWh:L:p:P:f:", long_options, &option_index)) != -1) {
+  while((opt = getopt_long(argc, argv, ":0HD:slr:t:T:owWh:L:p:P:f:", long_options, &option_index)) != -1) {
     switch(opt) {
       case 0:
         exit(1);
@@ -85,6 +86,12 @@ int main(int argc, char *argv[]) {
 
       case 'l':
         fListen = 1;
+        break;
+
+      case 'r':
+        if (*argv[optind-1] == '-') handleError(3, "Option -r requires a value", 1, 1, 1);
+        fRespond = 1;
+        if (optarg) strcpy(tName, optarg);
         break;
 
       case 't':
@@ -179,45 +186,21 @@ int main(int argc, char *argv[]) {
 
   if (fListen == 1) {
     // Listen for incomming messages
-    startMsgListener(lIP, lPort);
+    startMsgListener(lIP, lPort, NULL);
+  }
+
+
+  if (fRespond == 1) {
+    // Listen for incomming messages & respond using template
+    startMsgListener(lIP, lPort, tName);
   }
 
 
   if (fSendTemplate == 1) {
-    // Find the template file
-    fp = findTemplate(fileName, tName);
-    int fSize = getFileSize(fileName);
-
-    sprintf(infoStr, "Using template file: %s", fileName);
-    writeLog(6, infoStr, 1);
-
-    char *jsonMsg = malloc(fSize + 1);
-    // TODO - max hl7 size is 1024? Need to malloc here!
-    int hl7MsgS = 1024;
-    char *hl7Msg = malloc(hl7MsgS);
-    hl7Msg[0] = '\0';
-
-    // Read the json template to jsonMsg
-    readJSONFile(fp, fSize, jsonMsg);
-
-    // Generate HL7 based on the json template
-    parseJSONTemp(jsonMsg, &hl7Msg, &hl7MsgS, NULL, NULL, argc - optind, argv + optind, 0);
-
-    // Print the HL7 message if requested
-    if (fShowTemplate == 1) {
-       hl72unix(hl7Msg, 1);
-    }
-
-    if (noSend == 0) {
-      // Connect to server, send & listen for ack
-      sockfd = connectSvr(sIP, sPort);
-      sendPacket(sockfd, hl7Msg, NULL);
-    }
-
-    // Free memory
-    free(jsonMsg);
-    fclose(fp);
+    // Send a message based on the given jon template & arguments
+    sendTemp(sIP, sPort, tName, noSend, fShowTemplate, optind, argc, argv);
   }
+
 
   if (fWeb == 1) {
     writeLog(6, "Local web process starting...", 1);
