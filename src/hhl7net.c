@@ -55,6 +55,7 @@ static struct Response *responses;
 
 
 // Debug function to print auto response queue
+/*
 static void printResponses() {
   struct Response *resp;
 
@@ -64,6 +65,7 @@ static void printResponses() {
     resp = resp->next;
   }
 }
+*/
 
 
 // Add a response struct to the queue
@@ -104,11 +106,10 @@ static struct Response *queueResponse(struct Response *resp) {
 
 // Process the response queue
 static int processResponses() {
-printf("processing...\n");
-printResponses(responses);
   struct Response *resp;
   time_t tNow = time(NULL); 
   char resStr[3] = "";
+  int nextResp = -1;
 
   resp = responses;
   while (resp != NULL) {
@@ -122,23 +123,21 @@ printResponses(responses);
 
     } else if (tNow >= resp->sendTime && resp->sent == 0) {
       // Send the response to the server
-      printf("Send...\n");
-//printf("%s\n%s\n%s\n%d\n%s\n%s\n\n", resp->sIP, resp->sPort, resp->tName, resp->argc, resp->sendPtrs[0], resp->sendPtrs[1]);
       sendTemp(resp->sIP, resp->sPort, resp->tName, 0, 0, 0, resp->argc,
                resp->sendPtrs, resStr);
 
       resp->sent = 1;
-      //strcpy(resp->resCode, resStr);
       sprintf(resp->resCode, "%s", resStr);
 
     } else if (resp->sendTime > tNow) {
-      return(resp->sendTime - tNow);
+      nextResp = resp->sendTime - tNow;
+      if (nextResp < 0) return 0;
+      return(nextResp);
 
     }
     resp = resp->next;
   }
-  // TODO - make this a config item
-  return 10;
+  return -1;
 }
 
 
@@ -370,7 +369,6 @@ void sendTemp(char *sIP, char *sPort, char *tName, int noSend, int fShowTemplate
   if (noSend == 0) {
     // Connect to server, send & listen for ack
     sockfd = connectSvr(sIP, sPort);
-printf("sockfd: %d\n", sockfd);
     sendPacket(sockfd, hl7Msg, resStr);
   }
 
@@ -660,7 +658,7 @@ static int createSession(char *ip, const char *port) {
 // Start listening for incomming messages
 int startMsgListener(char *lIP, const char *lPort, char *sIP, char *sPort, char *tName) {
   // TODO - move timeout/polling interval nextResponse to config file
-  int svrfd = 0, sessfd = 0, fd = 0, nextResp = 10;
+  int svrfd = 0, sessfd = 0, fd = 0, nextResp = -1;
 
   if ((svrfd = createSession(lIP, lPort)) == -1) return -1;
 
@@ -676,10 +674,13 @@ int startMsgListener(char *lIP, const char *lPort, char *sIP, char *sPort, char 
     FD_ZERO(&rs);
     FD_SET(svrfd, &rs);
 
-    if (nextResp < 0) nextResp = 0;
-    tv.tv_sec = nextResp;
-    tv.tv_usec = 0;
-    tvp = &tv;
+    if (nextResp == -1) {
+      tvp = NULL;
+    } else {
+      tv.tv_sec = nextResp;
+      tv.tv_usec = 0;
+      tvp = &tv;
+    }
 
     int res = select(svrfd + 1, &rs, NULL, NULL, tvp);
     if (res == -1) {
@@ -692,7 +693,11 @@ int startMsgListener(char *lIP, const char *lPort, char *sIP, char *sPort, char 
     } else if (res == 0) {
       if (sIP != NULL) {
         nextResp = processResponses();
-        printf("Responses processed, next response in %d seconds\n", nextResp);
+        if (nextResp == -1) {
+          printf("Responses queue empty, awaiting next received message\n");
+        } else {
+          printf("Responses processed, next response in %d seconds\n", nextResp);
+        }
       }
 
     } else {
@@ -703,7 +708,7 @@ int startMsgListener(char *lIP, const char *lPort, char *sIP, char *sPort, char 
       }
 
       responses = handleMsg(sessfd, fd, sIP, sPort, tName);
-      printResponses(responses);
+      //printResponses(responses);
       close(sessfd);
 
       if (sIP != NULL) nextResp = processResponses();
