@@ -114,7 +114,7 @@ printResponses(responses);
   while (resp != NULL) {
     // TODO - add expiry time to config file
     // Expire old responses
-    if (tNow - resp->sendTime >= 30 && resp->sent == 1) {
+    if (tNow - resp->sendTime >= 900 && resp->sent == 1) {
       responses = resp->next;
       free(resp);
       resp = responses;
