@@ -36,6 +36,112 @@ You should have received a copy of the GNU General Public License along with hhl
 #include "hhl7web.h"
 
 
+// Struct for queued auto responses
+struct Response {
+  struct Response *next;
+  time_t sendTime;
+  char sIP[256];
+  char sPort[6];
+  char *tName;
+  int sent;
+  char resCode[3];
+  int argc;
+  char sendArgs[20][256];
+  char *sendPtrs[20];
+};
+
+// Linked list of responses
+static struct Response *responses;
+
+
+// Debug function to print auto response queue
+static void printResponses() {
+  struct Response *resp;
+
+  resp = responses;
+  while (resp != NULL) {
+    printf("R: %ld\n", resp->sendTime);
+    resp = resp->next;
+  }
+}
+
+
+// Add a response struct to the queue
+static struct Response *queueResponse(struct Response *resp) {
+  struct Response *this, *next;
+
+  this = responses;
+  if (this == NULL) {
+    return resp;
+
+  } else if (resp->sendTime <= this->sendTime) {
+    resp->next = this;
+    return resp;
+    
+  } else {
+    while (this != NULL) {
+      if (this->next == NULL) {
+        this->next = resp;
+        return responses;
+
+      } else {
+        next = this->next;
+        if (next->sendTime >= resp->sendTime) {
+          resp->next = next;
+          this->next = resp;
+          return responses;
+
+        } else {
+          this = this->next;
+
+        }
+      }
+    }
+    return responses;
+  }
+}
+
+
+// Process the response queue
+static int processResponses() {
+printf("processing...\n");
+printResponses(responses);
+  struct Response *resp;
+  time_t tNow = time(NULL); 
+  char resStr[3] = "";
+
+  resp = responses;
+  while (resp != NULL) {
+    // TODO - add expiry time to config file
+    // Expire old responses
+    if (tNow - resp->sendTime >= 30 && resp->sent == 1) {
+      responses = resp->next;
+      free(resp);
+      resp = responses;
+      continue;
+
+    } else if (tNow >= resp->sendTime && resp->sent == 0) {
+      // Send the response to the server
+      printf("Send...\n");
+//printf("%s\n%s\n%s\n%d\n%s\n%s\n\n", resp->sIP, resp->sPort, resp->tName, resp->argc, resp->sendPtrs[0], resp->sendPtrs[1]);
+      sendTemp(resp->sIP, resp->sPort, resp->tName, 0, 0, 0, resp->argc,
+               resp->sendPtrs, resStr);
+
+      resp->sent = 1;
+      //strcpy(resp->resCode, resStr);
+      sprintf(resp->resCode, "%s", resStr);
+
+    } else if (resp->sendTime > tNow) {
+      return(resp->sendTime - tNow);
+
+    }
+    resp = resp->next;
+  }
+  // TODO - make this a config item
+  return 10;
+}
+
+
 // Check if a port is valid (ret 0=valid, 1=string too long, 2=out of range)
 int validPort(char *port) {
   int portLen = strlen(port);
@@ -111,12 +217,13 @@ int listenACK(int sockfd, char *res) {
   writeLog(LOG_INFO, "Listening for ACK...", 1);
 
   // Receive the response from the server and strip MLLP wrapper
-  // TODO - change 256: malloc a big buffer, read 256, check if complete ack, expand if needed
+  // TODO - change 256: malloc a buffer, read 256, check if complete ack, expand if needed
   if ((recvL = recv(sockfd, ackBuf, 256, 0)) == -1) {
     handleError(LOG_ERR, "Timeout listening for ACK response", 1, 0, 1);
     return -1;
 
   } else {
+    close(sockfd);
     stripMLLP(ackBuf);
     ackBuf[strlen(ackBuf) - 1] = '\0';
 
@@ -153,11 +260,12 @@ int listenACK(int sockfd, char *res) {
       writeLog(LOG_INFO, infoStr, 1);
 
       if (res) {
-        strncpy(res, aCode, 2);
+        //strncpy(res, aCode, 2);
+        aCode[3] = '\0';
+        strcpy(res, aCode);
         res[3] = '\0';
       }
     }
-    hl72unix(ackBuf, 0);
     // TODO - add option to print ACK response
     //printf("ACK:\n%s\n\n", ackBuf);
 
@@ -230,7 +338,7 @@ int sendPacket(int sockfd, char *hl7msg, char *resStr) {
 
 // Send a json template
 void sendTemp(char *sIP, char *sPort, char *tName, int noSend, int fShowTemplate,
-              int optind, int argc, char *argv[]) {
+              int optind, int argc, char *argv[], char *resStr) {
 
   FILE *fp;
   int sockfd;
@@ -244,7 +352,6 @@ void sendTemp(char *sIP, char *sPort, char *tName, int noSend, int fShowTemplate
   writeLog(6, infoStr, 1);
 
   char *jsonMsg = malloc(fSize + 1);
-  // TODO - max hl7 size is 1024? Need to malloc here!
   int hl7MsgS = 1024;
   char *hl7Msg = malloc(hl7MsgS);
   hl7Msg[0] = '\0';
@@ -263,9 +370,11 @@ void sendTemp(char *sIP, char *sPort, char *tName, int noSend, int fShowTemplate
   if (noSend == 0) {
     // Connect to server, send & listen for ack
     sockfd = connectSvr(sIP, sPort);
-    sendPacket(sockfd, hl7Msg, NULL);
+printf("sockfd: %d\n", sockfd);
+    sendPacket(sockfd, hl7Msg, resStr);
   }
 
+  // TODO - free hl7Msg?? 
   // Free memory
   free(jsonMsg);
   fclose(fp);
@@ -287,29 +396,34 @@ int sendAck(int sessfd, char *hl7msg) {
 
   sprintf(ackBuf, "%c%s%s%s%s%s%s%s%c%c", 0x0B, "MSH|^~\\&|||||", dt, "||ACK|", cid,
                                           "|P|2.4|\rMSA|AA|", cid, "|OK|", 0x1C, 0x0D);
-
   if ((writeL = write(sessfd, ackBuf, strlen(ackBuf))) == -1) {
     close(sessfd);
     handleError(LOG_ERR, "Failed to send ACK response to server", -1, 0, 1);
     return -1;
 
   } else {
+    close(sessfd);
     sprintf(infoStr, "Message with control ID %s received OK and ACK sent", cid);
     writeLog(LOG_INFO, infoStr, 1);
   }
+
+//printf("sessfd, SA: %d\n", sessfd);
+//hl72unix(ackBuf, 1);
+//printf("Ack: %s\n", ackBuf);
+
   return writeL;
 }
 
 
-// TODO - WORKING: write this, need to more hhl7.c fSendTemplate == 1 code to a function
 // Check incomming message for responder match and send response
-static int checkResponse(char *msg, char *tName) {
+static struct Response *checkResponse(char *msg, char *sIP, char *sPort, char *tName) {
+  struct Response *respHead = responses;
   struct json_object *resObj = NULL, *jArray = NULL, *matchObj = NULL;
   struct json_object *segStr = NULL, *fldObj = NULL, *valStr = NULL;
   struct json_object *minObj = NULL, *maxObj = NULL, *sendT = NULL;
   int m = 0, mCount = 0, fldInt = 0, minT = 0, maxT = 0;
   // TODO - check values, malloc?
-  char resFile[290], fldStr[256]; //, sendArgs[10][256];
+  char resFile[290], fldStr[256], resStr[3];
 
   // Define template location
   if (isDaemon == 1) {
@@ -335,7 +449,7 @@ static int checkResponse(char *msg, char *tName) {
 
   mCount = json_object_array_length(jArray);
 
-  // Check that each mathes item matches, return -1 if no match
+  // Check that each mathes item matches, return responses if no match
   for (m = 0; m < mCount; m++) {
     // TODO - error handling
     matchObj = json_object_array_get_idx(jArray, m);
@@ -350,7 +464,7 @@ static int checkResponse(char *msg, char *tName) {
     printf("Comparing %s against %s...\n", json_object_get_string(valStr), fldStr);
     if (strcmp(json_object_get_string(valStr), fldStr) != 0) {
       printf("No Match\n");
-      return -1;
+      return responses;
     }
   }
 
@@ -369,7 +483,10 @@ static int checkResponse(char *msg, char *tName) {
   }
 
   mCount = json_object_array_length(jArray);
-  char sendArgs[mCount][256], *sendPtrs[mCount];
+  //char sendArgs[mCount][256], *sendPtrs[mCount];
+
+  struct Response *resp;
+  resp = calloc(1, sizeof(struct Response));
 
   for (m = 0; m < mCount; m++) {
     matchObj = json_object_array_get_idx(jArray, m);
@@ -377,27 +494,46 @@ static int checkResponse(char *msg, char *tName) {
     json_object_object_get_ex(matchObj, "field", &fldObj);
     fldInt = json_object_get_int(fldObj);
     getHL7Field(msg, (char *) json_object_get_string(segStr), fldInt, fldStr);
-    strcpy(sendArgs[m], fldStr);
-    sendPtrs[m] = sendArgs[m];
+    strcpy(resp->sendArgs[m], fldStr);
+    resp->sendPtrs[m] = resp->sendArgs[m];
+
   }
 
+  // Get a random value between the min and max times
+  int rndNum = 0;
+  if (minT != maxT) getRand(minT, maxT, 0, NULL, &rndNum);
+
+  // Create a response struct for this response
+  resp->sendTime = time(NULL) + rndNum;
+  strcpy(resp->sIP, sIP);
+  strcpy(resp->sPort, sPort);
+  resp->tName = (char *) json_object_get_string(sendT);
+  resp->sent = 0;
+  resp->argc = mCount;
+
+  // If min and max times are 0, send immediately
   if (minT == 0 && maxT == 0) {
-    // TODO - use sIP and sPort....
-    // Send response now...
-    sendTemp("127.0.0.1", "11011", (char *) json_object_get_string(sendT), 0, 1, 0,
-             mCount, sendPtrs);
-  } else {
-    // schedule response
+    sendTemp(sIP, sPort, (char *) json_object_get_string(sendT), 0, 0, 0,
+             mCount, resp->sendPtrs, resStr);
+    resp->sent = 1;
+    sprintf(resp->resCode, "%s", resStr);
+
   }
 
-  //printf("Match\n");
+  // Add the response to the queue
+  respHead = queueResponse(resp);
+  printf("Response queued, delivery in %ld seconds\n", resp->sendTime - time(NULL));
+
   json_object_put(jArray);
-  return 0;
+  return respHead;
 }
 
 
 // Handle an incomming message
-static void handleMsg(int sessfd, int fd, char *tName) {
+static struct Response *handleMsg(int sessfd, int fd, char *sIP,
+                                  char *sPort, char *tName) {
+
+  struct Response *respHead = responses;
   int readSize = 512, msgSize = 0, maxSize = readSize + msgSize, rcvSize = 1;
   int msgCount = 0, ignoreNext = 0, webErr = 0;
   int *ms = &maxSize;
@@ -451,10 +587,11 @@ static void handleMsg(int sessfd, int fd, char *tName) {
             }
 
           } else if (tName) {
-            checkResponse(msgBuf, tName);
+            respHead = checkResponse(msgBuf, sIP, sPort, tName);
+            //hl72unix(msgBuf, 1);
 
           } else {
-             hl72unix(msgBuf, 1);
+            hl72unix(msgBuf, 1);
           }
 
           // Clean up counters and buffers
@@ -471,6 +608,7 @@ static void handleMsg(int sessfd, int fd, char *tName) {
 
   free(msgBuf);
   close(sessfd);
+  return respHead;
 }
 
 
@@ -520,11 +658,11 @@ static int createSession(char *ip, const char *port) {
 
 
 // Start listening for incomming messages
-int startMsgListener(char *ip, const char *port, char *tName) {
-  int svrfd = 0, sessfd = 0;
-  int fd = 0;
+int startMsgListener(char *lIP, const char *lPort, char *sIP, char *sPort, char *tName) {
+  // TODO - move timeout/polling interval nextResponse to config file
+  int svrfd = 0, sessfd = 0, fd = 0, nextResp = 10;
 
-  if ((svrfd = createSession(ip, port)) == -1) return -1;
+  if ((svrfd = createSession(lIP, lPort)) == -1) return -1;
 
   // Create a named pipe to write to
   char hhl7fifo[21]; 
@@ -532,12 +670,14 @@ int startMsgListener(char *ip, const char *port, char *tName) {
   mkfifo(hhl7fifo, 0666);
   fd = open(hhl7fifo, O_WRONLY | O_NONBLOCK);
 
-  for (;;) {
+  while(1) {
     struct timeval tv, *tvp;
     fd_set rs;
     FD_ZERO(&rs);
     FD_SET(svrfd, &rs);
-    tv.tv_sec = 5;
+
+    if (nextResp < 0) nextResp = 0;
+    tv.tv_sec = nextResp;
     tv.tv_usec = 0;
     tvp = &tv;
 
@@ -550,8 +690,10 @@ int startMsgListener(char *ip, const char *port, char *tName) {
       }
 
     } else if (res == 0) {
-      // TODO - WORKING - add auto response sending here
-      //printf("Timeout\n");
+      if (sIP != NULL) {
+        nextResp = processResponses();
+        printf("Responses processed, next response in %d seconds\n", nextResp);
+      }
 
     } else {
       sessfd = accept(svrfd, 0, 0);
@@ -560,10 +702,14 @@ int startMsgListener(char *ip, const char *port, char *tName) {
         return -1;
       }
 
-      handleMsg(sessfd, fd, tName);
+      responses = handleMsg(sessfd, fd, sIP, sPort, tName);
+      printResponses(responses);
       close(sessfd);
+
+      if (sIP != NULL) nextResp = processResponses();
     }
   }
 
+  close(svrfd);
   return 0;
 }

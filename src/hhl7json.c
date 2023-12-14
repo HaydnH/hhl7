@@ -214,7 +214,8 @@ static void parseVals(char ***hl7Msg, int *hl7MsgS, char *vStr, char *nStr, char
     const char *d = json_object_get_string(dp);
 
     // TODO why am I using atoi? Can't we get float above?
-    getRand(atoi(l), atoi(u), atoi(d), rndStr);
+    int negOne = -1;
+    getRand(atoi(l), atoi(u), atoi(d), rndStr, &negOne);
     reqS = strlen(**hl7Msg) + strlen(rndStr); 
     if (reqS > *hl7MsgS) **hl7Msg = dblBuf(**hl7Msg, hl7MsgS, reqS);
     strcat(**hl7Msg, rndStr);
@@ -460,6 +461,7 @@ void parseJSONTemp(char *jsonMsg, char **hl7Msg, int *hl7MsgS, char **webForm,
         // Get field and add it to the HL7 message and web form if appropriate
         fieldObj = json_object_array_get_idx(fieldsObj, f);
         if (isWeb == 1) addVar2WebForm(webForm, webFormS, fieldObj);
+
         parseJSONField(fieldObj, &lastFid, fieldCount - f, hl7Msg, hl7MsgS, argv,
                        fieldTok, isWeb, webForm, incArray, msgCount);
 

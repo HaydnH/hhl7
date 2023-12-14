@@ -186,19 +186,19 @@ int main(int argc, char *argv[]) {
 
   if (fListen == 1) {
     // Listen for incomming messages
-    startMsgListener(lIP, lPort, NULL);
+    startMsgListener(lIP, lPort, NULL, NULL, NULL);
   }
 
 
   if (fRespond == 1) {
     // Listen for incomming messages & respond using template
-    startMsgListener(lIP, lPort, tName);
+    startMsgListener(lIP, lPort, sIP, sPort, tName);
   }
 
 
   if (fSendTemplate == 1) {
     // Send a message based on the given jon template & arguments
-    sendTemp(sIP, sPort, tName, noSend, fShowTemplate, optind, argc, argv);
+    sendTemp(sIP, sPort, tName, noSend, fShowTemplate, optind, argc, argv, NULL);
   }
 
 

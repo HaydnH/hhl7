@@ -1,5 +1,5 @@
 CC      = gcc
-CFLAGS  = -O1 -Wall -fcommon
+CFLAGS  = -O1 -Wall -fcommon -g
 INCDIR  = -I/usr/include/json-c -I/usr/include/microhttpd -I/usr/include/openssl -I/usr/include/systemd/sd-daemon
 DESTDIR = /usr/local/hhl7
 BINDIR  = /usr/local/bin

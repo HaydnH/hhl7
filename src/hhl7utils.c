@@ -115,7 +115,7 @@ void file2buf(char *buf, FILE *fp, long int fsize) {
 
 
 // Return a random number between 2 values to the same number of decimal places as input
-void getRand(int lower, int upper, int dp, char *res) {
+void getRand(int lower, int upper, int dp, char *res, int *resInt) {
   float resF;
   struct timeval tv;
   
@@ -133,7 +133,11 @@ void getRand(int lower, int upper, int dp, char *res) {
   resF = resF / pow(10, dp);
 
   // Return the final result to the correct DPs
-  sprintf(res, "%.*f", dp, resF);
+  if (*resInt >= 0) {
+    *resInt = (int) resF;
+  } else {
+    sprintf(res, "%.*f", dp, resF);
+  }
 }
 
 
