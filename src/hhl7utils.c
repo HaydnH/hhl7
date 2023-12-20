@@ -302,7 +302,7 @@ void hl72web(char *msg) {
   strcpy(msg, res);
 }
 
-
+// TODO - could use some tidying, multiple strcpy to sprintf(.., %s%s..) etc
 // Find fullpath of a json template file
 FILE *findTemplate(char *fileName, char *tName) {
   FILE *fp;
@@ -312,28 +312,47 @@ FILE *findTemplate(char *fileName, char *tName) {
                          "./templates/",
                          "/usr/local/hhl7/templates/" };
 
-  // Create the full file path/name of the found template location
-  for (p = 0; p < 3; p++) {
-    if (p == 0) {
-      strcpy(fileName, homeDir);
-      strcat(fileName, tPaths[p]);
-    } else {
-      strcpy(fileName, tPaths[p]);
-    }
-    strcat(fileName, tName);
-    strcat(fileName, ".json");
+  sprintf(infoStr, "Attempting to find template: %s", tName);
+  writeLog(LOG_DEBUG, infoStr, 1);
 
-    // If we can open the file for reading, return the file pointer
+  if (isDaemon == 1) {
+    sprintf(fileName, "%s%s%s", tPaths[2], tName, ".json");
     fp = fopen(fileName, "r");
     if (fp != NULL) {
+      sprintf(infoStr, "Template: %s found, returning fp: %p for %s", tName, fp, fileName);
+      writeLog(LOG_DEBUG, infoStr, 1);
       return fp;
+    }
+
+  } else {
+    // Create the full file path/name of the found template location
+    for (p = 0; p < 3; p++) {
+      if (p == 0) {
+        strcpy(fileName, homeDir);
+        strcat(fileName, tPaths[p]);
+      } else {
+        strcpy(fileName, tPaths[p]);
+      }
+      strcat(fileName, tName);
+      strcat(fileName, ".json");
+
+      sprintf(infoStr, "Attempting to open file for reading: %s", fileName);
+      writeLog(LOG_DEBUG, infoStr, 1);
+
+      // If we can open the file for reading, return the file pointer
+      fp = fopen(fileName, "r");
+      if (fp != NULL) {
+        sprintf(infoStr, "Template: %s found, returning fp: %p for %s", tName, fp, fileName);
+        writeLog(LOG_DEBUG, infoStr, 1);
+        return fp;
+      }
     }
   }
 
   // Error if no template found
   if (fp == NULL) {
-    fprintf(stderr, "ERROR: Cannot find template: %s\n", tName);
-    exit(1);
+    sprintf(infoStr, "Failed to find template: %s", tName);
+    handleError(LOG_ERR, infoStr, 1, 0, 1);
   }
 
   // We should never get here, but it's included to avoid compiler warnings

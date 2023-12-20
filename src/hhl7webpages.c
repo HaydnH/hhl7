@@ -27,6 +27,9 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         text-decoration: none;\n\
         color: #fff;\n\
       }\n\
+      a.black {\n\
+        color: #000;\n\
+      }\n\
       a:hover {\n\
         color: #eeb11e;\n\
       }\n\
@@ -145,6 +148,15 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         display: none;\n\
         flex-direction: column;\n\
       }\n\
+      #respPane {\n\
+        position: fixed;\n\
+        top: 106px;\n\
+        left: 0;\n\
+        right: 0;\n\
+        bottom: 35px;\n\
+        display: none;\n\
+        flex-direction: column;\n\
+      }\n\
       #tempForm {\n\
         display: flex;\n\
         flex-wrap: wrap;\n\
@@ -189,7 +201,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         padding: 0px 10px 0px 10px;\n\
         outline: none;\n\
       }\n\
-      .tempFormSelct {\n\
+      .tempFormSelect {\n\
         font-family: Verdana, Helvetica, sans-serif;\n\
         font-size: 14px;\n\
         background-color: #fff;\n\
@@ -198,6 +210,26 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         width: 100%;\n\
         padding: 0px 10px 0px 10px;\n\
         outline: none;\n\
+      }\n\
+      #respForm {\n\
+        display: flex;\n\
+        flex-wrap: wrap;\n\
+      }\n\
+      .respFormItem {\n\
+        font-family: Verdana, Helvetica, sans-serif;\n\
+        font-size: 14px;\n\
+        margin: 3px 3px 4px 3px;\n\
+        height: 30px;\n\
+        line-height: 32px;\n\
+        background-color: #eeeff3;\n\
+        border-radius: 6px;\n\
+        border: 2px solid #8a93ae;\n\
+        padding: 0px 15px 0px 20px;\n\
+      }\n\
+      .respFormClose {\n\
+        font-family: Verdana, Helvetica, sans-serif;\n\
+        font-size: 18px;\n\
+        padding-left: 10px;\n\
       }\n\
       select {\n\
         font-family: Verdana, Helvetica, sans-serif;\n\
@@ -534,6 +566,8 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
     </style>\n\
 \n\
     <script>\n\
+      var isConnectionOpen = false;\n\
+\n\
       function showLogin() {\n\
         hideMenu();\n\
         var login = document.getElementById(\"loginDim\");\n\
@@ -687,14 +721,29 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
       function showList() {\n\
         var pane = document.getElementById(\"sendPane\");\n\
         pane.style.display = \"none\";\n\
+        var pane = document.getElementById(\"respPane\");\n\
+        pane.style.display = \"none\";\n\
         var pane = document.getElementById(\"listPane\");\n\
         pane.style.display = \"flex\";\n\
         startHL7Listener();\n\
       }\n\
 \n\
+      function showResp() {\n\
+        // stopHL7Listener();\n\
+        var pane = document.getElementById(\"sendPane\");\n\
+        pane.style.display = \"none\";\n\
+        var pane = document.getElementById(\"listPane\");\n\
+        pane.style.display = \"none\";\n\
+        var pane = document.getElementById(\"respPane\");\n\
+        pane.style.display = \"flex\";\n\
+        // startHL7Listener();\n\
+      }\n\
+\n\
       function showSend() {\n\
         stopHL7Listener();\n\
         var pane = document.getElementById(\"listPane\");\n\
+        pane.style.display = \"none\";\n\
+        var pane = document.getElementById(\"respPane\");\n\
         pane.style.display = \"none\";\n\
         var pane = document.getElementById(\"sendPane\");\n\
         pane.style.display = \"flex\";\n\
@@ -707,13 +756,23 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         }\n\
       }\n\
 \n\
-      function showTemp() {\n\
+      function showTempForm() {\n\
         var sel = document.getElementById(\"tempSelect\");\n\
         var tForm = document.getElementById(\"tempForm\");\n\
         if (sel.value == \"None\") {\n\
           tForm.style.display = \"none\";\n\
         } else {\n\
           popTempForm();\n\
+          tForm.style.display = \"flex\";\n\
+        }\n\
+      }\n\
+\n\
+      function showRespForm() {\n\
+        var sel = document.getElementById(\"respSelect\");\n\
+        var tForm = document.getElementById(\"respForm\");\n\
+        if (sel.value == \"None\") {\n\
+          tForm.style.display = \"none\";\n\
+        } else {\n\
           tForm.style.display = \"flex\";\n\
         }\n\
       }\n\
@@ -750,16 +809,64 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         var wImg = new Image();\n\
         wImg.src = \"/images/warning.png\";\n\
 \n\
-        popTemplates();\n\
+        popTemplates(0);\n\
       }\n\
 \n\
       function unlockWeb() {\n\
         var errWin = document.getElementById(\"loginDim\");\n\
         errWin.style.display = \"none\";\n\
+        var pwdInp = document.getElementById(\"newPwd\");\n\
+        var conInp = document.getElementById(\"conPwd\");\n\
+        pwdInp.value = \"\";\n\
+        conInp.value = \"\";\n\
 \n\
         /* Try to load the template list again */\n\
         popSettings();\n\
-        popTemplates();\n\
+        popTemplates(0);\n\
+        popTemplates(1);\n\
+      }\n\
+\n\
+      function procResponders() {\n\
+        var respJSON = { \"postFunc\":\"procRespond\", \"templates\":[ ] };\n\
+        var respFrm = document.getElementById(\"respForm\");\n\
+        var respList = respFrm.children;\n\
+\n\
+        if (respList.length <= 0) {\n\
+          stopHL7Listener();\n\
+\n\
+        } else {\n\
+          for (var c = 0; c < respList.length; c++) {\n\
+            respJSON.templates[c] = respList[c].id.slice(8);\n\
+          }\n\
+          postJSON(JSON.stringify(respJSON));\n\
+        }\n\
+      }\n\
+\n\
+      function delResponder(divID) {\n\
+        var respFrm = document.getElementById(\"respForm\");\n\
+        var delDiv = document.getElementById(divID);\n\
+        respFrm.removeChild(delDiv);\n\
+        procResponders();\n\
+      }\n\
+\n\
+      function addResponder() {\n\
+        var respFrm = document.getElementById(\"respForm\");\n\
+        var respSel = document.getElementById(\"respSelect\");\n\
+\n\
+        if (respSel.value != \"None\") {\n\
+          var divID = \"RESPFRM_\" + respSel.value;\n\
+\n\
+          if (!document.getElementById(divID)) {\n\
+            var respDiv = document.createElement(\"div\");\n\
+            respDiv.id = divID;\n\
+\n\
+            respDiv.innerHTML = respSel.options[respSel.selectedIndex].text + '<span class=\"respFormClose\"><a class=\"black\" href=\"\" onClick=\"delResponder(\\'' + divID + '\\'); return false;\">&#10006;</a></span>';\n\
+\n\
+            respDiv.className = \"respFormItem\";\n\
+            respFrm.appendChild(respDiv);\n\
+            procResponders();\n\
+          }\n\
+        }\n\
       }\n\
 \n\
 \n\
@@ -787,6 +894,28 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         } else {\n\
           return 0;\n\
         }\n\
+      }\n\
+\n\
+      function postJSON(jsonObj) {\n\
+        event.preventDefault();\n\
+        var xhr = new XMLHttpRequest();\n\
+        xhr.onreadystatechange = function() {\n\
+          if (xhr.readyState === 4) {\n\
+            if (xhr.status === 200) {\n\
+              if (errHandler(xhr.responseText) == 0) {\n\
+                return xhr.responseText;\n\
+              }\n\
+            } else {\n\
+              errHandler(\"ERROR: The hhl7 backend is not running.\");\n\
+            }\n\
+          }\n\
+        };\n\
+\n\
+        xhr.open(\"POST\", \"/postJSON\");\n\
+        xhr.timeout = 1000;\n\
+        var formData = new FormData();\n\
+        formData.append(\"jsonPOST\", jsonObj);\n\
+        xhr.send(formData);\n\
       }\n\
 \n\
       function postCreds() {\n\
@@ -1047,9 +1176,11 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         // TODO: Add error checking for missing values here (or disable the button until form complete\n\
       }\n\
 \n\
-      async function popTemplates() {\n\
+      async function popTemplates(temptype) {\n\
         try {\n\
-          const response = await fetch(\"/getTemplateList\");\n\
+          if (temptype == 0) tempPath = \"/getTemplateList\";\n\
+          if (temptype == 1) tempPath = \"/getRespondList\";\n\
+          const response = await fetch(tempPath);\n\
           const htmlData = await response.text();\n\
 \n\
           if (response.status == 401) {\n\
@@ -1059,7 +1190,8 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
             // TODO internal server error\n\
 \n\
           } else if (response.ok) {\n\
-            var sel = document.getElementById(\"tempSelect\");\n\
+            if (temptype == 0) var sel = document.getElementById(\"tempSelect\");\n\
+            if (temptype == 1) var sel = document.getElementById(\"respSelect\");\n\
             sel.innerHTML = htmlData;\n\
           }\n\
 \n\
@@ -1199,7 +1331,6 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
       }\n\
 \n\
       var evtSource = null;\n\
-      var isConnectionOpen = false;\n\
 \n\
       function updateHL7Log(event) {\n\
         hl7Log = document.getElementById(\"hl7Log\");\n\
@@ -1248,18 +1379,18 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
     <div id=\"menuBar\">\n\
       <span class=\"menuOption\"><a href=\"\" onClick=\"showSend(); return false;\">SEND</a></span>\n\
       <span class=\"menuOption\"><a href=\"\" onClick=\"showList(); return false;\">LISTEN</a></span>\n\
+      <span class=\"menuOption\"><a href=\"\" onClick=\"showResp(); return false;\">RESPOND</a></span>\n\
     </div>\n\
 \n\
     // TODO - how much for info is needed? I think just <form> to allow conten editable?\n\
     <form id=\"postForm\" action=\"/postHL7\" method=\"post\" enctype=\"text/plain\" onSubmit=\"return false;\">\n\
       <div id=\"sendPane\">\n\
         <div class=\"titleBar\">Template:\n\
-          <select name=\"tempSelect\" id=\"tempSelect\" onChange=\"showTemp();\">\n\
+          <select name=\"tempSelect\" id=\"tempSelect\" onChange=\"showTempForm();\">\n\
           </select>\n\
         </div>\n\
 \n\
-        <div id=\"tempForm\">\n\
-        </div>\n\
+        <div id=\"tempForm\"></div>\n\
 \n\
         <div class=\"titleBar\">HL7 Message:\n\
           <img id=\"sendButton\" src=\"./images/send.png\" title=\"Send HL7\" onClick=\"postHL7();\" />\n\
@@ -1275,6 +1406,18 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
       <div class=\"titleBar\">Listening...</div>\n\
       <div id=\"hl7Log\" class=\"hl7Message\"></div>\n\
     </div>\n\
+\n\
+    <div id=\"respPane\">\n\
+      <div class=\"titleBar\">Active responders:\n\
+        <select name=\"respSelect\" id=\"respSelect\" onchange=\"showRespForm();\">\n\
+        </select>\n\
+        <a href=\"\" onClick=\"addResponder(); return false;\">&nbsp;&#10133;</a>\n\
+      </div>\n\
+      <div id=\"respForm\"></div>\n\
+      <div class=\"titleBar\">Response queue:</div>\n\
+      <div id=\"hl7Que\" class=\"hl7Message\"></div>\n\
+    </div>\n\
+\n\
     <div id=\"footer\">&copy; Haydn Haines</div>\n\
 \n\
     <!-- login window -->\n\

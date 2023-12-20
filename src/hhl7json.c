@@ -15,7 +15,9 @@ You should have received a copy of the GNU General Public License along with hhl
 #include <string.h>
 #include <math.h>
 #include <json.h>
+#include <syslog.h>
 #include "hhl7utils.h"
+#include "hhl7extern.h"
 
 
 // Read a json file from file pointer
@@ -71,7 +73,7 @@ static void addVar2WebForm(char **webForm, int *webFormS, struct json_object *fi
   const char wStr1[]  = "<div class='tempFormField'><div class='tempFormKey'>";
   const char wStr2[]  = ":</div><div class='tempFormValue'>";
   const char wStr3[]  = "<select id='HHL7_FL_";
-  const char wStr4[]  = "' class='tempFormSelct'";
+  const char wStr4[]  = "' class='tempFormSelect'";
   const char wStr5[]  = " onInput='updateHL7(this.id, this.value);' />";
   const char wStr6[]  = "<option value='";
   const char wStr7[]  = "' selected='selected";
@@ -418,8 +420,8 @@ void parseJSONTemp(char *jsonMsg, char **hl7Msg, int *hl7MsgS, char **webForm,
 
   // TODO handle error when running as web
   } else if (isWeb == 0 && argc - argcount != 0) {
-    fprintf(stderr, "ERROR: The number of arguments passed on the commmand line (%d) does not match the json template (%d)\n", argc, argcount);
-    exit(1);
+    sprintf(infoStr, "The number of arguments passed on the commmand line (%d) does not match the json template (%d)", argc, argcount);
+    handleError(LOG_ERR, infoStr, 1, 0, 1);
   }
 
   // Get this segment section from the json template and parse it

@@ -444,14 +444,16 @@ static enum MHD_Result getSettings(struct Session *session,
 
 // Get a list of template files and return them as a set of <select> <option>s
 static enum MHD_Result getTemplateList(struct Session *session,
-                                       struct MHD_Connection *connection, const char *url) {
+                                       struct MHD_Connection *connection,
+                                       const char *url, int respond) {
 
   enum MHD_Result ret;
   struct MHD_Response *response;
   DIR *dp;
   FILE *fp = 0;
   struct dirent *file;
-  const char *tPath = "/usr/local/hhl7/templates/";
+  char tPath[29] = "/usr/local/hhl7/responders/";
+  char fExt[6] = "";
   const char *nOpt = "<option value=\"None\">None</option>\n";
   char fName[128], tName[128], fullName[128+strlen(tPath)], *ext; //, *tempOpts;
   char *newPtr;
@@ -464,7 +466,11 @@ static enum MHD_Result getTemplateList(struct Session *session,
     handleError(LOG_ERR, infoStr, 1, 0, 1);
   }
 
-  strcpy(tempOpts, nOpt);
+  if (respond == 0) {
+    sprintf(tPath, "%s", "/usr/local/hhl7/templates/");
+    sprintf(fExt, "%s", ".json");
+    strcpy(tempOpts, nOpt);
+  }
 
   dp = opendir(tPath); 
   if (dp == NULL) {
@@ -509,8 +515,8 @@ static enum MHD_Result getTemplateList(struct Session *session,
             tempOpts = newPtr;
           }
 
-          sprintf(tempOpts + strlen(tempOpts), "%s%s%s%s%s", "<option value=\"",
-                                               fName, ".json\">", tName, "</option>\n");
+          sprintf(tempOpts + strlen(tempOpts), "%s%s%s%s%s%s", "<option value=\"",
+                                               fName, fExt, "\">", tName, "</option>\n");
         }
 
         // Free memory
@@ -745,7 +751,7 @@ static enum MHD_Result stopListenWeb(struct Session *session,
 
 // Start a HL7 Listener in a forked child process
 static void startListenWeb(struct Session *session, struct MHD_Connection *connection,
-                           const char *url) {
+                           const char *url, char *tName) {
 
   // Make children ignore waiting for parent process before closing
   signal(SIGCHLD, SIG_IGN);
@@ -766,7 +772,7 @@ static void startListenWeb(struct Session *session, struct MHD_Connection *conne
     }
 
     // 127.0.0.1 should be fine for daemon on systemd socket, -w may need bind address
-    startMsgListener("127.0.0.1", session->lPort, NULL, NULL, NULL);
+    startMsgListener("127.0.0.1", session->lPort, session->sIP, session->sPort, tName);
     _exit(0);
 
   }
@@ -794,6 +800,7 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
   (void) transfer_encoding;  /* Unused. Silent compiler warning. */
   (void) off;                /* Unused. Silent compiler warning. */
 
+  struct json_object *rootObj= NULL, *postObj = NULL;
   int sockfd;
   char resStr[3] = "";
   int aStatus = -1, nStatus = -1;
@@ -817,6 +824,30 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
         snprintf(answerstring, 3, "%s", "L0");  // Require a login
         con_info->answerstring = answerstring;
         return MHD_YES;
+      }
+    }
+
+    // Handle a JSON string sent in a POST
+    if (strcmp (key, "jsonPOST") == 0 ) {
+      rootObj = json_tokener_parse(data);
+      json_object_object_get_ex(rootObj, "postFunc", &postObj);
+
+      //sprintf(infoStr, "JSON POST: %s", json_object_get_string(postObj));
+      sprintf(infoStr, "JSON POST: %s", data);
+
+      writeLog(LOG_INFO, infoStr, 0);
+
+      if (json_object_get_type(postObj) != json_type_string) {
+        // TODO - error handle
+        writeLog(LOG_ERR, "JSON FUNC IS NOT A STR", 0);
+
+      } else {
+        if (strcmp(json_object_get_string(postObj), "procRespond") == 0) {
+          // TODO - change from localhost and hard coded INR template
+          startListenWeb(con_info->session, con_info->connection, "/respond", "INR");
+          sprintf(infoStr, "JSON POST: %s", json_object_get_string(postObj));
+          writeLog(LOG_INFO, infoStr, 0);
+        }
       }
     }
 
@@ -986,7 +1017,7 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
       } else if (updatePasswdFile(con_info->session->userid, key, data) == 0) {
         sprintf(con_info->session->lPort, "%s", data);
         stopListenWeb(con_info->session, con_info->connection, "/postListSets");
-        startListenWeb(con_info->session, con_info->connection, "/postListSets");
+        startListenWeb(con_info->session, con_info->connection, "/postListSets", NULL);
         snprintf(answerstring, 3, "%s", "OK");  // Save OK
         sprintf(infoStr, "[S: %03d] Listen port settings saved OK, uid: %s",
                          con_info->session->shortID, con_info->session->userid);
@@ -1032,7 +1063,7 @@ static enum MHD_Result sendPage(struct Session *session, struct MHD_Connection *
     MHD_add_response_header(response, "Content-Type", "text/plain");
   }
 
-  if (strcmp(page, "L0") == 0 || strcmp(page, "LR") == 0 ||strcmp(page, "LD") == 0) {
+  if (strcmp(page, "L0") == 0 || strcmp(page, "LR") == 0 || strcmp(page, "LD") == 0) {
     ret = MHD_queue_response(connection, MHD_HTTP_UNAUTHORIZED, response);
     sprintf(infoStr, "[S: %03d][401] Request: %s", session->shortID, url);
     writeLog(LOG_INFO, infoStr, 0);
@@ -1150,7 +1181,12 @@ static enum MHD_Result answer_to_connection(void *cls, struct MHD_Connection *co
     } else if (strcmp(url, "/getTemplateList") == 0) {
       // Request login if not logged in
       if (session->aStatus != 1) return requestLogin(session, connection, url);
-      return getTemplateList(session, connection, url);
+      return getTemplateList(session, connection, url, 0);
+
+    } else if (strcmp(url, "/getRespondList") == 0) {
+      // Request login if not logged in
+      if (session->aStatus != 1) return requestLogin(session, connection, url);
+      return getTemplateList(session, connection, url, 1);
 
     } else if (strcmp(url, "/getServers") == 0) {
       // Request login if not logged in
@@ -1174,7 +1210,7 @@ static enum MHD_Result answer_to_connection(void *cls, struct MHD_Connection *co
     } else if (strcmp(url, "/listenHL7") == 0) {
       if (session->aStatus != 1) return requestLogin(session, connection, url);
       if (session->isListening == 0) {
-        startListenWeb(con_info->session, con_info->connection, url);
+        startListenWeb(con_info->session, con_info->connection, url, NULL);
       }
 
       if (session->isListening == 1) {

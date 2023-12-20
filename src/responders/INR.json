@@ -1,5 +1,7 @@
 {
   "name":"INR",
+  "author":"Haydn Haines",
+  "version":"1.0",
   "reponseTimeMin":10,
   "reponseTimeMax":20,
   "matches": [

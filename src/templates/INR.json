@@ -3,7 +3,7 @@
   "author":"Haydn Haines",
   "version":"1.0",
   "argcount":2,
-  "cmdhelp":"hhl7 -t admit <hospnum> <FT|SC> <Result Value>",
+  "cmdhelp":"hhl7 -t INR <hospnum> <orderNumber>",
   "segments": [
     { "name":"MSH",
       "fields": [

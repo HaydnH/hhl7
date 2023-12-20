@@ -15,6 +15,7 @@ LOGROT  = sys/hhl7.logrotate
 SVRS    = conf/servers.hhl7
 SYSD    = sys/hhl7.s*
 SYSLOG  = sys/76-hhl7.conf
+RESPS   = responders/*
 TEMPS   = templates/*
 
 .c.o:
@@ -36,6 +37,7 @@ install:: hhl7
 	install -c -d -m 0755 $(DESTDIR)/certs
 	install -c -d -m 0755 $(DESTDIR)/conf
 	install -c -d -m 0755 $(DESTDIR)/images
+	install -c -d -m 0755 $(DESTDIR)/responders
 	install -c -d -m 0755 $(DESTDIR)/templates
 	install -c -s -m 0755 $(BIN) $(DESTDIR)/bin
 	ln -sf $(DESTDIR)/bin/$(BIN) $(BINDIR)/$(BIN)
@@ -45,6 +47,7 @@ install:: hhl7
 	install -c -m 0644 $(SVRS) $(DESTDIR)/$(SVRS).example
 	install -c -m 0644 $(SYSD) /lib/systemd/system
 	install -c -m 0644 $(SYSLOG) /etc/rsyslog.d
+	install -c -m 0644 $(RESPS) $(DESTDIR)/responders
 	install -c -m 0644 $(TEMPS) $(DESTDIR)/templates
 
 #	TODO - install man page when created

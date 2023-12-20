@@ -46,6 +46,7 @@ struct Response {
   int sent;
   char resCode[3];
   int argc;
+  // TODO make these dynamic, malloc
   char sendArgs[20][256];
   char *sendPtrs[20];
 };
@@ -61,7 +62,8 @@ static void printResponses() {
 
   resp = responses;
   while (resp != NULL) {
-    printf("R: %ld\n", resp->sendTime);
+    sprintf(infoStr, "RT: %ld", resp->sendTime);
+    writeLog(LOG_DEBUG, infoStr, 1);
     resp = resp->next;
   }
 }
@@ -111,11 +113,14 @@ static int processResponses() {
   char resStr[3] = "";
   int nextResp = -1;
 
+  writeLog(LOG_DEBUG, "Processing response queue...", 0);
+
   resp = responses;
   while (resp != NULL) {
     // TODO - add expiry time to config file
     // Expire old responses
     if (tNow - resp->sendTime >= 900 && resp->sent == 1) {
+      writeLog(LOG_DEBUG, "Response queue processing, old response removed", 0);
       responses = resp->next;
       free(resp);
       resp = responses;
@@ -123,6 +128,7 @@ static int processResponses() {
 
     } else if (tNow >= resp->sendTime && resp->sent == 0) {
       // Send the response to the server
+      writeLog(LOG_DEBUG, "Response queue processing, response sent", 0);
       sendTemp(resp->sIP, resp->sPort, resp->tName, 0, 0, 0, resp->argc,
                resp->sendPtrs, resStr);
 
@@ -130,6 +136,7 @@ static int processResponses() {
       sprintf(resp->resCode, "%s", resStr);
 
     } else if (resp->sendTime > tNow) {
+      writeLog(LOG_DEBUG, "Response queue processed, next response in the future", 0);
       nextResp = resp->sendTime - tNow;
       if (nextResp < 0) return 0;
       return(nextResp);
@@ -137,6 +144,8 @@ static int processResponses() {
     }
     resp = resp->next;
   }
+
+  writeLog(LOG_DEBUG, "Response queue processed, no more responses in the queue", 0);
   return -1;
 }
 
@@ -343,12 +352,15 @@ void sendTemp(char *sIP, char *sPort, char *tName, int noSend, int fShowTemplate
   int sockfd;
   char fileName[256] = "";
 
+  sprintf(infoStr, "Attempting to send template: %s", tName);
+  writeLog(LOG_DEBUG, infoStr, 0);
+
   // Find the template file
   fp = findTemplate(fileName, tName);
   int fSize = getFileSize(fileName);
 
   sprintf(infoStr, "Using template file: %s", fileName);
-  writeLog(6, infoStr, 1);
+  writeLog(LOG_INFO, infoStr, 1);
 
   char *jsonMsg = malloc(fSize + 1);
   int hl7MsgS = 1024;
@@ -357,19 +369,21 @@ void sendTemp(char *sIP, char *sPort, char *tName, int noSend, int fShowTemplate
 
   // Read the json template to jsonMsg
   readJSONFile(fp, fSize, jsonMsg);
+  writeLog(LOG_DEBUG, "JSON Template read OK", 1);
 
   // Generate HL7 based on the json template
   parseJSONTemp(jsonMsg, &hl7Msg, &hl7MsgS, NULL, NULL, argc - optind, argv + optind, 0);
-
-  // Print the HL7 message if requested
-  if (fShowTemplate == 1) {
-     hl72unix(hl7Msg, 1);
-  }
+  writeLog(LOG_DEBUG, "JSON Template parsed OK", 1);
 
   if (noSend == 0) {
     // Connect to server, send & listen for ack
     sockfd = connectSvr(sIP, sPort);
     sendPacket(sockfd, hl7Msg, resStr);
+  }
+
+  // Print the HL7 message if requested
+  if (fShowTemplate == 1) {
+     hl72unix(hl7Msg, 1);
   }
 
   // TODO - free hl7Msg?? 
@@ -433,21 +447,17 @@ static struct Response *checkResponse(char *msg, char *sIP, char *sPort, char *t
   // Read the template file
   resObj = json_object_from_file(resFile);
   if (resObj == NULL) {
-    // TODO - use error handler
-    printf("Failed to read responder template\n");
-    exit(1);
+    handleError(LOG_ERR, "Failed to read responder template", 1, 0, 1);
   }
 
   json_object_object_get_ex(resObj, "matches", &jArray);
   if (jArray == NULL) {
-    // TODO - use error handler
-    printf("Responder template contains no matches\n");
-    exit(1);
+    handleError(LOG_ERR, "Responder template contains no matches", 1, 0, 1);
   }
 
   mCount = json_object_array_length(jArray);
 
-  // Check that each mathes item matches, return responses if no match
+  // Check that each matches item matches, return responses if no match
   for (m = 0; m < mCount; m++) {
     // TODO - error handling
     matchObj = json_object_array_get_idx(jArray, m);
@@ -460,8 +470,15 @@ static struct Response *checkResponse(char *msg, char *sIP, char *sPort, char *t
 
     // TODO - log function
     printf("Comparing %s against %s...\n", json_object_get_string(valStr), fldStr);
-    if (strcmp(json_object_get_string(valStr), fldStr) != 0) {
-      printf("No Match\n");
+    if (strcmp(json_object_get_string(valStr), fldStr) == 0) {
+      sprintf(infoStr, "Comparing %s against %s...matched",
+              json_object_get_string(valStr), fldStr);
+      writeLog(LOG_INFO, infoStr, 1);
+
+     } else {
+      sprintf(infoStr, "Comparing %s against %s...no match",
+              json_object_get_string(valStr), fldStr);
+      writeLog(LOG_INFO, infoStr, 1);
       return responses;
     }
   }
@@ -475,13 +492,10 @@ static struct Response *checkResponse(char *msg, char *sIP, char *sPort, char *t
 
   json_object_object_get_ex(resObj, "sendArgs", &jArray);
   if (jArray == NULL) {
-    // TODO - use error handler
-    printf("Responder template contains no matches\n");
-    exit(1);
+    handleError(LOG_ERR, "Responder template contains no send arguments", 1, 0, 1);
   }
 
   mCount = json_object_array_length(jArray);
-  //char sendArgs[mCount][256], *sendPtrs[mCount];
 
   struct Response *resp;
   resp = calloc(1, sizeof(struct Response));
@@ -520,7 +534,9 @@ static struct Response *checkResponse(char *msg, char *sIP, char *sPort, char *t
 
   // Add the response to the queue
   respHead = queueResponse(resp);
-  printf("Response queued, delivery in %ld seconds\n", resp->sendTime - time(NULL));
+  sprintf(infoStr, "Response queued, delivery in %ld seconds\n",
+          resp->sendTime - time(NULL));
+  writeLog(LOG_INFO, infoStr, 1);
 
   json_object_put(jArray);
   return respHead;
@@ -540,6 +556,9 @@ static struct Response *handleMsg(int sessfd, int fd, char *sIP,
   char writeSize[11];
   msgBuf[0] = '\0';
 
+sprintf(infoStr, "Testing - tName: %s", tName);
+writeLog(LOG_INFO, infoStr, 1);
+
   while (rcvSize > 0) {
     rcvSize = read(sessfd, rcvBuf, readSize);
     rcvBuf[rcvSize] = '\0';
@@ -550,6 +569,7 @@ static struct Response *handleMsg(int sessfd, int fd, char *sIP,
     } else {
       if (rcvSize == -1 && msgCount == 0) {
         handleError(LOG_ERR, "Failed to read incomming message from server", 1, 0, 1);
+        // TODO - check if we're still using webErr
         webErr = 1;
       }
 
@@ -568,6 +588,12 @@ static struct Response *handleMsg(int sessfd, int fd, char *sIP,
           if (sendAck(sessfd, msgBuf) == -1) webErr = 1;
           msgCount++;
 
+          if (tName) {
+            writeLog(LOG_INFO, "Checking if incomming message matches a responder", 1);
+            respHead = checkResponse(msgBuf, sIP, sPort, tName);
+
+          }
+
           if (webRunning == 1) {
             if (webErr > 0) {
               sprintf(msgBuf, "ERROR: The backend failed to receive or process a message from the sending server");
@@ -583,10 +609,6 @@ static struct Response *handleMsg(int sessfd, int fd, char *sIP,
             if (write(fd, msgBuf, strlen(msgBuf)) == -1) {
               handleError(LOG_ERR, "ERROR: Failed to write to named pipe", 1, 0, 1);
             }
-
-          } else if (tName) {
-            respHead = checkResponse(msgBuf, sIP, sPort, tName);
-            //hl72unix(msgBuf, 1);
 
           } else {
             hl72unix(msgBuf, 1);
@@ -691,12 +713,13 @@ int startMsgListener(char *lIP, const char *lPort, char *sIP, char *sPort, char 
       }
 
     } else if (res == 0) {
-      if (sIP != NULL) {
+      if (tName != NULL) {
         nextResp = processResponses();
         if (nextResp == -1) {
-          printf("Responses queue empty, awaiting next received message\n");
+          writeLog(LOG_INFO, "Response queue empty, awaiting next received message", 1);
         } else {
-          printf("Responses processed, next response in %d seconds\n", nextResp);
+          sprintf(infoStr, "Responses processed, next response in %d seconds", nextResp);
+          writeLog(LOG_INFO, infoStr, 1);
         }
       }
 
@@ -711,7 +734,7 @@ int startMsgListener(char *lIP, const char *lPort, char *sIP, char *sPort, char 
       //printResponses(responses);
       close(sessfd);
 
-      if (sIP != NULL) nextResp = processResponses();
+      if (tName != NULL) nextResp = processResponses();
     }
   }
 
