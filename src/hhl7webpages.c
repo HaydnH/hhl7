@@ -718,7 +718,15 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         pane.style.display = \"none\";\n\
       }\n\
 \n\
+      function clearResponders() {\n\
+        var respForm = document.getElementById(\"respForm\");\n\
+        respForm.style.display = \"none\";\n\
+        respForm.textContent = \"\";\n\
+      }\n\
+\n\
       function showList() {\n\
+        clearResponders();\n\
+        stopHL7Listener();\n\
         var pane = document.getElementById(\"sendPane\");\n\
         pane.style.display = \"none\";\n\
         var pane = document.getElementById(\"respPane\");\n\
@@ -729,17 +737,18 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
       }\n\
 \n\
       function showResp() {\n\
-        // stopHL7Listener();\n\
+        clearResponders();\n\
+        stopHL7Listener();\n\
         var pane = document.getElementById(\"sendPane\");\n\
         pane.style.display = \"none\";\n\
         var pane = document.getElementById(\"listPane\");\n\
         pane.style.display = \"none\";\n\
         var pane = document.getElementById(\"respPane\");\n\
         pane.style.display = \"flex\";\n\
-        // startHL7Listener();\n\
       }\n\
 \n\
       function showSend() {\n\
+        clearResponders();\n\
         stopHL7Listener();\n\
         var pane = document.getElementById(\"listPane\");\n\
         pane.style.display = \"none\";\n\
@@ -1361,9 +1370,9 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
       function stopHL7Listener() {\n\
         if (isConnectionOpen) {\n\
           evtSource.close();\n\
-          stopBackendListen();\n\
-          isConnectionOpen = false;\n\
         }\n\
+        stopBackendListen();\n\
+        isConnectionOpen = false;\n\
       }\n\
     </script>\n\
   </head>\n\

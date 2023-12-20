@@ -701,7 +701,7 @@ static enum MHD_Result sendHL72Web(struct Session *session,
 }
 
 
-// TODO - clean old fifos (when process exits we don't clean them
+// TODO - clean old fifos (when process exits we don't clean them)
 
 // Remove the named pipe and kill the listening child process if required
 static void cleanSession(struct Session *session) {
@@ -777,11 +777,15 @@ static void startListenWeb(struct Session *session, struct MHD_Connection *conne
 
   }
 
-  // Create a named pipe to read from
-  char hhl7fifo[21]; 
-  sprintf(hhl7fifo, "%s%d", "/tmp/hhl7fifo.", session->lpid);
-  mkfifo(hhl7fifo, 0666);
-  session->readFD = open(hhl7fifo, O_RDONLY | O_NONBLOCK);
+  // TODO - see hhl7net.c pipe creation - do we need it for responder?
+  if (tName == NULL) {
+    // Create a named pipe to read from
+    char hhl7fifo[21]; 
+    sprintf(hhl7fifo, "%s%d", "/tmp/hhl7fifo.", session->lpid);
+    mkfifo(hhl7fifo, 0666);
+    session->readFD = open(hhl7fifo, O_RDONLY | O_NONBLOCK);
+  }
+
   session->isListening = 1;
   //fcntl(readFD, F_SETPIPE_SZ, 1048576); // Change size of pipe, default seems OK
 }

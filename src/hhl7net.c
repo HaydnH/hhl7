@@ -598,13 +598,15 @@ static struct Response *handleMsg(int sessfd, int fd, char *sIP,
               //  strcpy(msgBuf, webErrStr);
             }
 
-            sprintf(writeSize, "%d", (int) strlen(msgBuf));
-            if (write(fd, writeSize, 11) == -1) {
-              handleError(LOG_ERR, "ERROR: Failed to write to named pipe", 1, 0, 1);
-            }
+            if (tName == NULL) {
+              sprintf(writeSize, "%d", (int) strlen(msgBuf));
+              if (write(fd, writeSize, 11) == -1) {
+                handleError(LOG_ERR, "ERROR: Failed to write to named pipe", 1, 0, 1);
+              }
 
-            if (write(fd, msgBuf, strlen(msgBuf)) == -1) {
-              handleError(LOG_ERR, "ERROR: Failed to write to named pipe", 1, 0, 1);
+              if (write(fd, msgBuf, strlen(msgBuf)) == -1) {
+                handleError(LOG_ERR, "ERROR: Failed to write to named pipe", 1, 0, 1);
+              }
             }
 
           } else {
@@ -681,11 +683,14 @@ int startMsgListener(char *lIP, const char *lPort, char *sIP, char *sPort, char 
 
   if ((svrfd = createSession(lIP, lPort)) == -1) return -1;
 
-  // Create a named pipe to write to
-  char hhl7fifo[21]; 
-  sprintf(hhl7fifo, "%s%d", "/tmp/hhl7fifo.", getpid());
-  mkfifo(hhl7fifo, 0666);
-  fd = open(hhl7fifo, O_WRONLY | O_NONBLOCK);
+  // TODO do we need the pipe for responder? tName == NULL is listener only
+  if (tName == NULL) {
+    // Create a named pipe to write to
+    char hhl7fifo[21]; 
+    sprintf(hhl7fifo, "%s%d", "/tmp/hhl7fifo.", getpid());
+    mkfifo(hhl7fifo, 0666);
+    fd = open(hhl7fifo, O_WRONLY | O_NONBLOCK);
+  }
 
   while(1) {
     struct timeval tv, *tvp;
