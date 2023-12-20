@@ -556,9 +556,6 @@ static struct Response *handleMsg(int sessfd, int fd, char *sIP,
   char writeSize[11];
   msgBuf[0] = '\0';
 
-sprintf(infoStr, "Testing - tName: %s", tName);
-writeLog(LOG_INFO, infoStr, 1);
-
   while (rcvSize > 0) {
     rcvSize = read(sessfd, rcvBuf, readSize);
     rcvBuf[rcvSize] = '\0';
