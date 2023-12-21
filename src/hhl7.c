@@ -184,13 +184,13 @@ int main(int argc, char *argv[]) {
 
   if (fListen == 1) {
     // Listen for incomming messages
-    startMsgListener(lIP, lPort, NULL, NULL, NULL, -1, 0, NULL);
+    startMsgListener(lIP, lPort, NULL, NULL, -1, 0, NULL);
   }
 
 
   if (fRespond == 1) {
     // Listen for incomming messages & respond using template
-    startMsgListener(lIP, lPort, sIP, sPort, "INR", argc, optind, argv);
+    startMsgListener(lIP, lPort, sIP, sPort, argc, optind, argv);
   }
 
 

@@ -21,4 +21,4 @@ void sendTemp(char *sIP, char *sPort, char *tName, int noSend, int fShowTemplate
 int sendAck(int sessfd, char *hl7msg);
 int listenServer(char *port, int isWeb);
 int startMsgListener(char *lIP, const char *lPort, char *sIP, char *sPort,
-                     char *tName, int argc, int optind, char *argv[]);
+                     int argc, int optind, char *argv[]);

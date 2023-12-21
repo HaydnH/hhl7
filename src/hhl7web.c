@@ -772,7 +772,7 @@ static void startListenWeb(struct Session *session, struct MHD_Connection *conne
     }
 
     // 127.0.0.1 should be fine for daemon on systemd socket, -w may need bind address
-    startMsgListener("127.0.0.1", session->lPort, session->sIP, session->sPort, "INR", -1, 0, NULL);
+    startMsgListener("127.0.0.1", session->lPort, session->sIP, session->sPort, -1, 0, NULL);
     _exit(0);
 
   }

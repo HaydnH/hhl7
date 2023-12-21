@@ -554,7 +554,7 @@ static struct Response *checkResponse(char *msg, char *sIP, char *sPort, char *t
 
 // Handle an incomming message
 static struct Response *handleMsg(int sessfd, int fd, char *sIP, char *sPort,
-                                  char *tName, int argc, int optind, char *argv[]) {
+                                  int argc, int optind, char *argv[]) {
 
   struct Response *respHead = responses;
   int readSize = 512, msgSize = 0, maxSize = readSize + msgSize, rcvSize = 1;
@@ -693,13 +693,13 @@ static int createSession(char *ip, const char *port) {
 
 // Start listening for incomming messages
 int startMsgListener(char *lIP, const char *lPort, char *sIP, char *sPort,
-                     char *tName, int argc, int optind, char *argv[]) {
+                     int argc, int optind, char *argv[]) {
   // TODO - move timeout/polling interval nextResponse to config file
   int svrfd = 0, sessfd = 0, fd = 0, nextResp = -1;
 
   if ((svrfd = createSession(lIP, lPort)) == -1) return -1;
 
-  // TODO do we need the pipe for responder? tName == NULL is listener only
+  // TODO do we need the pipe for responder?
   if (argc <= 0) {
     // Create a named pipe to write to
     char hhl7fifo[21]; 
@@ -748,7 +748,7 @@ int startMsgListener(char *lIP, const char *lPort, char *sIP, char *sPort,
         return -1;
       }
 
-      responses = handleMsg(sessfd, fd, sIP, sPort, tName, argc, optind, argv);
+      responses = handleMsg(sessfd, fd, sIP, sPort, argc, optind, argv);
       //printResponses(responses);
       close(sessfd);
 
