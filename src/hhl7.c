@@ -65,7 +65,7 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-  while((opt = getopt_long(argc, argv, ":0HD:slr:t:T:owWh:L:p:P:f:", long_options, &option_index)) != -1) {
+  while((opt = getopt_long(argc, argv, ":0HD:slrt:T:owWh:L:p:P:f:", long_options, &option_index)) != -1) {
     switch(opt) {
       case 0:
         exit(1);
@@ -89,9 +89,7 @@ int main(int argc, char *argv[]) {
         break;
 
       case 'r':
-        if (*argv[optind-1] == '-') handleError(3, "Option -r requires a value", 1, 1, 1);
         fRespond = 1;
-        if (optarg) strcpy(tName, optarg);
         break;
 
       case 't':
@@ -186,13 +184,13 @@ int main(int argc, char *argv[]) {
 
   if (fListen == 1) {
     // Listen for incomming messages
-    startMsgListener(lIP, lPort, NULL, NULL, NULL);
+    startMsgListener(lIP, lPort, NULL, NULL, NULL, -1, 0, NULL);
   }
 
 
   if (fRespond == 1) {
     // Listen for incomming messages & respond using template
-    startMsgListener(lIP, lPort, sIP, sPort, tName);
+    startMsgListener(lIP, lPort, sIP, sPort, "INR", argc, optind, argv);
   }
 
 

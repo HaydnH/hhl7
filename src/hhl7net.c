@@ -553,8 +553,8 @@ static struct Response *checkResponse(char *msg, char *sIP, char *sPort, char *t
 
 
 // Handle an incomming message
-static struct Response *handleMsg(int sessfd, int fd, char *sIP,
-                                  char *sPort, char *tName) {
+static struct Response *handleMsg(int sessfd, int fd, char *sIP, char *sPort,
+                                  char *tName, int argc, int optind, char *argv[]) {
 
   struct Response *respHead = responses;
   int readSize = 512, msgSize = 0, maxSize = readSize + msgSize, rcvSize = 1;
@@ -594,10 +594,16 @@ static struct Response *handleMsg(int sessfd, int fd, char *sIP,
           if (sendAck(sessfd, msgBuf) == -1) webErr = 1;
           msgCount++;
 
-          if (tName) {
-            writeLog(LOG_INFO, "Checking if incomming message matches a responder", 1);
-            respHead = checkResponse(msgBuf, sIP, sPort, tName);
-
+          // If we're responding, parse each respond template to see if msg matches
+          if (argc > 0) {
+            // TODO - WORKING - IMPORTANT - queueing fails if the match is followed by a no match in the for loop
+            for (int i = optind; i < argc; i++) {
+              sprintf(infoStr, "Checking if incomming message matches responder: %s",
+                      argv[i]);
+              writeLog(LOG_INFO, infoStr, 1);
+              respHead = checkResponse(msgBuf, sIP, sPort, argv[i]);
+              responses = respHead;
+            }
           }
 
           if (webRunning == 1) {
@@ -607,7 +613,7 @@ static struct Response *handleMsg(int sessfd, int fd, char *sIP,
               //  strcpy(msgBuf, webErrStr);
             }
 
-            if (tName == NULL) {
+            if (argc > 0) {
               sprintf(writeSize, "%d", (int) strlen(msgBuf));
               if (write(fd, writeSize, 11) == -1) {
                 handleError(LOG_ERR, "ERROR: Failed to write to named pipe", 1, 0, 1);
@@ -618,7 +624,7 @@ static struct Response *handleMsg(int sessfd, int fd, char *sIP,
               }
             }
 
-          } else if (tName == NULL) {
+          } else if (argc <= 0) {
             hl72unix(msgBuf, 1);
           }
 
@@ -636,7 +642,7 @@ static struct Response *handleMsg(int sessfd, int fd, char *sIP,
 
   free(msgBuf);
   close(sessfd);
-  return respHead;
+  return responses;
 }
 
 
@@ -686,14 +692,15 @@ static int createSession(char *ip, const char *port) {
 
 
 // Start listening for incomming messages
-int startMsgListener(char *lIP, const char *lPort, char *sIP, char *sPort, char *tName) {
+int startMsgListener(char *lIP, const char *lPort, char *sIP, char *sPort,
+                     char *tName, int argc, int optind, char *argv[]) {
   // TODO - move timeout/polling interval nextResponse to config file
   int svrfd = 0, sessfd = 0, fd = 0, nextResp = -1;
 
   if ((svrfd = createSession(lIP, lPort)) == -1) return -1;
 
   // TODO do we need the pipe for responder? tName == NULL is listener only
-  if (tName == NULL) {
+  if (argc <= 0) {
     // Create a named pipe to write to
     char hhl7fifo[21]; 
     sprintf(hhl7fifo, "%s%d", "/tmp/hhl7fifo.", getpid());
@@ -724,7 +731,7 @@ int startMsgListener(char *lIP, const char *lPort, char *sIP, char *sPort, char 
       }
 
     } else if (res == 0) {
-      if (tName != NULL) {
+      if (argc > 0) {
         nextResp = processResponses();
         if (nextResp == -1) {
           writeLog(LOG_INFO, "Response queue empty, awaiting next received message", 1);
@@ -741,11 +748,11 @@ int startMsgListener(char *lIP, const char *lPort, char *sIP, char *sPort, char 
         return -1;
       }
 
-      responses = handleMsg(sessfd, fd, sIP, sPort, tName);
+      responses = handleMsg(sessfd, fd, sIP, sPort, tName, argc, optind, argv);
       //printResponses(responses);
       close(sessfd);
 
-      if (tName != NULL) nextResp = processResponses();
+      if (argc > 0) nextResp = processResponses();
     }
   }
 
