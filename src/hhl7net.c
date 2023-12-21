@@ -431,9 +431,9 @@ int sendAck(int sessfd, char *hl7msg) {
 static struct Response *checkResponse(char *msg, char *sIP, char *sPort, char *tName) {
   struct Response *respHead = responses;
   struct json_object *resObj = NULL, *jArray = NULL, *matchObj = NULL;
-  struct json_object *segStr = NULL, *fldObj = NULL, *valStr = NULL;
+  struct json_object *segStr = NULL, *fldObj = NULL, *valStr = NULL, *exclObj = NULL;
   struct json_object *minObj = NULL, *maxObj = NULL, *sendT = NULL;
-  int m = 0, mCount = 0, fldInt = 0, minT = 0, maxT = 0;
+  int m = 0, mCount = 0, fldInt = 0, exclInt = 0, minT = 0, maxT = 0;
   // TODO - check values, malloc?
   char resFile[290], fldStr[256], resStr[3];
 
@@ -465,18 +465,27 @@ static struct Response *checkResponse(char *msg, char *sIP, char *sPort, char *t
     json_object_object_get_ex(matchObj, "field", &fldObj);
     fldInt = json_object_get_int(fldObj);
     valStr = json_object_object_get(matchObj, "value");
+    json_object_object_get_ex(matchObj, "exclude", &exclObj);
+    if (exclObj) {
+      exclInt = json_object_get_boolean(exclObj);
+    }
 
     getHL7Field(msg, (char *) json_object_get_string(segStr), fldInt, fldStr);
 
-    // TODO - log function
-    printf("Comparing %s against %s...\n", json_object_get_string(valStr), fldStr);
-    if (strcmp(json_object_get_string(valStr), fldStr) == 0) {
-      sprintf(infoStr, "Comparing %s against %s...matched",
+    // Check if we've mached this match clause, if not return
+    if (strcmp(json_object_get_string(valStr), fldStr) == 0 && exclInt == 0) {
+      sprintf(infoStr, "Comparing %s against %s... matched",
               json_object_get_string(valStr), fldStr);
       writeLog(LOG_INFO, infoStr, 1);
 
-     } else {
-      sprintf(infoStr, "Comparing %s against %s...no match",
+    } else if (strcmp(json_object_get_string(valStr), fldStr) == 0 && exclInt == 1) {
+      sprintf(infoStr, "Comparing %s against %s... exclusion, no match",
+              json_object_get_string(valStr), fldStr);
+      writeLog(LOG_INFO, infoStr, 1);
+      return responses;
+
+    } else {
+      sprintf(infoStr, "Comparing %s against %s... no match",
               json_object_get_string(valStr), fldStr);
       writeLog(LOG_INFO, infoStr, 1);
       return responses;
@@ -534,7 +543,7 @@ static struct Response *checkResponse(char *msg, char *sIP, char *sPort, char *t
 
   // Add the response to the queue
   respHead = queueResponse(resp);
-  sprintf(infoStr, "Response queued, delivery in %ld seconds\n",
+  sprintf(infoStr, "Response queued, delivery in %ld seconds",
           resp->sendTime - time(NULL));
   writeLog(LOG_INFO, infoStr, 1);
 
@@ -609,7 +618,7 @@ static struct Response *handleMsg(int sessfd, int fd, char *sIP,
               }
             }
 
-          } else {
+          } else if (tName == NULL) {
             hl72unix(msgBuf, 1);
           }
 
