@@ -751,7 +751,7 @@ static enum MHD_Result stopListenWeb(struct Session *session,
 
 // Start a HL7 Listener in a forked child process
 static void startListenWeb(struct Session *session, struct MHD_Connection *connection,
-                           const char *url, char *tName) {
+                           const char *url, int argc, char *argv[]) {
 
   // Make children ignore waiting for parent process before closing
   signal(SIGCHLD, SIG_IGN);
@@ -772,13 +772,14 @@ static void startListenWeb(struct Session *session, struct MHD_Connection *conne
     }
 
     // 127.0.0.1 should be fine for daemon on systemd socket, -w may need bind address
-    startMsgListener("127.0.0.1", session->lPort, session->sIP, session->sPort, -1, 0, NULL);
+    startMsgListener("127.0.0.1", session->lPort, session->sIP, session->sPort,
+                     argc, 0, argv);
     _exit(0);
 
   }
 
   // TODO - see hhl7net.c pipe creation - do we need it for responder?
-  if (tName == NULL) {
+  if (argc <= 0) {
     // Create a named pipe to read from
     char hhl7fifo[21]; 
     sprintf(hhl7fifo, "%s%d", "/tmp/hhl7fifo.", session->lpid);
@@ -804,7 +805,8 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
   (void) transfer_encoding;  /* Unused. Silent compiler warning. */
   (void) off;                /* Unused. Silent compiler warning. */
 
-  struct json_object *rootObj= NULL, *postObj = NULL;
+  struct json_object *rootObj= NULL, *postObj = NULL, *dataArray = NULL, *dataObj = NULL;
+  int dataInt = 0, curInt = 0, i = 0, maxL = 0;
   int sockfd;
   char resStr[3] = "";
   int aStatus = -1, nStatus = -1;
@@ -836,9 +838,7 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
       rootObj = json_tokener_parse(data);
       json_object_object_get_ex(rootObj, "postFunc", &postObj);
 
-      //sprintf(infoStr, "JSON POST: %s", json_object_get_string(postObj));
       sprintf(infoStr, "JSON POST: %s", data);
-
       writeLog(LOG_INFO, infoStr, 0);
 
       if (json_object_get_type(postObj) != json_type_string) {
@@ -847,8 +847,31 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
 
       } else {
         if (strcmp(json_object_get_string(postObj), "procRespond") == 0) {
+          // TODO - IMPORTANT - error check! data can come from external and may seg fault
+          json_object_object_get_ex(rootObj, "templates", &dataArray);
+          dataInt = json_object_array_length(dataArray);
+
+          // Find the longest template name
+          for (i = 0; i < dataInt; i++) {
+            dataObj = json_object_array_get_idx(dataArray, i);
+            curInt = strlen(json_object_get_string(dataObj)) + 1; 
+            if (curInt > maxL) maxL = curInt;
+          }
+
+          // Create an array containing the template names
+          char temps[dataInt][maxL];
+          char *tempPtrs[dataInt];
+          for (i = 0; i < dataInt; i++) {
+            dataObj = json_object_array_get_idx(dataArray, i);
+            tempPtrs[i] = temps[i];
+            sprintf(temps[i], "%s", json_object_get_string(dataObj));
+          }
+
           // TODO - change from localhost and hard coded INR template
-          startListenWeb(con_info->session, con_info->connection, "/respond", "INR");
+          // TODO - check what this "/respond" url is used for, is it needed?
+          stopListenWeb(con_info->session, con_info->connection, "/respond");
+          startListenWeb(con_info->session, con_info->connection, "/respond",
+                         dataInt, tempPtrs);
           sprintf(infoStr, "JSON POST: %s", json_object_get_string(postObj));
           writeLog(LOG_INFO, infoStr, 0);
         }
@@ -1021,7 +1044,7 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
       } else if (updatePasswdFile(con_info->session->userid, key, data) == 0) {
         sprintf(con_info->session->lPort, "%s", data);
         stopListenWeb(con_info->session, con_info->connection, "/postListSets");
-        startListenWeb(con_info->session, con_info->connection, "/postListSets", NULL);
+        startListenWeb(con_info->session, con_info->connection, "/postListSets", -1, NULL);
         snprintf(answerstring, 3, "%s", "OK");  // Save OK
         sprintf(infoStr, "[S: %03d] Listen port settings saved OK, uid: %s",
                          con_info->session->shortID, con_info->session->userid);
@@ -1214,7 +1237,7 @@ static enum MHD_Result answer_to_connection(void *cls, struct MHD_Connection *co
     } else if (strcmp(url, "/listenHL7") == 0) {
       if (session->aStatus != 1) return requestLogin(session, connection, url);
       if (session->isListening == 0) {
-        startListenWeb(con_info->session, con_info->connection, url, NULL);
+        startListenWeb(con_info->session, con_info->connection, url, -1, NULL);
       }
 
       if (session->isListening == 1) {
@@ -1387,7 +1410,7 @@ int listenWeb(int daemonSock) {
   }
 
   if (daemon == NULL) {
-    handleError(LOG_CRIT, "ERROR: Failed to start HTTPS daemon", 1, 1, 1);
+    handleError(LOG_CRIT, "Failed to start HTTPS daemon", 1, 1, 1);
 
   } else {
     if (isDaemon == 1) {

@@ -596,7 +596,6 @@ static struct Response *handleMsg(int sessfd, int fd, char *sIP, char *sPort,
 
           // If we're responding, parse each respond template to see if msg matches
           if (argc > 0) {
-            // TODO - WORKING - IMPORTANT - queueing fails if the match is followed by a no match in the for loop
             for (int i = optind; i < argc; i++) {
               sprintf(infoStr, "Checking if incomming message matches responder: %s",
                       argv[i]);
@@ -613,7 +612,7 @@ static struct Response *handleMsg(int sessfd, int fd, char *sIP, char *sPort,
               //  strcpy(msgBuf, webErrStr);
             }
 
-            if (argc > 0) {
+            if (argc <= 0) {
               sprintf(writeSize, "%d", (int) strlen(msgBuf));
               if (write(fd, writeSize, 11) == -1) {
                 handleError(LOG_ERR, "ERROR: Failed to write to named pipe", 1, 0, 1);

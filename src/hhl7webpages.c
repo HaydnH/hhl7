@@ -776,10 +776,9 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         }\n\
       }\n\
 \n\
-      function showRespForm() {\n\
-        var sel = document.getElementById(\"respSelect\");\n\
+      function showRespForm(respCount) {\n\
         var tForm = document.getElementById(\"respForm\");\n\
-        if (sel.value == \"None\") {\n\
+        if (respCount <= 0) {\n\
           tForm.style.display = \"none\";\n\
         } else {\n\
           tForm.style.display = \"flex\";\n\
@@ -842,11 +841,13 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
 \n\
         if (respList.length <= 0) {\n\
           stopHL7Listener();\n\
+          showRespForm(respList.length);\n\
 \n\
         } else {\n\
           for (var c = 0; c < respList.length; c++) {\n\
             respJSON.templates[c] = respList[c].id.slice(8);\n\
           }\n\
+          showRespForm(respList.length);\n\
           postJSON(JSON.stringify(respJSON));\n\
         }\n\
       }\n\
@@ -915,6 +916,10 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
                 return xhr.responseText;\n\
               }\n\
             } else {\n\
+// TODO - left in for hard to debug issue, remove when resolved\n\
+console.log(xhr.status);\n\
+console.log(xhr.readyState);\n\
+console.log(xhr.responseText);\n\
               errHandler(\"ERROR: The hhl7 backend is not running.\");\n\
             }\n\
           }\n\
@@ -1418,7 +1423,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
 \n\
     <div id=\"respPane\">\n\
       <div class=\"titleBar\">Active responders:\n\
-        <select name=\"respSelect\" id=\"respSelect\" onchange=\"showRespForm();\">\n\
+        <select name=\"respSelect\" id=\"respSelect\">\n\
         </select>\n\
         <a href=\"\" onClick=\"addResponder(); return false;\">&nbsp;&#10133;</a>\n\
       </div>\n\
