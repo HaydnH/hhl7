@@ -22,7 +22,9 @@ You should have received a copy of the GNU General Public License along with hhl
 #include <math.h>
 #include "hhl7extern.h"
 
-char infoStr[301] = "";
+// TODO - move infoStr to each function using it
+char infoStr[513] = "";
+// TODO - this should be no longer needed
 static const char logLevels[8][9] = { "[EMERG] ", "[ALERT] ", "[CRIT]  ", "[ERROR] ",
                                       "[WARN]  ", "[NOTIC] ", "[INFO]  ", "[DUBUG] " };
 
@@ -442,3 +444,13 @@ char *dblBuf(char *buf, int *bufS, int reqS) {
   return buf;
 }
 
+
+// Empty a fifo by reading it dry
+void emptyFifo(int fd) {
+  char nullBuf[513] = "";
+  int rSize = 1;
+
+  while (rSize > 0) {
+    rSize = read(fd, nullBuf, 512);
+  }
+}

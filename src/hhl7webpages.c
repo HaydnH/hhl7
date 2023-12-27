@@ -563,6 +563,45 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         //line-height: 26px;\n\
         padding: 0px 0px 0px 3px;\n\
       }\n\
+      #hl7Queue {\n\
+        padding: 0;\n\
+        margin: 0;\n\
+      }\n\
+      #respQTable {\n\
+        font-family: Verdana, Helvetica, sans-serif;\n\
+        font-size: 14px;\n\
+        width: 100%;\n\
+        border-spacing: 1px;\n\
+      }\n\
+      thead, tr {\n\
+        height: 36px;\n\
+        line-height: 38px;\n\
+      }\n\
+      thead {\n\
+        background-color: #eeeff3;\n\
+      }\n\
+      .trEven {\n\
+        background-color: #f9f9ff;\n\
+      }\n\
+      .trOdd {\n\
+        background-color: #f4f4ff;\n\
+      }\n\
+      th, td {\n\
+        padding: 0px 15px;\n\
+      }\n\
+      .thSendT, .thDest, .thSendTime {\n\
+        text-align: left;\n\
+      }\n\
+      .thResp, .tdCtr, .tdCtrG, .tdCtrR {\n\
+        width: 80px;\n\
+        text-align: center;\n\
+      }\n\
+      .tdCtrG {\n\
+        background-color: #a9dfad;\n\
+      }\n\
+      .tdCtrR {\n\
+        background-color: #ff9191;\n\
+      }\n\
     </style>\n\
 \n\
     <script>\n\
@@ -818,6 +857,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         wImg.src = \"/images/warning.png\";\n\
 \n\
         popTemplates(0);\n\
+        popTemplates(1);\n\
       }\n\
 \n\
       function unlockWeb() {\n\
@@ -834,14 +874,16 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         popTemplates(1);\n\
       }\n\
 \n\
-      function procResponders() {\n\
+      var respRefID;\n\
+      function procResponders(stopListen) {\n\
         var respJSON = { \"postFunc\":\"procRespond\", \"templates\":[ ] };\n\
         var respFrm = document.getElementById(\"respForm\");\n\
         var respList = respFrm.children;\n\
 \n\
         if (respList.length <= 0) {\n\
-          stopHL7Listener();\n\
+          if (stopListen == true) stopHL7Listener();\n\
           showRespForm(respList.length);\n\
+          clearInterval(respRefID);\n\
 \n\
         } else {\n\
           for (var c = 0; c < respList.length; c++) {\n\
@@ -849,6 +891,13 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
           }\n\
           showRespForm(respList.length);\n\
           postJSON(JSON.stringify(respJSON));\n\
+\n\
+          console.log(\"Getting queue...\");\n\
+          getRespQueue();\n\
+          // TODO - setting to 1 seconds fo debugging, set back to 15000 or config\n\
+          var respRef = 1000;\n\
+          respRefID = setInterval(getRespQueue, respRef);\n\
+\n\
         }\n\
       }\n\
 \n\
@@ -856,7 +905,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         var respFrm = document.getElementById(\"respForm\");\n\
         var delDiv = document.getElementById(divID);\n\
         respFrm.removeChild(delDiv);\n\
-        procResponders();\n\
+        procResponders(true);\n\
       }\n\
 \n\
       function addResponder() {\n\
@@ -874,7 +923,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
 \n\
             respDiv.className = \"respFormItem\";\n\
             respFrm.appendChild(respDiv);\n\
-            procResponders();\n\
+            procResponders(true);\n\
           }\n\
         }\n\
       }\n\
@@ -917,9 +966,9 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
               }\n\
             } else {\n\
 // TODO - left in for hard to debug issue, remove when resolved\n\
-console.log(xhr.status);\n\
-console.log(xhr.readyState);\n\
-console.log(xhr.responseText);\n\
+console.log(xhr.status);// 0\n\
+console.log(xhr.readyState); // 4\n\
+console.log(xhr.responseText);// empty\n\
               errHandler(\"ERROR: The hhl7 backend is not running.\");\n\
             }\n\
           }\n\
@@ -1137,6 +1186,33 @@ console.log(xhr.responseText);\n\
           } else if (response.ok) {\n\
             showLogin();\n\
 \n\
+          }\n\
+\n\
+        } catch(error) {\n\
+          console.log(error);\n\
+          errHandler(\"ERROR: The hhl7 backend is not running.\");\n\
+        }\n\
+      }\n\
+\n\
+      async function getRespQueue() {\n\
+        try {\n\
+          const response = await fetch(\"/getRespQueue\");\n\
+          const htmlData = await response.text();\n\
+\n\
+          if (response.status == 401) {\n\
+            showLogin();\n\
+\n\
+          } else if (response.status == 500) {\n\
+            // TODO internal server error\n\
+\n\
+          } else if (response.ok) {\n\
+            if (htmlData.length > 0) {\n\
+              var tHeader = '<thead><th class=\"thSendT\">Responder</th><th class=\"thSendT\">Send Template</th><th class=\"thDest\">Destination</th><th class=\"thSendTime\">Send Time</th><th class=\"thResp\">Response</th></thead>';\n\
+\n\
+              var respTable = document.getElementById(\"respQTable\");\n\
+              respTable.innerHTML = tHeader + htmlData;\n\
+\n\
+            }\n\
           }\n\
 \n\
         } catch(error) {\n\
@@ -1377,6 +1453,9 @@ console.log(xhr.responseText);\n\
           evtSource.close();\n\
         }\n\
         stopBackendListen();\n\
+        var respFrm = document.getElementById(\"respForm\");\n\
+        respFrm.textContent = \"\";\n\
+        procResponders(false);\n\
         isConnectionOpen = false;\n\
       }\n\
     </script>\n\
@@ -1429,7 +1508,7 @@ console.log(xhr.responseText);\n\
       </div>\n\
       <div id=\"respForm\"></div>\n\
       <div class=\"titleBar\">Response queue:</div>\n\
-      <div id=\"hl7Que\" class=\"hl7Message\"></div>\n\
+      <div id=\"hl7Queue\" class=\"hl7Message\"><table id=\"respQTable\"></table></div>\n\
     </div>\n\
 \n\
     <div id=\"footer\">&copy; Haydn Haines</div>\n\

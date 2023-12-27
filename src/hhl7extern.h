@@ -11,7 +11,7 @@ You should have received a copy of the GNU General Public License along with hhl
 */
 
 extern int isDaemon;
-extern char infoStr[301];
+extern char infoStr[513];
 extern int webRunning;
 
 void writeHL7Buf(char *srcBuf, int bufSize);

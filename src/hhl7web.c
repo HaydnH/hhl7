@@ -721,6 +721,64 @@ static void cleanSession(struct Session *session) {
 }
 
 
+// Get a list of responses via a fifo
+static enum MHD_Result getRespQueue(struct Session *session,
+                                    struct MHD_Connection *connection, const char *url) {
+
+  enum MHD_Result ret;
+  struct MHD_Response *response;
+  int rBufS = 512;
+  char *rBuf = malloc(rBufS);
+  rBuf[0] = '\0';
+  int pLen = 0, readSize = 0;
+  int fd = session->readFD;
+  char readSizeBuf[11];
+
+  if ((pLen = read(fd, readSizeBuf, 11)) > 0) {
+    readSize = atoi(readSizeBuf);
+
+  }
+
+  if (readSize > rBufS) {
+    char *rBufNew = realloc(rBuf, readSize + 1);
+    if (rBufNew == NULL) {
+      sprintf(infoStr, "[S: %03d] Can't realloc memory getRespQueue, rBuf",
+                       session->shortID);
+      handleError(LOG_ERR, infoStr, 1, 0, 1);
+
+    } else {
+      rBuf = rBufNew;
+      rBufS = readSize;
+
+    }
+  }
+
+  if (readSize > 0) {
+    if ((pLen = read(fd, rBuf, readSize)) > 0) {
+      rBuf[readSize] = '\0';
+    }
+  }
+
+  response = MHD_create_response_from_buffer(strlen(rBuf), (void *) rBuf,
+             MHD_RESPMEM_MUST_COPY);
+
+  if (!response) return MHD_NO;
+
+  MHD_add_response_header(response, "Content-Type", "text/plain");
+  MHD_add_response_header(response, "Cache-Control", "no-cache");
+
+  ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
+  sprintf(infoStr, "[S: %03d][200] Web response list retrieved", session->shortID);
+  writeLog(LOG_INFO, infoStr, 0);
+
+  MHD_destroy_response(response);
+
+  // Free memory from buffers
+  free(rBuf);
+  return ret;
+}
+
+
 // Stop the backend listening for packets from hl7 server
 static enum MHD_Result stopListenWeb(struct Session *session,
                                      struct MHD_Connection *connection, const char *url) {
@@ -778,14 +836,14 @@ static void startListenWeb(struct Session *session, struct MHD_Connection *conne
 
   }
 
-  // TODO - see hhl7net.c pipe creation - do we need it for responder?
-  if (argc <= 0) {
-    // Create a named pipe to read from
-    char hhl7fifo[21]; 
-    sprintf(hhl7fifo, "%s%d", "/tmp/hhl7fifo.", session->lpid);
-    mkfifo(hhl7fifo, 0666);
-    session->readFD = open(hhl7fifo, O_RDONLY | O_NONBLOCK);
-  }
+  // Create a named pipe to read from
+  char hhl7fifo[21]; 
+  sprintf(hhl7fifo, "%s%d", "/tmp/hhl7fifo.", session->lpid);
+  mkfifo(hhl7fifo, 0666);
+  session->readFD = open(hhl7fifo, O_RDONLY | O_NONBLOCK);
+
+  sprintf(infoStr, "RFIFO: %s", hhl7fifo);
+  writeLog(LOG_INFO, infoStr, 0);
 
   session->isListening = 1;
   //fcntl(readFD, F_SETPIPE_SZ, 1048576); // Change size of pipe, default seems OK
@@ -1214,6 +1272,11 @@ static enum MHD_Result answer_to_connection(void *cls, struct MHD_Connection *co
       // Request login if not logged in
       if (session->aStatus != 1) return requestLogin(session, connection, url);
       return getTemplateList(session, connection, url, 1);
+
+    } else if (strcmp(url, "/getRespQueue") == 0) {
+      // Request login if not logged in
+      if (session->aStatus != 1) return requestLogin(session, connection, url);
+      return getRespQueue(session, connection, url);
 
     } else if (strcmp(url, "/getServers") == 0) {
       // Request login if not logged in

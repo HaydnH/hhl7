@@ -32,3 +32,4 @@ char *str2base64(const char *message);
 void escapeSlash(char *dest, char *src);
 void printChars(char *buf);
 char *dblBuf(char *buf, int *bufS, int reqS);
+void emptyFifo(int fd);

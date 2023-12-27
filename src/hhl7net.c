@@ -42,6 +42,7 @@ struct Response {
   time_t sendTime;
   char sIP[256];
   char sPort[6];
+  char *rName;
   char *tName;
   int sent;
   char resCode[3];
@@ -106,16 +107,48 @@ static struct Response *queueResponse(struct Response *resp) {
 }
 
 
+// Add a response to the web list
+static void addRespWeb(char *newResp, struct Response *resp, int resEven) {
+  char resEvenOdd[7] = "trEven";
+  char resClass[17] = "";
+  char newResCode[3] = "";
+
+  // Provide conditional html/css options to the response queue
+  newResp[0] = '\0';
+  if (resEven == 1) sprintf(resEvenOdd, "trOdd");
+  sprintf(newResCode, "%s", resp->resCode);
+  if (strlen(resp->resCode) == 0) {
+    sprintf(newResCode, "--");
+    sprintf(resClass, " class=\"tdCtr\"");
+  } else if (strcmp(newResCode, "AA") == 0 || strcmp(newResCode, "CA") == 0) {
+    sprintf(resClass, " class=\"tdCtrG\"");
+  } else {
+    sprintf(resClass, " class=\"tdCtrR\"");
+  }
+
+  sprintf(newResp, "<tr class=\"%s\"><td>%s</td><td>%s</td><td>%s:%s</td><td class=\"rSendTime\">%ld</td><td%s>%s</td></tr>\n", resEvenOdd, resp->rName, resp->tName, resp->sIP, resp->sPort, resp->sendTime, resClass, newResCode);
+
+}
+
+
 // Process the response queue
-static int processResponses() {
+static int processResponses(int fd) {
   struct Response *resp;
   time_t tNow = time(NULL); 
+  char writeSize[11];
   char resStr[3] = "";
-  int nextResp = -1;
+  int nextResp = -1, respCount = 0;
+  int webRespS = 1024, reqS = 0;
+  char *webResp = malloc(webRespS);
+  webResp[0] = '\0';
+
+  resp = responses;
+
+  char newResp[strlen(resp->rName) + strlen(resp->tName) +
+               strlen(resp->sIP) + strlen(resp->sPort) + 119];
 
   writeLog(LOG_DEBUG, "Processing response queue...", 0);
 
-  resp = responses;
   while (resp != NULL) {
     // TODO - add expiry time to config file
     // Expire old responses
@@ -134,19 +167,48 @@ static int processResponses() {
 
       resp->sent = 1;
       sprintf(resp->resCode, "%s", resStr);
+      if (webRunning == 1) addRespWeb(newResp, resp, respCount % 2);
+      respCount++;
 
     } else if (resp->sendTime > tNow) {
-      writeLog(LOG_DEBUG, "Response queue processed, next response in the future", 0);
-      nextResp = resp->sendTime - tNow;
-      if (nextResp < 0) return 0;
-      return(nextResp);
+      writeLog(LOG_DEBUG, "Response queue processing, future response added to queue", 0);
+      if (nextResp == -1) nextResp = resp->sendTime - tNow;
+      if (webRunning == 1) addRespWeb(newResp, resp, respCount % 2);
+      respCount++;
+      if (nextResp < 0) nextResp = 0;
 
+    } else if (tNow - resp->sendTime < 900) {
+      writeLog(LOG_DEBUG, "Response queue processing, sent response added to queue", 0);
+      if (webRunning == 1) addRespWeb(newResp, resp, respCount % 2);
+      respCount++;
+
+    }
+
+    if (webRunning == 1) {
+      reqS = strlen(webResp) + strlen(newResp) + 1;
+      if (reqS > webRespS) webResp = dblBuf(webResp, &webRespS, reqS);
+      strcat(webResp, newResp);
     }
     resp = resp->next;
   }
 
-  writeLog(LOG_DEBUG, "Response queue processed, no more responses in the queue", 0);
-  return -1;
+  writeLog(LOG_DEBUG, "Response queue processing complete", 0);
+
+  if (webRunning == 1 && respCount > 0) {
+    emptyFifo(fd);
+    sprintf(writeSize, "%d", (int) strlen(webResp));
+
+    if (write(fd, writeSize, 11) == -1) {
+      handleError(LOG_ERR, "ERROR: Failed to write to named pipe", 1, 0, 1);
+    }
+
+    if (write(fd, webResp, strlen(webResp)) == -1) {
+      handleError(LOG_ERR, "ERROR: Failed to write to named pipe", 1, 0, 1);
+    }
+  }
+
+  webResp[0] = '\0';
+  return(nextResp);
 }
 
 
@@ -332,6 +394,7 @@ int sendPacket(int sockfd, char *hl7msg, char *resStr) {
 
     // Send the message to the server
     if(send(sockfd, tokMsg, strlen(tokMsg), 0) == -1) {
+      sprintf(resStr, "EE");
       handleError(LOG_ERR, "Could not send data packet to server", -1, 0, 1);
       return -1;
 
@@ -419,10 +482,6 @@ int sendAck(int sessfd, char *hl7msg) {
     writeLog(LOG_INFO, infoStr, 1);
   }
 
-//printf("sessfd, SA: %d\n", sessfd);
-//hl72unix(ackBuf, 1);
-//printf("Ack: %s\n", ackBuf);
-
   return writeL;
 }
 
@@ -432,7 +491,7 @@ static struct Response *checkResponse(char *msg, char *sIP, char *sPort, char *t
   struct Response *respHead = responses;
   struct json_object *resObj = NULL, *jArray = NULL, *matchObj = NULL;
   struct json_object *segStr = NULL, *fldObj = NULL, *valStr = NULL, *exclObj = NULL;
-  struct json_object *minObj = NULL, *maxObj = NULL, *sendT = NULL;
+  struct json_object *minObj = NULL, *maxObj = NULL, *sendT = NULL, *respN = NULL;
   int m = 0, mCount = 0, fldInt = 0, exclInt = 0, minT = 0, maxT = 0;
   // TODO - check values, malloc?
   char resFile[290], fldStr[256], resStr[3];
@@ -498,6 +557,7 @@ static struct Response *checkResponse(char *msg, char *sIP, char *sPort, char *t
   json_object_object_get_ex(resObj, "reponseTimeMax", &maxObj);
   maxT = json_object_get_int(maxObj);
   sendT = json_object_object_get(resObj, "sendTemplate");
+  respN = json_object_object_get(resObj, "name");
 
   json_object_object_get_ex(resObj, "sendArgs", &jArray);
   if (jArray == NULL) {
@@ -529,6 +589,7 @@ static struct Response *checkResponse(char *msg, char *sIP, char *sPort, char *t
   strcpy(resp->sIP, sIP);
   strcpy(resp->sPort, sPort);
   resp->tName = (char *) json_object_get_string(sendT);
+  resp->rName = (char *) json_object_get_string(respN);
   resp->sent = 0;
   resp->argc = mCount;
 
@@ -698,14 +759,14 @@ int startMsgListener(char *lIP, const char *lPort, char *sIP, char *sPort,
 
   if ((svrfd = createSession(lIP, lPort)) == -1) return -1;
 
-  // TODO do we need the pipe for responder?
-  if (argc <= 0) {
-    // Create a named pipe to write to
-    char hhl7fifo[21]; 
-    sprintf(hhl7fifo, "%s%d", "/tmp/hhl7fifo.", getpid());
-    mkfifo(hhl7fifo, 0666);
-    fd = open(hhl7fifo, O_WRONLY | O_NONBLOCK);
-  }
+  // Create a named pipe to write to
+  char hhl7fifo[21]; 
+  sprintf(hhl7fifo, "%s%d", "/tmp/hhl7fifo.", getpid());
+  mkfifo(hhl7fifo, 0666);
+  fd = open(hhl7fifo, O_WRONLY | O_NONBLOCK);
+
+  sprintf(infoStr, "WFIFO: %s", hhl7fifo);
+  writeLog(LOG_INFO, infoStr, 0);
 
   while(1) {
     struct timeval tv, *tvp;
@@ -731,7 +792,7 @@ int startMsgListener(char *lIP, const char *lPort, char *sIP, char *sPort,
 
     } else if (res == 0) {
       if (argc > 0) {
-        nextResp = processResponses();
+        nextResp = processResponses(fd);
         if (nextResp == -1) {
           writeLog(LOG_INFO, "Response queue empty, awaiting next received message", 1);
         } else {
@@ -751,7 +812,7 @@ int startMsgListener(char *lIP, const char *lPort, char *sIP, char *sPort,
       //printResponses(responses);
       close(sessfd);
 
-      if (argc > 0) nextResp = processResponses();
+      if (argc > 0) nextResp = processResponses(fd);
     }
   }
 
