@@ -144,9 +144,10 @@ static int processResponses(int fd) {
   webResp[0] = '\0';
 
   resp = responses;
+  if (resp == NULL) return nextResp;
 
   char newResp[strlen(resp->rName) + strlen(resp->tName) +
-               strlen(resp->sIP) + strlen(resp->sPort) + 144];
+               strlen(resp->sIP) + strlen(resp->sPort) + 256]; // was 144
 
   writeLog(LOG_DEBUG, "Processing response queue...", 0);
 
@@ -213,6 +214,7 @@ static int processResponses(int fd) {
   }
 
   webResp[0] = '\0';
+  free(webResp);
   return(nextResp);
 }
 
@@ -457,6 +459,7 @@ void sendTemp(char *sIP, char *sPort, char *tName, int noSend, int fShowTemplate
   // TODO - free hl7Msg?? 
   // Free memory
   free(jsonMsg);
+  free(hl7Msg);
   fclose(fp);
 }
 
@@ -613,7 +616,7 @@ static struct Response *checkResponse(char *msg, char *sIP, char *sPort, char *t
           resp->sendTime - time(NULL));
   writeLog(LOG_INFO, infoStr, 1);
 
-  json_object_put(jArray);
+  json_object_put(resObj);
   return respHead;
 }
 
@@ -765,11 +768,13 @@ int startMsgListener(char *lIP, const char *lPort, char *sIP, char *sPort,
   if ((svrfd = createSession(lIP, lPort)) == -1) return -1;
 
   // Create a named pipe to write to
-  char hhl7fifo[21]; 
-  sprintf(hhl7fifo, "%s%d", "/tmp/hhl7fifo.", getpid());
-  mkfifo(hhl7fifo, 0666);
-  fd = open(hhl7fifo, O_WRONLY | O_NONBLOCK);
-  //fd = open(hhl7fifo, O_WRONLY);
+  if (webRunning == 1) {
+    char hhl7fifo[21]; 
+    sprintf(hhl7fifo, "%s%d", "/tmp/hhl7fifo.", getpid());
+    mkfifo(hhl7fifo, 0666);
+    fd = open(hhl7fifo, O_WRONLY | O_NONBLOCK);
+    //fd = open(hhl7fifo, O_WRONLY);
+  }
 
   while(1) {
     struct timeval tv, *tvp;
