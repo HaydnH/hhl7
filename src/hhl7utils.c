@@ -315,7 +315,7 @@ FILE *findTemplate(char *fileName, char *tName) {
                          "/usr/local/hhl7/templates/" };
 
   sprintf(infoStr, "Attempting to find template: %s", tName);
-  writeLog(LOG_DEBUG, infoStr, 1);
+  writeLog(LOG_DEBUG, infoStr, 0);
 
   if (isDaemon == 1) {
     sprintf(fileName, "%s%s%s", tPaths[2], tName, ".json");
@@ -339,13 +339,13 @@ FILE *findTemplate(char *fileName, char *tName) {
       strcat(fileName, ".json");
 
       sprintf(infoStr, "Attempting to open file for reading: %s", fileName);
-      writeLog(LOG_DEBUG, infoStr, 1);
+      writeLog(LOG_DEBUG, infoStr, 0);
 
       // If we can open the file for reading, return the file pointer
       fp = fopen(fileName, "r");
       if (fp != NULL) {
         sprintf(infoStr, "Template: %s found, returning fp: %p for %s", tName, fp, fileName);
-        writeLog(LOG_DEBUG, infoStr, 1);
+        writeLog(LOG_DEBUG, infoStr, 0);
         return fp;
       }
     }

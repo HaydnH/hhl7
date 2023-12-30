@@ -439,11 +439,11 @@ void sendTemp(char *sIP, char *sPort, char *tName, int noSend, int fShowTemplate
 
   // Read the json template to jsonMsg
   readJSONFile(fp, fSize, jsonMsg);
-  writeLog(LOG_DEBUG, "JSON Template read OK", 1);
+  writeLog(LOG_DEBUG, "JSON Template read OK", 0);
 
   // Generate HL7 based on the json template
   parseJSONTemp(jsonMsg, &hl7Msg, &hl7MsgS, NULL, NULL, argc - optind, argv + optind, 0);
-  writeLog(LOG_DEBUG, "JSON Template parsed OK", 1);
+  writeLog(LOG_DEBUG, "JSON Template parsed OK", 0);
 
   if (noSend == 0) {
     // Connect to server, send & listen for ack
