@@ -567,17 +567,17 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         padding: 0;\n\
         margin: 0;\n\
       }\n\
-      #respQTable {\n\
+      #respQTable, #respQBody {\n\
         font-family: Verdana, Helvetica, sans-serif;\n\
         font-size: 14px;\n\
         width: 100%;\n\
         border-spacing: 1px;\n\
       }\n\
-      thead, tr {\n\
+      thead, tr, tfoot {\n\
         height: 36px;\n\
         line-height: 38px;\n\
       }\n\
-      thead {\n\
+      thead, tfoot {\n\
         background-color: #eeeff3;\n\
       }\n\
       .trEven {\n\
@@ -589,8 +589,16 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
       th, td {\n\
         padding: 0px 15px;\n\
       }\n\
-      .thSendT, .thDest, .thSendTime {\n\
+      td.foot {\n\
+        text-align: center;\n\
+        font-weight: bold;\n\
+      }\n\
+      .thSendT, .thDest, .thSTFmt {\n\
+        width: 25%;\n\
         text-align: left;\n\
+      }\n\
+      .rSendTime, .thSendTime {\n\
+        display: none;\n\
       }\n\
       .thResp, .tdCtr, .tdCtrG, .tdCtrR {\n\
         width: 80px;\n\
@@ -874,29 +882,30 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         popTemplates(1);\n\
       }\n\
 \n\
-      var respRefID;\n\
+      var isRespond = false;\n\
       function procResponders(stopListen) {\n\
         var respJSON = { \"postFunc\":\"procRespond\", \"templates\":[ ] };\n\
+        var respTable = document.getElementById(\"respQBody\");\n\
         var respFrm = document.getElementById(\"respForm\");\n\
         var respList = respFrm.children;\n\
 \n\
         if (respList.length <= 0) {\n\
-          if (stopListen == true) stopHL7Listener();\n\
+          if (stopListen == true) {\n\
+            stopHL7Listener();\n\
+            isRespond = false;\n\
+          }\n\
           showRespForm(respList.length);\n\
-          clearInterval(respRefID);\n\
 \n\
         } else {\n\
           for (var c = 0; c < respList.length; c++) {\n\
             respJSON.templates[c] = respList[c].id.slice(8);\n\
           }\n\
+\n\
           showRespForm(respList.length);\n\
           postJSON(JSON.stringify(respJSON));\n\
-\n\
-          console.log(\"Getting queue...\");\n\
+          isRespond = true;\n\
+          respTable.innerHTML = \"\";\n\
           getRespQueue();\n\
-          // TODO - setting to 1 seconds fo debugging, set back to 15000 or config\n\
-          var respRef = 1000;\n\
-          respRefID = setInterval(getRespQueue, respRef);\n\
 \n\
         }\n\
       }\n\
@@ -924,6 +933,58 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
             respDiv.className = \"respFormItem\";\n\
             respFrm.appendChild(respDiv);\n\
             procResponders(true);\n\
+          }\n\
+        }\n\
+      }\n\
+\n\
+      function startSendTimer(sTime, target) {\n\
+        setInterval(function () {\n\
+          var tNow = Date.now();\n\
+          var sTimer  = new Date(sTime - tNow);\n\
+          if (tNow < sTime) {\n\
+            target.innerText = sTimer.toISOString().slice(11, 19);\n\
+          } else {\n\
+            target.innerText = \"00:00:00\";\n\
+          }\n\
+        }, 1000);\n\
+      }\n\
+\n\
+      function procQTimes() {\n\
+        var tNow = Date.now();\n\
+        var qTimes = document.querySelectorAll(\"#respQBody .rSendTime\");\n\
+        var qTimesFmt = document.querySelectorAll(\"#respQBody .rSTFmt\");\n\
+        var nextRes = 1000;\n\
+\n\
+        for (var t = 0; t < qTimes.length; t++) {\n\
+          if (qTimes[t].innerText == \"\") {\n\
+            qTimesFmt[t].innerText = \"ERROR: NULL send time\";\n\
+            continue;\n\
+          }\n\
+\n\
+          var sTime = qTimes[t].innerText * 1000;\n\
+\n\
+          if (tNow >= sTime) {\n\
+            sDate = new Date(sTime);\n\
+            qTimesFmt[t].innerText = sDate.toISOString().slice(0, -5);\n\
+\n\
+          } else if ((tNow) < sTime) {\n\
+            var sDiff = sTime - tNow;\n\
+            var nextRefresh = sDiff;\n\
+            if (sDiff < 200) nextRefresh = 200;\n\
+            if (sDiff > 1000) nextRefresh = 1000;\n\
+            if (sDiff < nextRes) nextRes = nextRefresh;\n\
+\n\
+            var sTimer  = new Date(sDiff);\n\
+            qTimesFmt[t].innerText = sTimer.toISOString().slice(11, 19);\n\
+            // TODO - remove startSendTimer if nt used\n\
+            //startSendTimer(sTime, qTimesFmt[t]);\n\
+\n\
+          } else if (tNow < sTime) {\n\
+            qTimesFmt[t].innerText = \"00:00:00\";\n\
+\n\
+          } else {\n\
+            qTimesFmt[t].innerText = \"ERROR: Invalid send time\";\n\
+\n\
           }\n\
         }\n\
       }\n\
@@ -965,10 +1026,6 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
                 return xhr.responseText;\n\
               }\n\
             } else {\n\
-// TODO - left in for hard to debug issue, remove when resolved\n\
-console.log(xhr.status);// 0\n\
-console.log(xhr.readyState); // 4\n\
-console.log(xhr.responseText);// empty\n\
               errHandler(\"ERROR: The hhl7 backend is not running.\");\n\
             }\n\
           }\n\
@@ -1206,13 +1263,20 @@ console.log(xhr.responseText);// empty\n\
             // TODO internal server error\n\
 \n\
           } else if (response.ok) {\n\
-            if (htmlData.length > 0) {\n\
-              var tHeader = '<thead><th class=\"thSendT\">Responder</th><th class=\"thSendT\">Send Template</th><th class=\"thDest\">Destination</th><th class=\"thSendTime\">Send Time</th><th class=\"thResp\">Response</th></thead>';\n\
+            if (htmlData.length > 0 || htmlData === \"QE\") {\n\
+              var tHeader = '<thead><th class=\"thSendT\">Responder</th><th class=\"thSendT\">Send Template</th><th class=\"thDest\">Destination</th><th class=\"thSendTime\"></th><th class=\"thSTFmt\">Send Time</th><th class=\"thResp\">Response</th></thead>';\n\
 \n\
-              var respTable = document.getElementById(\"respQTable\");\n\
-              respTable.innerHTML = tHeader + htmlData;\n\
-\n\
+              var respTable = document.getElementById(\"respQBody\");\n\
+              //respTable.innerHTML = tHeader + htmlData;\n\
+              if (htmlData === \"QE\") {\n\
+                respTable.innerHTML = \"\";\n\
+              } else {\n\
+                respTable.innerHTML = htmlData;\n\
+              }\n\
             }\n\
+\n\
+            procQTimes();\n\
+            if(isRespond == true) setTimeout(getRespQueue, 1000);\n\
           }\n\
 \n\
         } catch(error) {\n\
@@ -1455,6 +1519,7 @@ console.log(xhr.responseText);// empty\n\
         stopBackendListen();\n\
         var respFrm = document.getElementById(\"respForm\");\n\
         respFrm.textContent = \"\";\n\
+        isRespond = false;\n\
         procResponders(false);\n\
         isConnectionOpen = false;\n\
       }\n\
@@ -1508,7 +1573,20 @@ console.log(xhr.responseText);// empty\n\
       </div>\n\
       <div id=\"respForm\"></div>\n\
       <div class=\"titleBar\">Response queue:</div>\n\
-      <div id=\"hl7Queue\" class=\"hl7Message\"><table id=\"respQTable\"></table></div>\n\
+      <div id=\"hl7Queue\" class=\"hl7Message\">\n\
+        <table id=\"respQTable\">\n\
+          <thead>\n\
+            <th class=\"thSendT\">Responder</th>\n\
+            <th class=\"thSendT\">Send Template</th>\n\
+            <th class=\"thDest\">Destination</th>\n\
+            <th class=\"thSendTime\"></th>\n\
+            <th class=\"thSTFmt\">Send Time</th>\n\
+            <th class=\"thResp\">Response</th>\n\
+          </thead>\n\
+          <tbody id=\"respQBody\"></tbody>\n\
+          <tfoot><tr><td class=\"foot\" colspan=\"6\">End of response queue</td></tr></tfoot>\n\
+        </table>\n\
+      </div>\n\
     </div>\n\
 \n\
     <div id=\"footer\">&copy; Haydn Haines</div>\n\

@@ -40,7 +40,7 @@ void printChars(char *buf) {
 void openLog() {
   openlog("HHL7", LOG_NDELAY, LOG_USER);
   // TODO - Conf file log level?
-  setlogmask(LOG_UPTO(LOG_DEBUG));
+  setlogmask(LOG_UPTO(LOG_INFO));
 }
 
 

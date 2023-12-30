@@ -730,32 +730,34 @@ static enum MHD_Result getRespQueue(struct Session *session,
   int rBufS = 512;
   char *rBuf = malloc(rBufS);
   rBuf[0] = '\0';
-  int pLen = 0, readSize = 0;
+  int pLen = 1, readSize = 0;
   int fd = session->readFD;
   char readSizeBuf[11];
 
-  if ((pLen = read(fd, readSizeBuf, 11)) > 0) {
-    readSize = atoi(readSizeBuf);
-
-  }
-
-  if (readSize > rBufS) {
-    char *rBufNew = realloc(rBuf, readSize + 1);
-    if (rBufNew == NULL) {
-      sprintf(infoStr, "[S: %03d] Can't realloc memory getRespQueue, rBuf",
-                       session->shortID);
-      handleError(LOG_ERR, infoStr, 1, 0, 1);
-
-    } else {
-      rBuf = rBufNew;
-      rBufS = readSize;
+  while (pLen > 0) {
+    if ((pLen = read(fd, readSizeBuf, 11)) > 0) {
+      readSize = atoi(readSizeBuf);
 
     }
-  }
 
-  if (readSize > 0) {
-    if ((pLen = read(fd, rBuf, readSize)) > 0) {
-      rBuf[readSize] = '\0';
+    if (readSize > rBufS) {
+      char *rBufNew = realloc(rBuf, readSize + 1);
+      if (rBufNew == NULL) {
+        sprintf(infoStr, "[S: %03d] Can't realloc memory getRespQueue, rBuf",
+                         session->shortID);
+        handleError(LOG_ERR, infoStr, 1, 0, 1);
+
+      } else {
+        rBuf = rBufNew;
+        rBufS = readSize;
+
+      }
+    }
+
+    if (readSize > 0) {
+      if ((pLen = read(fd, rBuf, readSize)) > 0) {
+        rBuf[readSize] = '\0';
+      }
     }
   }
 
@@ -769,7 +771,7 @@ static enum MHD_Result getRespQueue(struct Session *session,
 
   ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
   sprintf(infoStr, "[S: %03d][200] Web response list retrieved", session->shortID);
-  writeLog(LOG_INFO, infoStr, 0);
+  writeLog(LOG_DEBUG, infoStr, 0);
 
   MHD_destroy_response(response);
 

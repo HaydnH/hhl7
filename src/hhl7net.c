@@ -126,7 +126,7 @@ static void addRespWeb(char *newResp, struct Response *resp, int resEven) {
     sprintf(resClass, " class=\"tdCtrR\"");
   }
 
-  sprintf(newResp, "<tr class=\"%s\"><td>%s</td><td>%s</td><td>%s:%s</td><td class=\"rSendTime\">%ld</td><td%s>%s</td></tr>\n", resEvenOdd, resp->rName, resp->tName, resp->sIP, resp->sPort, resp->sendTime, resClass, newResCode);
+  sprintf(newResp, "<tr class=\"%s\"><td>%s</td><td>%s</td><td>%s:%s</td><td class=\"rSendTime\">%ld</td><td class=\"rSTFmt\"></td><td%s>%s</td></tr>\n", resEvenOdd, resp->rName, resp->tName, resp->sIP, resp->sPort, resp->sendTime, resClass, newResCode);
 
 }
 
@@ -134,10 +134,11 @@ static void addRespWeb(char *newResp, struct Response *resp, int resEven) {
 // Process the response queue
 static int processResponses(int fd) {
   struct Response *resp;
-  time_t tNow = time(NULL); 
+  time_t tNow = time(NULL), fTime;
   char writeSize[11];
   char resStr[3] = "";
-  int nextResp = -1, respCount = 0;
+  // TODO - add expiry time to config file
+  int nextResp = -1, respCount = 0, rmCount = 0, expTime = 900;
   int webRespS = 1024, reqS = 0;
   char *webResp = malloc(webRespS);
   webResp[0] = '\0';
@@ -145,18 +146,18 @@ static int processResponses(int fd) {
   resp = responses;
 
   char newResp[strlen(resp->rName) + strlen(resp->tName) +
-               strlen(resp->sIP) + strlen(resp->sPort) + 119];
+               strlen(resp->sIP) + strlen(resp->sPort) + 144];
 
   writeLog(LOG_DEBUG, "Processing response queue...", 0);
 
   while (resp != NULL) {
-    // TODO - add expiry time to config file
     // Expire old responses
-    if (tNow - resp->sendTime >= 900 && resp->sent == 1) {
+    if (tNow - resp->sendTime >= expTime && resp->sent == 1) {
       writeLog(LOG_DEBUG, "Response queue processing, old response removed", 0);
       responses = resp->next;
       free(resp);
       resp = responses;
+      rmCount++;
       continue;
 
     } else if (tNow >= resp->sendTime && resp->sent == 0) {
@@ -172,13 +173,16 @@ static int processResponses(int fd) {
 
     } else if (resp->sendTime > tNow) {
       writeLog(LOG_DEBUG, "Response queue processing, future response added to queue", 0);
-      if (nextResp == -1) nextResp = resp->sendTime - tNow;
+      fTime = resp->sendTime - tNow;
+      if (nextResp == -1 || fTime < nextResp) nextResp = fTime;
       if (webRunning == 1) addRespWeb(newResp, resp, respCount % 2);
       respCount++;
       if (nextResp < 0) nextResp = 0;
 
-    } else if (tNow - resp->sendTime < 900) {
+    } else if (tNow - resp->sendTime < expTime) {
       writeLog(LOG_DEBUG, "Response queue processing, sent response added to queue", 0);
+      if (nextResp == -1 || nextResp > expTime) nextResp = expTime;
+
       if (webRunning == 1) addRespWeb(newResp, resp, respCount % 2);
       respCount++;
 
@@ -194,8 +198,9 @@ static int processResponses(int fd) {
 
   writeLog(LOG_DEBUG, "Response queue processing complete", 0);
 
-  if (webRunning == 1 && respCount > 0) {
-    emptyFifo(fd);
+  if (webRunning == 1 && (respCount + rmCount) > 0) {
+    if ((int) strlen(webResp) == 0) sprintf(webResp, "%s", "QE");
+
     sprintf(writeSize, "%d", (int) strlen(webResp));
 
     if (write(fd, writeSize, 11) == -1) {
@@ -322,7 +327,7 @@ int listenACK(int sockfd, char *res) {
     // Print error or response
     if (ackErr > 0) {
       handleError(LOG_ERR, "Could not understand ACK response", 1, 0, 1);
-      sprintf(res, "%s", "EE");
+      if (res != NULL) sprintf(res, "%s", "EE");
       return -1;
 
     } else {
@@ -394,7 +399,7 @@ int sendPacket(int sockfd, char *hl7msg, char *resStr) {
 
     // Send the message to the server
     if(send(sockfd, tokMsg, strlen(tokMsg), 0) == -1) {
-      sprintf(resStr, "EE");
+      if (resStr != NULL) sprintf(resStr, "%s", "EE");
       handleError(LOG_ERR, "Could not send data packet to server", -1, 0, 1);
       return -1;
 
@@ -764,9 +769,7 @@ int startMsgListener(char *lIP, const char *lPort, char *sIP, char *sPort,
   sprintf(hhl7fifo, "%s%d", "/tmp/hhl7fifo.", getpid());
   mkfifo(hhl7fifo, 0666);
   fd = open(hhl7fifo, O_WRONLY | O_NONBLOCK);
-
-  sprintf(infoStr, "WFIFO: %s", hhl7fifo);
-  writeLog(LOG_INFO, infoStr, 0);
+  //fd = open(hhl7fifo, O_WRONLY);
 
   while(1) {
     struct timeval tv, *tvp;
