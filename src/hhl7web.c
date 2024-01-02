@@ -429,8 +429,6 @@ static enum MHD_Result getSettings(struct Session *session,
  
   response = MHD_create_response_from_buffer(strlen(resStrC), (void *) resStrC,
              MHD_RESPMEM_MUST_COPY);
-//             MHD_RESPMEM_PERSISTENT);
-             //MHD_RESPMEM_MUST_COPY);
 
   if (!response) {
     json_object_put(resObj);
@@ -447,9 +445,7 @@ static enum MHD_Result getSettings(struct Session *session,
   writeLog(LOG_INFO, infoStr, 0);
 
   MHD_destroy_response(response);
-  // TODO - WORKING - mem leak... but stops working if resObj is put
   json_object_put(resObj);
-  //json_object_put(pwObj);
   return ret;
 }
 
