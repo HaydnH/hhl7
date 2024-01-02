@@ -65,10 +65,14 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-  while((opt = getopt_long(argc, argv, ":0HD:slrt:T:owWh:L:p:P:f:", long_options, &option_index)) != -1) {
+  while((opt = getopt_long(argc, argv, ":0hHD:f:Flrt:T:owWs:L:p:P:", long_options, &option_index)) != -1) {
     switch(opt) {
       case 0:
         exit(1);
+
+      case 'h':
+        showHelp();
+        exit(0);
 
       case 'H':
         showHelp();
@@ -80,7 +84,13 @@ int main(int argc, char *argv[]) {
         if (optarg) daemonSock = atoi(optarg);
         break;
 
-      case 's':
+      case 'f':
+        fSend = 1;
+        if (*argv[optind-1] == '-') handleError(3, "Option -f requires a value", 1, 1, 1);
+        if (optarg) strcpy(fileName, optarg);
+        break;
+
+      case 'F':
         fSend = 1;
         break;
 
@@ -113,7 +123,7 @@ int main(int argc, char *argv[]) {
         fWeb = 1;
         break;
 
-      case 'h':
+      case 's':
         if (*argv[optind-1] == '-') handleError(3, "Option -h requires a value", 1, 1, 1);
         // TODO error check all command line arguments (length etc)
         if (optarg) strcpy(sIP, optarg);
@@ -134,12 +144,6 @@ int main(int argc, char *argv[]) {
         if (*argv[optind-1] == '-') handleError(3, "Option -P requires a value", 1, 1, 1);
         if (validPort(optarg) > 0) handleError(3, "Port provided by -P is invalid (valid: 1024-65535)", 1, 1, 1);
         if (optarg) strcpy(lPort, optarg);
-        break;
-
-      case 'f':
-        fSend = 1;
-        if (*argv[optind-1] == '-') handleError(3, "Option -f requires a value", 1, 1, 1);
-        if (optarg) strcpy(fileName, optarg);
         break;
 
       case ':':

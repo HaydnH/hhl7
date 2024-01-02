@@ -38,6 +38,7 @@ static void genPwdHash(const char* pwd, size_t pwdS, char *pwdHash) {
   char algo[7] = "SHA256";
   unsigned char binHash[4 * pwdS];
   unsigned int md_len = -1;
+  binHash[0] = '\0';
 
   const EVP_MD *md = EVP_get_digestbyname(algo);
   if(NULL != md) {
@@ -122,6 +123,7 @@ int regNewUser(char *uid, char *passwd) {
   char salt[maxPassL + 1];
   char saltPasswd[saltedL];
   char pwdHash[4* maxPassL];
+  pwdHash[0] = '\0';
 
   // Define passwd file location
   char pwFile[34];

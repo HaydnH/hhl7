@@ -508,6 +508,7 @@ static struct Response *checkResponse(char *msg, char *sIP, char *sPort, char *t
   if (isDaemon == 1) {
     sprintf(resFile, "/usr/local/hhl7/responders/%s.json", tName);
   } else {
+    // TODO - add a respond variable to findTemplate and allow responders outside ./
     sprintf(resFile, "./responders/%s.json", tName);
   }
 

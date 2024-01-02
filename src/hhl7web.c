@@ -344,7 +344,10 @@ static enum MHD_Result getServers(struct Session *session,
   response = MHD_create_response_from_buffer(strlen(svrList), (void *) svrList,
                                              MHD_RESPMEM_MUST_COPY);
 
-  if (!response) return MHD_NO;
+  if (!response) {
+    json_object_put(svrsObj);
+    return MHD_NO;
+  }
 
   MHD_add_response_header(response, "Content-Type", "text/plain");
   MHD_add_response_header(response, "Cache-Control", "no-cache");
@@ -356,7 +359,7 @@ static enum MHD_Result getServers(struct Session *session,
 
   MHD_destroy_response(response);
 
-  json_object_put(svrObj);
+  json_object_put(svrsObj);
   return ret;
 }
 
@@ -422,11 +425,18 @@ static enum MHD_Result getSettings(struct Session *session,
   }
 
   const char *resStr = json_object_to_json_string_ext(resObj, JSON_C_TO_STRING_PLAIN);
+  char *resStrC = strdup(resStr);
+ 
+  response = MHD_create_response_from_buffer(strlen(resStrC), (void *) resStrC,
+             MHD_RESPMEM_MUST_COPY);
+//             MHD_RESPMEM_PERSISTENT);
+             //MHD_RESPMEM_MUST_COPY);
 
-  response = MHD_create_response_from_buffer(strlen(resStr), (void *) resStr,
-             MHD_RESPMEM_PERSISTENT);
-
-  if (!response) return MHD_NO;
+  if (!response) {
+    json_object_put(resObj);
+    json_object_put(pwObj);
+    return MHD_NO;
+  }
 
   MHD_add_response_header(response, "Content-Type", "text/plain");
   MHD_add_response_header(response, "Cache-Control", "no-cache");
@@ -437,7 +447,9 @@ static enum MHD_Result getSettings(struct Session *session,
   writeLog(LOG_INFO, infoStr, 0);
 
   MHD_destroy_response(response);
-  json_object_put(pwObj);
+  // TODO - WORKING - mem leak... but stops working if resObj is put
+  json_object_put(resObj);
+  //json_object_put(pwObj);
   return ret;
 }
 
@@ -561,7 +573,7 @@ static enum MHD_Result getTempForm(struct Session *session,
 
   // TODO: Get templates from all possible directories...
   char *tPath = "/usr/local/hhl7";
-  char *fileName = malloc(strlen(tPath) + strlen(url) + 1);
+  char fileName[strlen(tPath) + strlen(url) + 1];
 
   strcpy(fileName, tPath);
   strcat(fileName, url);
@@ -844,9 +856,6 @@ static void startListenWeb(struct Session *session, struct MHD_Connection *conne
   mkfifo(hhl7fifo, 0666);
   session->readFD = open(hhl7fifo, O_RDONLY | O_NONBLOCK);
 
-  sprintf(infoStr, "RFIFO: %s", hhl7fifo);
-  writeLog(LOG_INFO, infoStr, 0);
-
   session->isListening = 1;
   //fcntl(readFD, F_SETPIPE_SZ, 1048576); // Change size of pipe, default seems OK
 }
@@ -898,9 +907,6 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
       rootObj = json_tokener_parse(data);
       json_object_object_get_ex(rootObj, "postFunc", &postObj);
 
-      sprintf(infoStr, "JSON POST: %s", data);
-      writeLog(LOG_INFO, infoStr, 0);
-
       if (json_object_get_type(postObj) != json_type_string) {
         // TODO - error handle
         writeLog(LOG_ERR, "JSON FUNC IS NOT A STR", 0);
@@ -932,10 +938,9 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
           stopListenWeb(con_info->session, con_info->connection, "/respond");
           startListenWeb(con_info->session, con_info->connection, "/respond",
                          dataInt, tempPtrs);
-          sprintf(infoStr, "JSON POST: %s", json_object_get_string(postObj));
-          writeLog(LOG_INFO, infoStr, 0);
         }
       }
+      json_object_put(rootObj);
     }
 
     if (strcmp (key, "hl7MessageText") == 0 ) {

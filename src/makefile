@@ -3,12 +3,12 @@ CFLAGS  = -O1 -Wall -fcommon -g
 INCDIR  = -I/usr/include/json-c -I/usr/include/microhttpd -I/usr/include/openssl -I/usr/include/systemd/sd-daemon
 DESTDIR = /usr/local/hhl7
 BINDIR  = /usr/local/bin
-MANDIR  = /usr/share/man
+MANDIR  = /usr/share/man/man1
 LIBDIR  = 
 LIBS    = -lm -ljson-c -lmicrohttpd -lssl -lcrypto -lsystemd
 OBJS    = hhl7webpages.o hhl7web.o hhl7auth.o hhl7net.o hhl7utils.o hhl7json.o hhl7.o
 BIN     = hhl7
-MAN     = hhl7.1
+MAN     = man/hhl7.1.gz
 CERTS   = certs/*.example
 IMAGES  = images/*
 LOGROT  = sys/hhl7.logrotate
@@ -49,6 +49,4 @@ install:: hhl7
 	install -c -m 0644 $(SYSLOG) /etc/rsyslog.d
 	install -c -m 0644 $(RESPS) $(DESTDIR)/responders
 	install -c -m 0644 $(TEMPS) $(DESTDIR)/templates
-
-#	TODO - install man page when created
-#	install -c -m 0644 $(MAN) $(MANDIR)/man1 
+	install -c -m 0644 $(MAN) $(MANDIR)
