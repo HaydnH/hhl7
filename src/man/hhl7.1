@@ -1,0 +1,137 @@
+'\" t
+.\"     Title: hhl7 
+.\"    Author: Haydn Haines
+.\"      Date: 2024-01-02
+.\"    Source: https://github.com/HaydnH/hhl7
+.\"  Language: English
+.\"
+.TH "HHL7" "1" "2024-01-02" "https://github.com/HaydnH/hhl7" "hhl7 CLI"
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.ss \n[.ss] 0
+.nh
+.ad l
+.de URL
+\fI\\$2\fP <\\$1>\\$3
+..
+.als MTO URL
+.if \n[.g] \{\
+.  mso www.tmac
+.  am URL
+.    ad l
+.  .
+.  am MTO
+.    ad l
+.  .
+.  LINKSTYLE blue R < >
+.\}
+.SH "NAME"
+hhl7 \- A Linux command line HL7 sender, receiver and responder with a web interface
+.SH "SYNOPSIS"
+.sp
+\fBhhl7\fP [-s <IP>] [-L <IP] [-p <port>] [-P <port>] [-o] {-D|-f|-F|-t|-T|-l|-r} [options] [argument ...]
+.SH "DESCRIPTION"
+.sp
+\fBhhl7\fP is a developer tool for sending, receiving and automatically responding to HL7 messages. It utilizes JSON formatted templates to quickly generate messages based on the provided command line arguments, random numbers, time values etc.
+.sp
+\fBhhl7 is currently only intended as development tool and should not be used in a production environment without extensive testing.\fP
+.SH "OPTIONS"
+.sp
+\fB\-h\fP, \fB\-H\fP, \fB\-\-help\fP
+.RS 4
+Show command usage help.
+.RE
+.sp
+\fB\-D\fP <systemd socket>
+.RS 4
+Used to launch hhl7 as a systemd service triggered by a systemd socket. See /lib/systemd//system/hhl7.service and /lib/systemd//system/hhl7.socket for configuration. \fBThis argument should only be used in a systemd service and is not intended for general command line use.\fP
+.RE
+.sp
+\fB\-f\fP <filename>
+.RS 4
+Send the contents of the provided filename as a HL7 message. The contents of the file should contain only the HL7 message, no MLLP wrapper, segments may be terminated with either \\n or \\r.
+.RE
+.sp
+\fB\-F\fP
+.RS 4
+Send file.txt from the current path as HL7 message, shorthand for \(aq./hhl7 file.txt\(aq.
+.RE
+.sp
+\fB\-t\fP <template> (arguments ...)
+.RS 4
+Construct a HL7 message based on the provided template name and arguments and send the resulting message. hhl7 will attempt to locate a responder template in \(aq~/.config/hhl7/templates/\(aq, \(aq./templates/\(aq and then \(aq/usr/local/hhl7/templates/\(aq using the first it finds. A template argument provided on the command line should not include the .json extension.
+.RE
+.sp
+\fB\-T\fP <template> (arguments ...)
+.RS 4
+The same as \-t, however the constructed HL7 message will also be printed to stdout when sending.
+.RE
+.sp
+\fB\-o\fP
+.RS 4
+Suppress sending the HL7 message, only print the message to stdout. Used in conjunction with \-T to generate HL7 messages or test hhl7 templates.
+.RE
+.sp
+\fB\-l\fP
+.RS 4
+Listen for incomming HL7 messages and print them to stdout. All messages will currently be replied to with an application accept (AA) ACK response, however this will be configurable in a future update.
+.RE
+.sp
+\fB\-r\fP <template>
+.RS 4
+Listen for incomming HL7 messages and compare them against the \(aqmatches\(aq section of a responder template. If the incomming message matches the template, send a HL7 message based on the template\(aqs configuration. hhl7 will attempt to locate a responder template in \(aq~/.config/hhl7/responders/\(aq, \(aq./responders/\(aq and then \(aq/usr/local/hhl7/responders/\(aq using the first it finds. A template argument provided on the command line should not include the .json extension.
+.RE
+.sp
+\fB\-s\fP, <ip address>
+.RS 4
+The target IP address to use when sending outgoing messages. (default: 127.0.0.1)
+.RE
+.sp
+\fB\-L\fP, <ip address>
+.RS 4
+The IP address to use when listening for incomming messages. This should not be required, but may be of use for binding to specific interfaces. (default: 127.0.0.1)
+.RE
+.sp
+\fB\-p\fP <port number>
+.RS 4
+The target port to use when sending outgoing messages. (default: 11011)
+.RE
+.sp
+\fB\-P\fP <port number>
+.RS 4
+The port to use when listening for incomming messages. (default: 22022)
+.RE
+.sp
+\fB\-V\fP, \fB\-\-version\fP
+.RS 4
+Display version information and exit. (NOT YET IMPLEMENTED)
+.RE
+.SH "COMMANDS"
+.sp
+\fBINTERRUPT (ctrl+c)\fP
+.RS 4
+Exit from the listen (-l) or respond (-r) commands.
+.RE
+.SH "ENVIRONMENT"
+.sp
+The \fBhhl7\fP command currently does not support the use of any environment variables.
+.sp
+.SH "HISTORY"
+.sp
+As of 2024, the \fBhhl7\fP command is currently under development.
+.sp
+.SH "AUTHORS"
+.sp
+Haydn Haines.
+.sp
+.SH "SEE ALSO"
+.sp
+.sp
+.SH "REPORTING BUGS"
+.sp
+For bug reports, use the issue tracker at \c
+.URL "https://github.com/HaydnH/hhl7/issues" "" "."
+.SH "AVAILABILITY"
+.sp
+The \fBhhl7\fP command is part of the hhl7 package which can be downloaded from \c
+.URL "https://github.com/HaydnH/hhl7" "" "."
