@@ -241,6 +241,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
       }\n\
       #hl7Container {\n\
         flex: 1;\n\
+        overflow-y: scroll;\n\
       }\n\
       .hl7Message {\n\
         height: 100%;\n\

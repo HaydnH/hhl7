@@ -306,19 +306,21 @@ void hl72web(char *msg) {
 
 // TODO - could use some tidying, multiple strcpy to sprintf(.., %s%s..) etc
 // Find fullpath of a json template file
-FILE *findTemplate(char *fileName, char *tName) {
+FILE *findTemplate(char *fileName, char *tName, int isRespond) {
   FILE *fp;
   int p = 0;
   const char *homeDir = getenv("HOME");
-  char tPaths[3][33] = { "/.config/hhl7/templates/",
-                         "./templates/",
-                         "/usr/local/hhl7/templates/" };
+  char tPath[13] = "templates/";
+  if (isRespond == 1) sprintf(tPath, "responders/");
+  char tPaths[3][18] = { "/.config/hhl7/",
+                         "./",
+                         "/usr/local/hhl7/" };
 
   sprintf(infoStr, "Attempting to find template: %s", tName);
   writeLog(LOG_DEBUG, infoStr, 0);
 
   if (isDaemon == 1) {
-    sprintf(fileName, "%s%s%s", tPaths[2], tName, ".json");
+    sprintf(fileName, "%s%s%s%s", tPaths[2], tPath, tName, ".json");
     fp = fopen(fileName, "r");
     if (fp != NULL) {
       sprintf(infoStr, "Template: %s found, returning fp: %p for %s", tName, fp, fileName);
@@ -330,13 +332,10 @@ FILE *findTemplate(char *fileName, char *tName) {
     // Create the full file path/name of the found template location
     for (p = 0; p < 3; p++) {
       if (p == 0) {
-        strcpy(fileName, homeDir);
-        strcat(fileName, tPaths[p]);
+        sprintf(fileName, "%s%s%s%s%s", homeDir, tPaths[p], tPath, tName, ".json");
       } else {
-        strcpy(fileName, tPaths[p]);
+        sprintf(fileName, "%s%s%s%s", tPaths[p], tPath, tName, ".json");
       }
-      strcat(fileName, tName);
-      strcat(fileName, ".json");
 
       sprintf(infoStr, "Attempting to open file for reading: %s", fileName);
       writeLog(LOG_DEBUG, infoStr, 0);
@@ -350,6 +349,8 @@ FILE *findTemplate(char *fileName, char *tName) {
       }
     }
   }
+
+printf("HH: %s\n", fileName);
 
   // Error if no template found
   if (fp == NULL) {

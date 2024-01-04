@@ -79,7 +79,7 @@ struct Session {
   char sPort[6];
   char lPort[6];
   int isListening;
-  int readFD; // File descriptor for named pipe
+  int readFD; // File descriptor for listen named pipe
   pid_t lpid; // Per user/session PID of web listener
 };
 
@@ -825,7 +825,7 @@ static void startListenWeb(struct Session *session, struct MHD_Connection *conne
   signal(SIGCHLD, SIG_IGN);
 
   // Ensure we've stopped the previous listener before starting another
-  if (session->lpid > 0) {
+  if (session->isListening == 1) {
     stopListenWeb(session, connection, url);
   }
 
@@ -857,6 +857,38 @@ static void startListenWeb(struct Session *session, struct MHD_Connection *conne
 }
 
 
+// Start or stop the responder depending on arguments
+static void procResponder(struct Session *session, struct MHD_Connection *connection,
+                         struct json_object *rootObj) {
+
+  struct json_object *dataArray = NULL, *dataObj = NULL;
+  int dataInt = 0, curInt = 0, i = 0, maxL = 0;
+
+  // TODO - IMPORTANT - error check! data can come from external and may seg fault
+  json_object_object_get_ex(rootObj, "templates", &dataArray);
+  dataInt = json_object_array_length(dataArray);
+
+  // Find the longest template name
+  for (i = 0; i < dataInt; i++) {
+    dataObj = json_object_array_get_idx(dataArray, i);
+    curInt = strlen(json_object_get_string(dataObj)) + 1; 
+    if (curInt > maxL) maxL = curInt;
+  }
+
+  // Create an array containing the template names
+  char temps[dataInt][maxL];
+  char *tempPtrs[dataInt];
+  for (i = 0; i < dataInt; i++) {
+    dataObj = json_object_array_get_idx(dataArray, i);
+    tempPtrs[i] = temps[i];
+    sprintf(temps[i], "%s", json_object_get_string(dataObj));
+  }
+
+  stopListenWeb(session, connection, "/respond");
+  startListenWeb(session, connection, "/respond", dataInt, tempPtrs);
+}
+
+
 // TODO - iterate post getting too big, split to functions...
 static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
               const char *key, const char *filename, const char *content_type,
@@ -870,8 +902,7 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
   (void) transfer_encoding;  /* Unused. Silent compiler warning. */
   (void) off;                /* Unused. Silent compiler warning. */
 
-  struct json_object *rootObj= NULL, *postObj = NULL, *dataArray = NULL, *dataObj = NULL;
-  int dataInt = 0, curInt = 0, i = 0, maxL = 0;
+  struct json_object *rootObj= NULL, *postObj = NULL;
   int sockfd;
   char resStr[3] = "";
   int aStatus = -1, nStatus = -1;
@@ -905,35 +936,12 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
 
       if (json_object_get_type(postObj) != json_type_string) {
         // TODO - error handle
-        writeLog(LOG_ERR, "JSON FUNC IS NOT A STR", 0);
+        writeLog(LOG_ERR, "POST received a non-string value", 0);
 
       } else {
         if (strcmp(json_object_get_string(postObj), "procRespond") == 0) {
-          // TODO - IMPORTANT - error check! data can come from external and may seg fault
-          json_object_object_get_ex(rootObj, "templates", &dataArray);
-          dataInt = json_object_array_length(dataArray);
+          procResponder(con_info->session, con_info->connection, rootObj);
 
-          // Find the longest template name
-          for (i = 0; i < dataInt; i++) {
-            dataObj = json_object_array_get_idx(dataArray, i);
-            curInt = strlen(json_object_get_string(dataObj)) + 1; 
-            if (curInt > maxL) maxL = curInt;
-          }
-
-          // Create an array containing the template names
-          char temps[dataInt][maxL];
-          char *tempPtrs[dataInt];
-          for (i = 0; i < dataInt; i++) {
-            dataObj = json_object_array_get_idx(dataArray, i);
-            tempPtrs[i] = temps[i];
-            sprintf(temps[i], "%s", json_object_get_string(dataObj));
-          }
-
-          // TODO - change from localhost and hard coded INR template
-          // TODO - check what this "/respond" url is used for, is it needed?
-          stopListenWeb(con_info->session, con_info->connection, "/respond");
-          startListenWeb(con_info->session, con_info->connection, "/respond",
-                         dataInt, tempPtrs);
         }
       }
       json_object_put(rootObj);

@@ -420,13 +420,14 @@ void sendTemp(char *sIP, char *sPort, char *tName, int noSend, int fShowTemplate
 
   FILE *fp;
   int sockfd;
+  // TODO - error check file name length?
   char fileName[256] = "";
 
   sprintf(infoStr, "Attempting to send template: %s", tName);
   writeLog(LOG_DEBUG, infoStr, 0);
 
   // Find the template file
-  fp = findTemplate(fileName, tName);
+  fp = findTemplate(fileName, tName, 0);
   int fSize = getFileSize(fileName);
 
   sprintf(infoStr, "Using template file: %s", fileName);
@@ -508,8 +509,7 @@ static struct Response *checkResponse(char *msg, char *sIP, char *sPort, char *t
   if (isDaemon == 1) {
     sprintf(resFile, "/usr/local/hhl7/responders/%s.json", tName);
   } else {
-    // TODO - add a respond variable to findTemplate and allow responders outside ./
-    sprintf(resFile, "./responders/%s.json", tName);
+    findTemplate(resFile, tName, 1);
   }
 
   // Read the template file
@@ -597,8 +597,8 @@ static struct Response *checkResponse(char *msg, char *sIP, char *sPort, char *t
   resp->sendTime = time(NULL) + rndNum;
   strcpy(resp->sIP, sIP);
   strcpy(resp->sPort, sPort);
-  resp->tName = (char *) json_object_get_string(sendT);
-  resp->rName = (char *) json_object_get_string(respN);
+  resp->tName = strdup(json_object_get_string(sendT));
+  resp->rName = strdup(json_object_get_string(respN));
   resp->sent = 0;
   resp->argc = mCount;
 
@@ -613,8 +613,7 @@ static struct Response *checkResponse(char *msg, char *sIP, char *sPort, char *t
 
   // Add the response to the queue
   respHead = queueResponse(resp);
-  sprintf(infoStr, "Response queued, delivery in %ld seconds",
-          resp->sendTime - time(NULL));
+  sprintf(infoStr, "Response queued, delivery in %ld secs", resp->sendTime - time(NULL));
   writeLog(LOG_INFO, infoStr, 1);
 
   json_object_put(resObj);
@@ -774,7 +773,6 @@ int startMsgListener(char *lIP, const char *lPort, char *sIP, char *sPort,
     sprintf(hhl7fifo, "%s%d", "/tmp/hhl7fifo.", getpid());
     mkfifo(hhl7fifo, 0666);
     fd = open(hhl7fifo, O_WRONLY | O_NONBLOCK);
-    //fd = open(hhl7fifo, O_WRONLY);
   }
 
   while(1) {
@@ -818,6 +816,7 @@ int startMsgListener(char *lIP, const char *lPort, char *sIP, char *sPort,
       }
 
       responses = handleMsg(sessfd, fd, sIP, sPort, argc, optind, argv);
+
       //printResponses(responses);
       close(sessfd);
 
