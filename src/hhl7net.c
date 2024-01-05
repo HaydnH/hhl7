@@ -215,6 +215,7 @@ static int processResponses(int fd) {
 
   webResp[0] = '\0';
   free(webResp);
+  if (nextResp == expTime) return(-1);
   return(nextResp);
 }
 
@@ -546,6 +547,11 @@ static struct Response *checkResponse(char *msg, char *sIP, char *sPort, char *t
               json_object_get_string(valStr), fldStr);
       writeLog(LOG_INFO, infoStr, 1);
 
+    } else if (strcmp(json_object_get_string(valStr), fldStr) != 0 && exclInt == 1) {
+      sprintf(infoStr, "Comparing %s against %s... exclusion, match",
+              json_object_get_string(valStr), fldStr);
+      writeLog(LOG_INFO, infoStr, 1);
+
     } else if (strcmp(json_object_get_string(valStr), fldStr) == 0 && exclInt == 1) {
       sprintf(infoStr, "Comparing %s against %s... exclusion, no match",
               json_object_get_string(valStr), fldStr);
@@ -759,11 +765,48 @@ static int createSession(char *ip, const char *port) {
 }
 
 
+// Check the named pipe for response template updates
+static int readRespTemps(int respFD, char respTemps[20][256], char *respTempsPtrs[20]) {
+  struct json_object *rootObj = NULL, *dataArray = NULL, *dataObj = NULL;
+  char readSizeBuf[11];
+  int pLen = 1, readSize = 0, updated = 0, dataInt = 0, i = 0;
+
+  while (pLen > 0) {
+    if ((pLen = read(respFD, readSizeBuf, 11)) > 0) {
+      readSize = atoi(readSizeBuf);
+
+      char rBuf[readSize + 1];
+      if ((pLen = read(respFD, rBuf, readSize)) > 0) {
+        updated = 1;
+        rBuf[readSize] = '\0';
+
+        // TODO - IMPORTANT - error check! data can come from external and may seg fault
+        rootObj = json_tokener_parse(rBuf);
+        json_object_object_get_ex(rootObj, "templates", &dataArray);
+        dataInt = json_object_array_length(dataArray);
+
+        for (i = 0; i < dataInt; i++) {
+          dataObj = json_object_array_get_idx(dataArray, i);
+          sprintf(respTemps[i], "%s", json_object_get_string(dataObj));
+          respTempsPtrs[i] = respTemps[i];
+        }
+      }
+    }
+  }
+
+  if (updated == 1) return dataInt;
+  return 0;
+}
+
+
 // Start listening for incomming messages
 int startMsgListener(char *lIP, const char *lPort, char *sIP, char *sPort,
                      int argc, int optind, char *argv[]) {
+  // TODO - malloc instead of limited resp templates
+  char respTemps[20][256];
+  char *respTempsPtrs[20];
   // TODO - move timeout/polling interval nextResponse to config file
-  int svrfd = 0, sessfd = 0, fd = 0, nextResp = -1;
+  int svrfd = 0, sessfd = 0, fd = 0, rfd = 0, nextResp = -1, resU = 0, respUpdated = 0;
 
   if ((svrfd = createSession(lIP, lPort)) == -1) return -1;
 
@@ -773,6 +816,15 @@ int startMsgListener(char *lIP, const char *lPort, char *sIP, char *sPort,
     sprintf(hhl7fifo, "%s%d", "/tmp/hhl7fifo.", getpid());
     mkfifo(hhl7fifo, 0666);
     fd = open(hhl7fifo, O_WRONLY | O_NONBLOCK);
+
+    char hhl7rfifo[22];
+    sprintf(hhl7rfifo, "%s%d", "/tmp/hhl7rfifo.", getpid());
+    mkfifo(hhl7rfifo, 0666);
+    rfd = open(hhl7rfifo, O_RDONLY | O_NONBLOCK);
+
+  sprintf(infoStr, "RDFD1: %d - %s", rfd, hhl7rfifo);
+  writeLog(LOG_CRIT, infoStr, 0);
+
   }
 
   while(1) {
@@ -809,13 +861,23 @@ int startMsgListener(char *lIP, const char *lPort, char *sIP, char *sPort,
       }
 
     } else {
+      // TODO - is webRunning Global? Need to move to sessions? Maybe ok?
+      if (webRunning == 1) {
+        resU = readRespTemps(rfd, respTemps, respTempsPtrs);
+        if (resU > 0) respUpdated = resU;
+      }
+
       sessfd = accept(svrfd, 0, 0);
       if (sessfd == -1) {
         handleError(LOG_ERR, "Can't accept connections", 1, 0, 1);
         return -1;
       }
 
-      responses = handleMsg(sessfd, fd, sIP, sPort, argc, optind, argv);
+      if (respUpdated == 0) {
+        responses = handleMsg(sessfd, fd, sIP, sPort, argc, optind, argv);
+      } else {
+        responses = handleMsg(sessfd, fd, sIP, sPort, respUpdated, 0, respTempsPtrs);
+      }
 
       //printResponses(responses);
       close(sessfd);

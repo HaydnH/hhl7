@@ -80,6 +80,7 @@ struct Session {
   char lPort[6];
   int isListening;
   int readFD; // File descriptor for listen named pipe
+  int respFD; // File descriptor for listen named pipe
   pid_t lpid; // Per user/session PID of web listener
 };
 
@@ -721,6 +722,13 @@ static void cleanSession(struct Session *session) {
     unlink(hhl7fifo);
   }
 
+  if (session->respFD > 0) {
+    char hhl7rfifo[21];
+    sprintf(hhl7rfifo, "%s%d", "/tmp/hhl7rfifo.", session->lpid);
+    close(session->respFD);
+    unlink(hhl7rfifo);
+  }
+
   // Stop the listening child process if running
   if (session->lpid > 0) {
     kill(session->lpid, SIGTERM);
@@ -852,14 +860,44 @@ static void startListenWeb(struct Session *session, struct MHD_Connection *conne
   mkfifo(hhl7fifo, 0666);
   session->readFD = open(hhl7fifo, O_RDONLY | O_NONBLOCK);
 
+  char hhl7rfifo[22];
+  sprintf(hhl7rfifo, "%s%d", "/tmp/hhl7rfifo.", session->lpid);
+  mkfifo(hhl7rfifo, 0666);
+  session->respFD = open(hhl7rfifo, O_WRONLY);
+  fcntl(session->respFD, F_SETFL, O_NONBLOCK);
+
+  //sprintf(infoStr, "READFD: %d - %s", session->respFD, strerror(errno));
+  sprintf(infoStr, "WRFD: %d - %s", session->respFD, hhl7rfifo);
+  writeLog(LOG_CRIT, infoStr, 0);
+
   session->isListening = 1;
   //fcntl(readFD, F_SETPIPE_SZ, 1048576); // Change size of pipe, default seems OK
 }
 
 
-// Start or stop the responder depending on arguments
-static void procResponder(struct Session *session, struct MHD_Connection *connection,
-                         struct json_object *rootObj) {
+// Update the list of response templates to listen to
+static void sendRespList(struct Session *session, struct json_object *rootObj) {
+  const char *tempStr = json_object_to_json_string_ext(rootObj, JSON_C_TO_STRING_PLAIN);
+  char writeSize[11];
+
+  sprintf(infoStr, "WRFD - RL: %d", session->respFD);
+  writeLog(LOG_CRIT, infoStr, 0);
+
+  sprintf(writeSize, "%d", (int) strlen(tempStr));
+
+  if (write(session->respFD, writeSize, 11) == -1) {
+    handleError(LOG_ERR, "ERROR: Failed to write to named pipe", 1, 0, 1);
+  }
+
+  if (write(session->respFD, tempStr, strlen(tempStr)) == -1) {
+    handleError(LOG_ERR, "ERROR: Failed to write to named pipe", 1, 0, 1);
+  }
+}
+
+
+// Start the message responder 
+static void startResponder(struct Session *session, struct MHD_Connection *connection,
+                           struct json_object *rootObj) {
 
   struct json_object *dataArray = NULL, *dataObj = NULL;
   int dataInt = 0, curInt = 0, i = 0, maxL = 0;
@@ -884,7 +922,6 @@ static void procResponder(struct Session *session, struct MHD_Connection *connec
     sprintf(temps[i], "%s", json_object_get_string(dataObj));
   }
 
-  stopListenWeb(session, connection, "/respond");
   startListenWeb(session, connection, "/respond", dataInt, tempPtrs);
 }
 
@@ -940,8 +977,13 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
 
       } else {
         if (strcmp(json_object_get_string(postObj), "procRespond") == 0) {
-          procResponder(con_info->session, con_info->connection, rootObj);
+          if (con_info->session->isListening == 0) {
+            startResponder(con_info->session, con_info->connection, rootObj);
 
+          } else {
+            sendRespList(con_info->session, rootObj);
+
+          }
         }
       }
       json_object_put(rootObj);

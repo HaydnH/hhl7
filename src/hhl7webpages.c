@@ -905,7 +905,6 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
           showRespForm(respList.length);\n\
           postJSON(JSON.stringify(respJSON));\n\
           isRespond = true;\n\
-          respTable.innerHTML = \"\";\n\
           getRespQueue();\n\
 \n\
         }\n\
