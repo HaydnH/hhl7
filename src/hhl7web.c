@@ -206,7 +206,7 @@ static enum MHD_Result requestLogin(struct Session *session,
     return MHD_NO;
 
   ret = MHD_queue_response(connection, MHD_HTTP_UNAUTHORIZED, response);
-  sprintf(infoStr, "[S: %03d][401] Request: %s", session->shortID, url);
+  sprintf(infoStr, "[S: %03d][401] GET: %s", session->shortID, url);
   writeLog(LOG_INFO, infoStr, 0);
 
   MHD_destroy_response(response);
@@ -227,7 +227,7 @@ static enum MHD_Result main_page(struct Session *session,
 
   addCookie(session, response);
   ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
-  sprintf(infoStr, "[S: %03d][200] Request: %s", session->shortID, url);
+  sprintf(infoStr, "[S: %03d][200] GET: %s", session->shortID, url);
   writeLog(LOG_INFO, infoStr, 0);
 
   MHD_destroy_response(response);
@@ -264,7 +264,7 @@ static enum MHD_Result getImage(struct Session *session,
                                                MHD_RESPMEM_PERSISTENT);
     if (response) {
       ret = MHD_queue_response(connection, MHD_HTTP_NOT_FOUND, response);
-      sprintf(infoStr, "[S: %03d][404] Request: %s", session->shortID, url);
+      sprintf(infoStr, "[S: %03d][404] GET: %s", session->shortID, url);
       writeLog(LOG_WARNING, infoStr, 0);
 
       MHD_destroy_response(response);
@@ -283,7 +283,7 @@ static enum MHD_Result getImage(struct Session *session,
 
       if (response) {
         ret = MHD_queue_response(connection, MHD_HTTP_INTERNAL_SERVER_ERROR, response);
-        sprintf(infoStr, "[S: %03d][501] Request: %s", session->shortID, url);
+        sprintf(infoStr, "[S: %03d][501] GET: %s", session->shortID, url);
         writeLog(LOG_WARNING, infoStr, 0);
 
         MHD_destroy_response(response);
@@ -302,7 +302,7 @@ static enum MHD_Result getImage(struct Session *session,
   MHD_add_response_header(response, "Content-Type", "image/png");
 
   ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
-  sprintf(infoStr, "[S: %03d][200] Request: %s", session->shortID, url);
+  sprintf(infoStr, "[S: %03d][200] GET: %s", session->shortID, url);
   writeLog(LOG_INFO, infoStr, 0);
 
   MHD_destroy_response(response);
@@ -355,7 +355,7 @@ static enum MHD_Result getServers(struct Session *session,
 
   addCookie(session, response);
   ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
-  sprintf(infoStr, "[S: %03d][200] Request: %s", session->shortID, url);
+  sprintf(infoStr, "[S: %03d][200] GET: %s", session->shortID, url);
   writeLog(LOG_INFO, infoStr, 0);
 
   MHD_destroy_response(response);
@@ -443,7 +443,7 @@ static enum MHD_Result getSettings(struct Session *session,
 
   addCookie(session, response);
   ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
-  sprintf(infoStr, "[S: %03d][200] Request: %s", session->shortID, url);
+  sprintf(infoStr, "[S: %03d][200] GET: %s", session->shortID, url);
   writeLog(LOG_INFO, infoStr, 0);
 
   MHD_destroy_response(response);
@@ -548,7 +548,7 @@ static enum MHD_Result getTemplateList(struct Session *session,
 
   addCookie(session, response);
   ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
-  sprintf(infoStr, "[S: %03d][200] Request: %s", session->shortID, url);
+  sprintf(infoStr, "[S: %03d][200] GET: %s", session->shortID, url);
   writeLog(LOG_INFO, infoStr, 0);
 
   MHD_destroy_response(response);
@@ -571,16 +571,9 @@ static enum MHD_Result getTempForm(struct Session *session,
   webHL7[0] = '\0';
   jsonReply[0] = '\0';
 
-  // TODO can we open any file here based on URL? Need to check!
-  // TODO: Get templates from all possible directories...
   char *tPath = "/usr/local/hhl7";
   char fileName[strlen(tPath) + strlen(url) + 1];
-
-  sprintf(infoStr, "HHTEST: %s", url);  
-  handleError(LOG_WARNING, infoStr, 1, 0, 0);
-
-  strcpy(fileName, tPath);
-  strcat(fileName, url);
+  sprintf(fileName, "%s%s", tPath, url);
 
   // TODO - use json from file function
   fp = openFile(fileName, "r");
@@ -603,7 +596,7 @@ static enum MHD_Result getTempForm(struct Session *session,
     tmpBuf[strlen(tmpBuf)] = '\0';
 
     // Construct the JSON reply
-    // TODO add newPtr in case of memory allocation failure
+    // TODO add newPtr in case of memory allocation failure - error handle OOM
     jsonReply = realloc(jsonReply, strlen(webForm) + strlen(webHL7) + 53);
     sprintf(jsonReply, "%s%s%s%s%s", "{ \"form\":\"", webForm,
                        "\",\n\"hl7\":\"", tmpBuf, "\" }");
@@ -623,7 +616,7 @@ static enum MHD_Result getTempForm(struct Session *session,
   if (! response) return MHD_NO;
   addCookie(session, response);
   ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
-  sprintf(infoStr, "[S: %03d][200] Request: %s", session->shortID, url);
+  sprintf(infoStr, "[S: %03d][200] GET: %s", session->shortID, url);
   writeLog(LOG_INFO, infoStr, 0);
 
   MHD_destroy_response(response);
@@ -826,7 +819,7 @@ static enum MHD_Result stopListenWeb(struct Session *session,
   addCookie(session, response);
 
   ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
-  sprintf(infoStr, "[S: %03d][200] Request: %s", session->shortID, url);
+  sprintf(infoStr, "[S: %03d][200] GET: %s", session->shortID, url);
   writeLog(LOG_INFO, infoStr, 0);
 
   MHD_destroy_response(response);
@@ -1271,19 +1264,19 @@ static enum MHD_Result sendPage(struct Session *session, struct MHD_Connection *
 
   if (strcmp(page, "L0") == 0 || strcmp(page, "LR") == 0 || strcmp(page, "LD") == 0) {
     ret = MHD_queue_response(connection, MHD_HTTP_UNAUTHORIZED, response);
-    sprintf(infoStr, "[S: %03d][401] Request: %s", session->shortID, url);
+    sprintf(infoStr, "[S: %03d][401] GET: %s", session->shortID, url);
     writeLog(LOG_INFO, infoStr, 0);
 
 
   } else if (strcmp(page, "DP") == 0) {
     ret = MHD_queue_response(connection, MHD_HTTP_BAD_REQUEST, response);
-    sprintf(infoStr, "[S: %03d][400] Request: %s", session->shortID, url);
+    sprintf(infoStr, "[S: %03d][400] GET: %s", session->shortID, url);
     writeLog(LOG_INFO, infoStr, 0);
 
   } else {
     addCookie(session, response);
     ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
-    sprintf(infoStr, "[S: %03d][200] Request: %s", session->shortID, url);
+    sprintf(infoStr, "[S: %03d][200] GET: %s", session->shortID, url);
     writeLog(LOG_INFO, infoStr, 0);
 
   }
@@ -1307,7 +1300,7 @@ static enum MHD_Result logout(struct Session *session, struct MHD_Connection *co
 
   MHD_add_response_header(response, "Content-Type", "text/plain");
   ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
-  sprintf(infoStr, "[S: %03d][200] Request: %s", session->shortID, url);
+  sprintf(infoStr, "[S: %03d][200] GET: %s", session->shortID, url);
   writeLog(LOG_INFO, infoStr, 0);
   sprintf(infoStr, "[S: %03d] User logged out, uid: %s", session->shortID, session->userid);
   writeLog(LOG_INFO, infoStr, 0);
