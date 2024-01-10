@@ -147,6 +147,9 @@ int regNewUser(char *uid, char *passwd) {
   pwObj = json_object_from_file(pwFile);
   if (pwObj == NULL) {
     handleError(LOG_ERR, "Failed to read password file", 1, 0, 0);
+    PWLOCK = 0;
+    json_object_put(pwObj);
+    return 1;
   }
 
   json_object_object_get_ex(pwObj, "users", &userArray);
@@ -176,7 +179,6 @@ int regNewUser(char *uid, char *passwd) {
 
       sprintf(infoStr, "Couldn't write new user (%s) to passwd file", uid);
       handleError(LOG_ERR, infoStr, 1, 0, 0);
-
       PWLOCK = 0;
       json_object_put(pwObj);
       return 1;
@@ -215,6 +217,7 @@ int updatePasswdFile(char *uid, const char *key, const char *val, int iVal) {
 
     sprintf(infoStr, "Unexpected attempt to update user (%s) credentials, exiting", uid);
     handleError(LOG_CRIT, infoStr, 1, 1, 0);
+    return 1;
   }
 
   // TODO - add max sleep count as timeout? Look for other sleeps
@@ -227,6 +230,9 @@ int updatePasswdFile(char *uid, const char *key, const char *val, int iVal) {
   pwObj = json_object_from_file(pwFile);
   if (pwObj == NULL) {
     handleError(LOG_ERR, "Failed to read password file", 1, 0, 0);
+    PWLOCK = 0;
+    json_object_put(pwObj);
+    return 1;
   }
 
   json_object_object_get_ex(pwObj, "users", &userArray);
@@ -267,7 +273,6 @@ int updatePasswdFile(char *uid, const char *key, const char *val, int iVal) {
 
       sprintf(infoStr, "Couldn't write password update (%s - %s) to passwd file", uid, key);
       handleError(LOG_ERR, infoStr, 1, 0, 0);
-
       PWLOCK = 0;
       json_object_put(pwObj);
       return 1;
@@ -311,11 +316,15 @@ int checkAuth(char *uid, const char *passwd) {
   pwObj = json_object_from_file(pwFile);
   if (pwObj == NULL) {
     handleError(LOG_ERR, "Failed to read password file", 1, 0, 0);
+    json_object_put(pwObj);
+    return 1;
   }
 
   json_object_object_get_ex(pwObj, "users", &userArray);
   if (userArray == NULL) {
     handleError(LOG_ERR, "Failed to get user object, passwd file corrupt?", 1, 0, 0);
+    json_object_put(pwObj);
+    return 1;
   }
 
   uExists = userExists(userArray, uid);
@@ -349,6 +358,8 @@ int checkAuth(char *uid, const char *passwd) {
 
           sprintf(infoStr, "Invalid password in password file (%s)", uid);
           handleError(LOG_WARNING, infoStr, 1, 0, 0);
+          json_object_put(pwObj);
+          return 1;
 
         } else {
           sprintf(saltPasswd, "%s%s", json_object_get_string(saltStr), passwd);
@@ -406,6 +417,9 @@ int updatePasswd(char *uid, const char *password) {
   pwObj = json_object_from_file(pwFile);
   if (pwObj == NULL) {
     handleError(LOG_ERR, "Failed to read password file", 1, 0, 0);
+    PWLOCK = 0;
+    json_object_put(pwObj);
+    return 1;
   }
 
   json_object_object_get_ex(pwObj, "users", &userArray);
@@ -440,7 +454,6 @@ int updatePasswd(char *uid, const char *password) {
 
       sprintf(infoStr, "Failed to update password file with new password (%s)", uid);
       handleError(LOG_ERR, infoStr, 1, 0, 0);
-
       PWLOCK = 0;
       json_object_put(pwObj);
       return 1;
@@ -471,6 +484,9 @@ int lPortUsed(char *uid, const char *lPort) {
   pwObj = json_object_from_file(pwFile);
   if (pwObj == NULL) {
     handleError(LOG_ERR, "Failed to read password file", 1, 0, 0);
+    PWLOCK = 0;
+    json_object_put(pwObj);
+    return 1;
   }
 
   json_object_object_get_ex(pwObj, "users", &userArray);
