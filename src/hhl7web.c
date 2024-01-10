@@ -560,19 +560,24 @@ static enum MHD_Result getTempForm(struct Session *session,
   enum MHD_Result ret;
   struct MHD_Response *response;
   FILE *fp;
+  int retVal = 0;
 
   int webFormS = 1024;
   int webHL7S = 1024;
   char *webForm = malloc(webFormS);
   char *webHL7 = malloc(webHL7S);
-  char *jsonReply = malloc(1);
+  char *jsonReply = malloc(3);
   webForm[0] = '\0';
   webHL7[0] = '\0';
   jsonReply[0] = '\0';
 
+  // TODO can we open any file here based on URL? Need to check!
   // TODO: Get templates from all possible directories...
   char *tPath = "/usr/local/hhl7";
   char fileName[strlen(tPath) + strlen(url) + 1];
+
+  sprintf(infoStr, "HHTEST: %s", url);  
+  handleError(LOG_WARNING, infoStr, 1, 0, 0);
 
   strcpy(fileName, tPath);
   strcat(fileName, url);
@@ -586,23 +591,25 @@ static enum MHD_Result getTempForm(struct Session *session,
   readJSONFile(fp, fSize, jsonMsg);
 
   // Generate HL7 based on the json template
-  parseJSONTemp(jsonMsg, &webHL7, &webHL7S, &webForm, &webFormS, 0, NULL, 1);
+  retVal = parseJSONTemp(jsonMsg, &webHL7, &webHL7S, &webForm, &webFormS, 0, NULL, 1);
 
-  // TODO - rework this... temp fix cos pub time! escapeSlash should malloc
-  char tmpBuf[2 * strlen(webHL7) + 1];
-  escapeSlash(tmpBuf, webHL7);
-  tmpBuf[strlen(tmpBuf)] = '\0';
+  if (retVal > 0) {
+    handleError(LOG_WARNING, "Failed to parse JSON template", 1, 0, 0);
+    sprintf(jsonReply, "%s", "TX");
 
-  // Construct the JSON reply
-  // TODO add newPtr in case of memory allocation failure
-  jsonReply = realloc(jsonReply, strlen(webForm) + strlen(webHL7) + 53);
-  strcpy(jsonReply, "{ \"form\":\"");
-  strcat(jsonReply, webForm);
-  strcat(jsonReply, "\",\n\"hl7\":\"");
-  strcat(jsonReply, tmpBuf);
-  strcat(jsonReply, "\" }");
+  } else {
+    char tmpBuf[2 * strlen(webHL7) + 1];
+    escapeSlash(tmpBuf, webHL7);
+    tmpBuf[strlen(tmpBuf)] = '\0';
 
-  // Succesful template list response
+    // Construct the JSON reply
+    // TODO add newPtr in case of memory allocation failure
+    jsonReply = realloc(jsonReply, strlen(webForm) + strlen(webHL7) + 53);
+    sprintf(jsonReply, "%s%s%s%s%s", "{ \"form\":\"", webForm,
+                       "\",\n\"hl7\":\"", tmpBuf, "\" }");
+
+  }
+
   response = MHD_create_response_from_buffer(strlen(jsonReply), (void *) jsonReply,
              MHD_RESPMEM_MUST_COPY);
 

@@ -1476,13 +1476,18 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
             const htmlData = await response.text();\n\
 \n\
             if (response.ok) {\n\
-              jsonData = JSON.parse(htmlData);\n\
-              formHTML = jsonData[\"form\"];\n\
-              var sel = document.getElementById(\"tempForm\");\n\
-              sel.innerHTML = formHTML;\n\
-              formHTML = jsonData[\"hl7\"];\n\
-              var sel = document.getElementById(\"hl7Message\");\n\
-              sel.innerHTML = formHTML;\n\
+              if (htmlData == \"TX\") {\n\
+                errHandler(\"ERROR: Failed to parse JSON template. Please contact your system administrator\");\n\
+\n\
+              } else {\n\
+                jsonData = JSON.parse(htmlData);\n\
+                formHTML = jsonData[\"form\"];\n\
+                var sel = document.getElementById(\"tempForm\");\n\
+                sel.innerHTML = formHTML;\n\
+                formHTML = jsonData[\"hl7\"];\n\
+                var sel = document.getElementById(\"hl7Message\");\n\
+                sel.innerHTML = formHTML;\n\
+              }\n\
             }\n\
 \n\
           } catch(error) {\n\

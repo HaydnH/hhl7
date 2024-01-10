@@ -13,5 +13,5 @@ You should have received a copy of the GNU General Public License along with hhl
 // Function Prototypes
 int readJSONFile(FILE *fp, long int fileSize, char *jsonMsg);
 int getJSONValue(char *jsonMsg, int type, char *key, char *resVal);
-void parseJSONTemp(char *jsonMsg, char **hl7Msg, int *hl7MsgS, char **webForm,
-                   int *webFormS, int argc, char *argv[], int isWeb);
+int parseJSONTemp(char *jsonMsg, char **hl7Msg, int *hl7MsgS, char **webForm,
+                  int *webFormS, int argc, char *argv[], int isWeb);

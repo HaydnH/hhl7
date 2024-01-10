@@ -422,7 +422,7 @@ void sendTemp(char *sIP, char *sPort, char *tName, int noSend, int fShowTemplate
               int optind, int argc, char *argv[], char *resStr) {
 
   FILE *fp;
-  int sockfd;
+  int sockfd, retVal = 0;
   // TODO - error check file name length?
   char fileName[256] = "";
 
@@ -446,21 +446,28 @@ void sendTemp(char *sIP, char *sPort, char *tName, int noSend, int fShowTemplate
   writeLog(LOG_DEBUG, "JSON Template read OK", 0);
 
   // Generate HL7 based on the json template
-  parseJSONTemp(jsonMsg, &hl7Msg, &hl7MsgS, NULL, NULL, argc - optind, argv + optind, 0);
-  writeLog(LOG_DEBUG, "JSON Template parsed OK", 0);
+  retVal = parseJSONTemp(jsonMsg, &hl7Msg, &hl7MsgS, NULL, NULL,
+                         argc - optind, argv + optind, 0);
 
-  if (noSend == 0) {
-    // Connect to server, send & listen for ack
-    sockfd = connectSvr(sIP, sPort);
-    sendPacket(sockfd, hl7Msg, resStr);
+  if (retVal > 0) {
+    sprintf(infoStr, "Failed to parse JSON template (%s)", tName);
+    handleError(LOG_ERR, infoStr, 1, 0, 1);
+
+  } else {
+    writeLog(LOG_DEBUG, "JSON Template parsed OK", 0);
+
+    if (noSend == 0) {
+      // Connect to server, send & listen for ack
+      sockfd = connectSvr(sIP, sPort);
+      sendPacket(sockfd, hl7Msg, resStr);
+    }
+
+    // Print the HL7 message if requested
+    if (fShowTemplate == 1) {
+       hl72unix(hl7Msg, 1);
+    }
   }
 
-  // Print the HL7 message if requested
-  if (fShowTemplate == 1) {
-     hl72unix(hl7Msg, 1);
-  }
-
-  // TODO - free hl7Msg?? 
   // Free memory
   free(jsonMsg);
   free(hl7Msg);

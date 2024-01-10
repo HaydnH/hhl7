@@ -189,7 +189,6 @@ int getHL7Field(char *hl7msg, char *seg, int field, char *res) {
   int msgLen = strlen(hl7msg), segLen = strlen(seg);
   int m = 0, s = 0, f = 0, fc = 0, sFound = 0, fFound = 0;
   char sBuf[segLen + 1];
-  //char rBuf[255];
  
   for (m = 0; m < msgLen; m++) {
     if (hl7msg[m] == '\r' && hl7msg[m-1] != '\\') {
