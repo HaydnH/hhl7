@@ -434,6 +434,7 @@ static enum MHD_Result getSettings(struct Session *session,
   if (!response) {
     json_object_put(resObj);
     json_object_put(pwObj);
+    free(resStrC);
     return MHD_NO;
   }
 
@@ -447,6 +448,7 @@ static enum MHD_Result getSettings(struct Session *session,
 
   MHD_destroy_response(response);
   json_object_put(resObj);
+  free(resStrC);
   return ret;
 }
 
@@ -926,7 +928,60 @@ static void startResponder(struct Session *session, struct MHD_Connection *conne
 }
 
 
-// TODO - iterate post getting too big, split to functions...
+// TODO - function not currently in use, delete if not used INCLUDING the related jsonPOST in iterate post
+static enum MHD_Result sendHL7Data(struct Session *session,
+                                   struct MHD_Connection *connection,
+                                   struct json_object *rootObj,
+                                   char *resStr, char *answerstring) {
+
+  struct json_object *dataObj = NULL;
+  int sockfd = 0;
+  //char resStr[3] = "";
+//  char *answerstring;
+//  answerstring = malloc(MAXANSWERSIZE);
+
+  // TODO - IMPORTANT - error check! data can come from external and may seg fault
+  json_object_object_get_ex(rootObj, "hl7Data", &dataObj);
+
+  if (dataObj == NULL) {
+    sprintf(infoStr, "[S: %03d][%s] Could not read incomming HL7 packet",
+                     session->shortID, resStr);
+    writeLog(LOG_INFO, infoStr, 0);
+    free(answerstring);
+    return MHD_NO;
+  }
+
+//      char newData[strlen(data) + 5];
+//      strcpy(newData, data);
+
+  sockfd = connectSvr(session->sIP, session->sPort);
+  // TODO - Sock number increases with each message? free? 
+  //printf("Debug SOCK: %d\n", sockfd);
+
+  if (sockfd >= 0) {
+    sendPacket(sockfd, (char *) json_object_get_string(dataObj), resStr);
+    sprintf(infoStr, "[S: %03d][%s] Sent %ld byte packet to socket: %d", session->shortID,
+                     resStr, strlen(json_object_get_string(dataObj)), sockfd);
+    writeLog(LOG_INFO, infoStr, 0);
+
+    snprintf(answerstring, MAXANSWERSIZE, resStr, json_object_get_string(dataObj));
+//    connection->answerstring = answerstring;
+
+  } else {
+    sprintf(infoStr, "[S: %03d] Can't open socket to send packet",
+                     session->shortID);
+    handleError(LOG_ERR, infoStr, 1, 0, 1);
+    sprintf(answerstring, "%s", "CX"); // Connection to target server failed
+//    connection->answerstring = answerstring;
+//    free(answerstring);
+    return MHD_YES;
+
+  }
+  return(-1);
+}
+
+
+// TODO - move legacy style iterations to newer json object POSTs
 static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
               const char *key, const char *filename, const char *content_type,
               const char *transfer_encoding, const char *data, uint64_t off, size_t size) {
@@ -942,7 +997,7 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
   struct json_object *rootObj= NULL, *postObj = NULL;
   int sockfd;
   char resStr[3] = "";
-  int aStatus = -1, nStatus = -1;
+  int aStatus = -1, nStatus = -1, retCode = 0;
   char *answerstring;
   answerstring = malloc(MAXANSWERSIZE);
   if (!answerstring) return MHD_NO;
@@ -984,6 +1039,12 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
             sendRespList(con_info->session, rootObj);
 
           }
+
+        } else if (strcmp(json_object_get_string(postObj), "sendHL7Data") == 0) {
+          retCode = sendHL7Data(con_info->session, con_info->connection, rootObj,
+                                resStr, answerstring);
+          if (retCode != - 1) return(retCode);
+
         }
       }
       json_object_put(rootObj);
@@ -1112,7 +1173,7 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
       con_info->answerstring = answerstring;
 
     } else if (strcmp(key, "sIP") == 0 ) {
-      if (updatePasswdFile(con_info->session->userid, key, data) == 0) {
+      if (updatePasswdFile(con_info->session->userid, key, data, -1) == 0) {
         sprintf(con_info->session->sIP, "%s", data);
         snprintf(answerstring, 3, "%s", "OK");  // Save OK
         sprintf(infoStr, "[S: %03d] Send IP settings saved OK, uid: %s",
@@ -1129,7 +1190,7 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
       con_info->answerstring = answerstring;
 
     } else if (strcmp(key, "sPort") == 0 ) {
-      if (updatePasswdFile(con_info->session->userid, key, data) == 0) {
+      if (updatePasswdFile(con_info->session->userid, key, data, -1) == 0) {
         sprintf(con_info->session->sPort, "%s", data);
         snprintf(answerstring, 3, "%s", "OK");  // Save OK
         sprintf(infoStr, "[S: %03d] Send port settings saved OK, uid: %s",
@@ -1152,7 +1213,7 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
                          con_info->session->shortID, con_info->session->userid);
         writeLog(LOG_INFO, infoStr, 0);
 
-      } else if (updatePasswdFile(con_info->session->userid, key, data) == 0) {
+      } else if (updatePasswdFile(con_info->session->userid, key, data, -1) == 0) {
         sprintf(con_info->session->lPort, "%s", data);
         stopListenWeb(con_info->session, con_info->connection, "/postListSets");
         startListenWeb(con_info->session, con_info->connection, "/postListSets", -1, NULL);

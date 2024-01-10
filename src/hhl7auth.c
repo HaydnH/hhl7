@@ -166,6 +166,7 @@ int regNewUser(char *uid, char *passwd) {
     json_object_object_add(newUserObj, "salt", json_object_new_string(salt));
     json_object_object_add(newUserObj, "passwd", json_object_new_string(pwdHash));
     json_object_object_add(newUserObj, "enabled", json_object_new_boolean(0));
+    json_object_object_add(newUserObj, "attempts", json_object_new_int(0));
     json_object_object_add(newUserObj, "admin", json_object_new_boolean(0));
     json_object_object_add(newUserObj, "sIP", json_object_new_string("127.0.0.1"));
     json_object_object_add(newUserObj, "sPort", json_object_new_string("11011"));
@@ -192,15 +193,98 @@ int regNewUser(char *uid, char *passwd) {
 }
 
 
+// Update an entry in the password file
+// TODO - allow multiple updates at once
+int updatePasswdFile(char *uid, const char *key, const char *val, int iVal) {
+  int uExists = 0, u = 0, uCount = 0;
+  struct json_object *pwObj = NULL, *userArray = NULL, *userObj = NULL, *uidStr = NULL;
+
+  // Define passwd file location
+  char pwFile[34];
+  if (isDaemon == 1) {
+    sprintf(pwFile, "%s", "/usr/local/hhl7/conf/passwd.hhl7");
+  } else {
+    sprintf(pwFile, "%s", "./conf/passwd.hhl7");
+  }
+
+  // This should not be needed under normal use, however it's here for security purposes
+  if (strcmp(key, "uid") == 0 || strcmp(key, "salt") == 0 || strcmp(key, "passwd") == 0 ||
+      strcmp(key, "enabled") == 0 || strcmp(key, "admin") == 0) {
+    // TODO - error handle (check entire auth file)
+    printf("ERROR: Unexpected attempt to update user credentials, exiting\n");
+    exit(1);
+  }
+
+  // TODO - add max sleep count as timeout? Look for other sleeps
+  // If lock is true, sleep until lock is cleared
+  while (PWLOCK == 1) {
+    usleep(250000);
+    printf("sleep\n");
+  }
+  PWLOCK = 1;
+
+  pwObj = json_object_from_file(pwFile);
+  if (pwObj == NULL) {
+    printf("Failed to read password file\n");
+    exit(1);
+  }
+
+  json_object_object_get_ex(pwObj, "users", &userArray);
+  uExists = userExists(userArray, uid);
+
+  if (uExists == 1) {
+    PWLOCK = 0;
+    json_object_put(pwObj);
+    return 1;
+
+  } else {
+    uCount = json_object_array_length(userArray);
+    for (u = 0; u < uCount; u++) {
+      userObj = json_object_array_get_idx(userArray, u);
+      uidStr = json_object_object_get(userObj, "uid");
+
+      if (strcmp(json_object_get_string(uidStr), uid) == 0) {
+        json_object_object_del(userObj, key);
+
+        if (val != NULL) {
+          json_object_object_add(userObj, key, json_object_new_string(val));
+        } else if (iVal >= 0) {
+          json_object_object_add(userObj, key, json_object_new_int(iVal));
+        } else {
+          // TODO error message - bad attempt to update passwd file
+          PWLOCK = 0;
+          json_object_put(pwObj);
+          return 1;
+        }
+        break;
+      }
+    }
+
+    if (json_object_to_file_ext(pwFile, pwObj,
+        JSON_C_TO_STRING_SPACED | JSON_C_TO_STRING_PRETTY) == -1) {
+
+      printf("ERROR: Couldn't write passwd file\n");
+      PWLOCK = 0;
+      json_object_put(pwObj);
+      return 1;
+    }
+  }
+
+  PWLOCK = 0;
+  json_object_put(pwObj);
+  return 0;
+}
+
+
 // Check if a username/password combination is valid, return codes:
 //    0 - User exists and password matches
-//    1 - User exists and password matches, but account is disabled
+//    1 - User exists and password matches, but account is disabled (or locked)
 //    2 - User exists but password is incorrect
 //    3 - User doesn't exist
 int checkAuth(char *uid, const char *passwd) {
   struct json_object *pwObj = NULL, *userArray = NULL, *userObj = NULL;
-  struct json_object  *uidStr = NULL, *saltStr = NULL, *pwdStr = NULL;
-  int uCount = 0, u = 0, uExists = 0;
+  struct json_object *uidStr = NULL, *atInt = NULL, *saltStr = NULL, *pwdStr = NULL;
+  int uCount = 0, u = 0, uExists = 0, attempts = 0;
   int maxPassL = 32;
   size_t saltedL = 3 * maxPassL;
   char saltPasswd[saltedL];
@@ -246,6 +330,16 @@ int checkAuth(char *uid, const char *passwd) {
       uidStr = json_object_object_get(userObj, "uid");
 
       if (strcmp(json_object_get_string(uidStr), uid) == 0) {
+        atInt = json_object_object_get(userObj, "attempts");
+        attempts = json_object_get_int(atInt);
+        // Return if the max failed login attempts breached 
+        // TODO - move maxAttempts to config file
+        int maxAttempts = 3;
+        if (attempts >= maxAttempts && maxAttempts > 0) {
+          json_object_put(pwObj);
+          return 1;
+        }
+
         saltStr = json_object_object_get(userObj, "salt");
         pwdStr = json_object_object_get(userObj, "passwd");
 
@@ -267,91 +361,17 @@ int checkAuth(char *uid, const char *passwd) {
             return 0;
 
           } else {
+            if (maxAttempts > 0) updatePasswdFile(uid, "attempts", NULL, attempts + 1); 
             json_object_put(pwObj);
             return 2;
           }
         }
-
       }
     }
   }
   json_object_put(pwObj);
   // We shouldn't get here, but return a denial as a safety net
   return 2;
-}
-
-
-// Update an entry in the password file
-// TODO - allow multiple updates at once
-int updatePasswdFile(char *uid, const char *key, const char *val) {
-  int uExists = 0, u = 0, uCount = 0;
-  struct json_object *pwObj = NULL, *userArray = NULL, *userObj = NULL, *uidStr = NULL;
-
-  // Define passwd file location
-  char pwFile[34];
-  if (isDaemon == 1) {
-    sprintf(pwFile, "%s", "/usr/local/hhl7/conf/passwd.hhl7");
-  } else {
-    sprintf(pwFile, "%s", "./conf/passwd.hhl7");
-  }
-
-  // This should not be needed under normal use, however it's here for security purposes
-  if (strcmp(key, "uid") == 0 || strcmp(key, "salt") == 0 || strcmp(key, "passwd") == 0 ||
-      strcmp(key, "enabled") == 0 || strcmp(key, "admin") == 0) {
-    printf("ERROR: Unexpected attempt to update user credentials, exiting\n");
-    exit(1);
-  }
-
-  // TODO - add max sleep count as timeout? Look for other sleeps
-  // If lock is true, sleep until lock is cleared
-  while (PWLOCK == 1) {
-    usleep(250000);
-    printf("sleep\n");
-  }
-  PWLOCK = 1;
-
-  pwObj = json_object_from_file(pwFile);
-  if (pwObj == NULL) {
-    printf("Failed to read password file\n");
-    exit(1);
-  }
-
-  json_object_object_get_ex(pwObj, "users", &userArray);
-  uExists = userExists(userArray, uid);
-
-  if (uExists == 1) {
-    PWLOCK = 0;
-    json_object_put(pwObj);
-    return 1;
-
-  } else {
-    // TODO - WORKING - update object here
-    uCount = json_object_array_length(userArray);
-
-    for (u = 0; u < uCount; u++) {
-      userObj = json_object_array_get_idx(userArray, u);
-      uidStr = json_object_object_get(userObj, "uid");
-
-      if (strcmp(json_object_get_string(uidStr), uid) == 0) {
-        json_object_object_del(userObj, key);
-        json_object_object_add(userObj, key, json_object_new_string(val));
-        break;
-      }
-    }
-
-    if (json_object_to_file_ext(pwFile, pwObj,
-        JSON_C_TO_STRING_SPACED | JSON_C_TO_STRING_PRETTY) == -1) {
-
-      printf("ERROR: Couldn't write passwd file\n");
-      PWLOCK = 0;
-      json_object_put(pwObj);
-      return 1;
-    }
-  }
-
-  PWLOCK = 0;
-  json_object_put(pwObj);
-  return 0;
 }
 
 

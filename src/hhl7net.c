@@ -156,6 +156,8 @@ static int processResponses(int fd) {
     if (tNow - resp->sendTime >= expTime && resp->sent == 1) {
       writeLog(LOG_DEBUG, "Response queue processing, old response removed", 0);
       responses = resp->next;
+      free(resp->tName);
+      free(resp->rName);
       free(resp);
       resp = responses;
       rmCount++;

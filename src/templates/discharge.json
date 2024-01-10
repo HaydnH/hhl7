@@ -1,7 +1,7 @@
 {
   "name":"Discharge",
-  "argcount":3,
-  "cmdhelp":"hhl7 -t discharge <hospnum> <patientClass> <ward>",
+  "argcount":1,
+  "cmdhelp":"hhl7 -t discharge <hospnum>",
   "segments": [
     { "name":"MSH",
       "fieldcount":11,

@@ -303,6 +303,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         right: 49px;\n\
         top: 35px;\n\
         width: 25%;\n\
+        background-color: #fff;\n\
         border-width: 2px;\n\
         border-style: solid;\n\
         border-color: #142248;\n\
@@ -619,7 +620,10 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
       function showLogin() {\n\
         hideMenu();\n\
         var login = document.getElementById(\"loginDim\");\n\
+        var uname = document.getElementById(\"uname\");\n\
         login.style.display = \"block\";\n\
+        uname.focus();\n\
+        uname.selectionStart = uname.selectionEnd = uname.value.length;\n\
       }\n\
 \n\
       function switchLogin() {\n\
@@ -641,31 +645,38 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
       }\n\
 \n\
       var logPostFunc = function(event) { postCreds(event); };\n\
-      function validLogin() {\n\
+      var logSubmitFunc = function(event) { if (event.key === \"Enter\") postCreds(event); };\n\
+      function validLogin(evt) {\n\
         var reg = document.getElementById(\"register\").innerText;\n\
-        var usr = document.getElementById(\"uname\").value;\n\
-        var pwd = document.getElementById(\"pword\").value;\n\
-        var cpw = document.getElementById(\"confPword\").value;\n\
+        var usr = document.getElementById(\"uname\");\n\
+        var pwd = document.getElementById(\"pword\");\n\
+        var cpw = document.getElementById(\"confPword\");\n\
         var sub = document.getElementById(\"submit\");\n\
 \n\
         sub.removeEventListener(\"click\", logPostFunc);\n\
+        usr.removeEventListener(\"keyup\", logSubmitFunc);\n\
+        pwd.removeEventListener(\"keyup\", logSubmitFunc);\n\
+        cpw.removeEventListener(\"keyup\", logSubmitFunc);\n\
 \n\
         /* TODO change min username & pw length to config file? */\n\
-        if (usr.length < 5 || pwd.length < 8) {\n\
+        if (usr.value.length < 5 || pwd.value.length < 8) {\n\
           sub.classList.replace(\"button\", \"buttonInactive\");\n\
           return false;\n\
         }\n\
         if (reg == \"Login\") {\n\
-          if (cpw.length < 8) {\n\
+          if (cpw.value.length < 8) {\n\
             sub.classList.replace(\"button\", \"buttonInactive\");\n\
             return false;\n\
           }\n\
-          if (pwd != cpw) {\n\
+          if (pwd.value != cpw.value) {\n\
             sub.classList.replace(\"button\", \"buttonInactive\");\n\
             return false;\n\
           }\n\
         }\n\
 \n\
+        usr.addEventListener(\"keyup\", logSubmitFunc);\n\
+        pwd.addEventListener(\"keyup\", logSubmitFunc);\n\
+        cpw.addEventListener(\"keyup\", logSubmitFunc);\n\
         sub.addEventListener(\"click\", logPostFunc);\n\
         sub.classList.replace(\"buttonInactive\", \"button\");\n\
       }\n\
@@ -883,6 +894,15 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         popTemplates(1);\n\
       }\n\
 \n\
+      function checkLPort() {\n\
+        lPort = document.getElementById(\"lPort\").value;\n\
+        if (lPort == \"\") {\n\
+          errHandler(\"WARN: Please select a port to listen on in the settings menu. Listerner has not been started.\");\n\
+          return false;\n\
+        }\n\
+        return true;\n\
+      }\n\
+\n\
       var isRespond = false;\n\
       function procResponders(stopListen) {\n\
         var respJSON = { \"postFunc\":\"procRespond\", \"templates\":[ ] };\n\
@@ -918,6 +938,8 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
       }\n\
 \n\
       function addResponder() {\n\
+        if (!checkLPort()) return false;\n\
+\n\
         var respFrm = document.getElementById(\"respForm\");\n\
         var respSel = document.getElementById(\"respSelect\");\n\
 \n\
@@ -1053,10 +1075,6 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
                   errHandler(\"WARN: Account created but requires activation. Please wait for your system admin to enable your account\");\n\
                   return false;\n\
 \n\
-                } else if (xhr.responseText == \"LD\") {\n\
-                  errHandler(\"WARN: Account already exists but requires activation. Please wait for your system admin to enable your account\");\n\
-                  return false;\n\
-\n\
                } else if (xhr.responseText == \"LF\") {\n\
                   errHandler(\"WARN: Account creation failed, please try again\");\n\
                   return false;\n\
@@ -1068,8 +1086,16 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
               }\n\
 \n\
             } else if (xhr.status === 401) {\n\
-              errHandler(\"ERROR: Login failed, please try again\");\n\
-              return false;\n\
+              if (errHandler(xhr.responseText) == 0) {\n\
+                if (xhr.responseText == \"LD\") {\n\
+                  errHandler(\"WARN: Account already exists but is locked or requires activation. Please contact your system admin to enable your account\");\n\
+                  return false;\n\
+\n\
+                } else {\n\
+                  errHandler(\"ERROR: Login failed, please try again\");\n\
+                  return false;\n\
+                }\n\
+              }\n\
 \n\
             } else {\n\
               errHandler(\"ERROR: The hhl7 backend is not running.\");\n\
@@ -1495,6 +1521,8 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
       }\n\
 \n\
       function startHL7Listener() {\n\
+        if (!checkLPort()) return false;\n\
+\n\
         try {\n\
           if (typeof(EventSource) !== \"undefined\") {\n\
             if (!isConnectionOpen) {\n\
@@ -1540,7 +1568,6 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
       <span class=\"menuOption\"><a href=\"\" onClick=\"showResp(); return false;\">RESPOND</a></span>\n\
     </div>\n\
 \n\
-    // TODO - how much for info is needed? I think just <form> to allow conten editable?\n\
     <form id=\"postForm\" action=\"/postHL7\" method=\"post\" enctype=\"text/plain\" onSubmit=\"return false;\">\n\
       <div id=\"sendPane\">\n\
         <div class=\"titleBar\">Template:\n\
@@ -1602,19 +1629,19 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
             <div class=\"loginInfo\">\n\
               <div class=\"loginQ\">Username:</div>\n\
               <div class=\"loginFrm\">\n\
-                <input name=\"uname\" id=\"uname\" class=\"loginInput\" onInput=\"validLogin();\" onChange=\"validLogin();\" />\n\
+                <input name=\"uname\" id=\"uname\" class=\"loginInput\" onInput=\"validLogin(event);\" onChange=\"validLogin(event);\" />\n\
               </div>\n\
             </div>\n\
             <div class=\"loginInfo\">\n\
               <div class=\"loginQ\">Password:</div>\n\
               <div class=\"loginFrm\">\n\
-                <input name=\"pword\" id=\"pword\" type=\"password\" autocomplete=\"current-password\" class=\"loginInput\" onInput=\"validLogin();\" onChange=\"validLogin();\" />\n\
+                <input name=\"pword\" id=\"pword\" type=\"password\" autocomplete=\"current-password\" class=\"loginInput\" onInput=\"validLogin(event);\" onChange=\"validLogin(event);\" />\n\
               </div>\n\
             </div>\n\
             <div id=\"confPwordD\" class=\"loginInfo\">\n\
               <div class=\"loginQ\">Confirm PW:</div>\n\
               <div class=\"loginFrm\">\n\
-                <input name=\"cpword\" id=\"confPword\" type=\"password\" autocomplete=\"off\" class=\"loginInput\" onInput=\"validLogin();\" onChange=\"validLogin();\" />\n\
+                <input name=\"cpword\" id=\"confPword\" type=\"password\" autocomplete=\"new-password\" class=\"loginInput\" onInput=\"validLogin(event);\" onChange=\"validLogin(event);\" />\n\
               </div>\n\
             </div>\n\
             </form>\n\
@@ -1641,14 +1668,14 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
           <div class=\"menuSubHeader\">Target Host:</div>\n\
           <div class=\"menuDataItem\">\n\
             <select id=\"tHost\" class=\"menuSelect\" onInput=\"validSendSets();\" onChange=\"validSendSets();\"></select>\n\
-            <input type=\"hidden\" id=\"tHostSave\" />\n\
+            <input type=\"hidden\" id=\"tHostSave\" name=\"hhl7tHostSave\" autocomplete=\"new-password\" />\n\
           </div>\n\
         </div>\n\
         <div class=\"menuItem\">\n\
           <div class=\"menuSubHeader\">Target Port:</div>\n\
           <div class=\"menuDataItem\">\n\
-            <input id=\"tPort\" class=\"menuInput\" onInput=\"validSendSets();\" onChange=\"validSendSets();\" />\n\
-            <input type=\"hidden\" id=\"tPortSave\" />\n\
+            <input id=\"tPort\" class=\"menuInput\" onInput=\"validSendSets();\" onChange=\"validSendSets();\" name=\"hhl7tPort\" autocomplete=\"new-password\" />\n\
+            <input type=\"hidden\" id=\"tPortSave\" name=\"hhl7tPortSave\" autocomplete=\"new-password\" />\n\
           </div>\n\
         </div>\n\
         <button id=\"saveSendSets\" class=\"menuItemButtonInactive\">Save Send Settings</button>\n\
@@ -1657,8 +1684,8 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         <div class=\"menuItem\">\n\
           <div class=\"menuSubHeader\">Listen Port:</div>\n\
           <div class=\"menuDataItem\">\n\
-            <input id=\"lPort\" class=\"menuInput\" onInput=\"validListSets();\" onChange=\"validListSets();\" />\n\
-            <input type=\"hidden\" id=\"lPortSave\" />\n\
+            <input id=\"lPort\" class=\"menuInput\" onInput=\"validListSets();\" onChange=\"validListSets();\" name=\"hhl7lPort\" autocomplete=\"new-password\" />\n\
+            <input type=\"hidden\" id=\"lPortSave\" name=\"hhl7lPortSave\" autocomplete=\"new-password\" />\n\
           </div>\n\
         </div>\n\
         <button id=\"saveListSets\" class=\"menuItemButtonInactive\">Save Listen Settings</button>\n\
@@ -1667,19 +1694,19 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         <div class=\"menuItem\">\n\
           <div class=\"menuSubHeader\">Old Pwd:</div>\n\
           <div class=\"menuDataItem\">\n\
-            <input id=\"oldPwd\" class=\"menuInput\" type=\"password\" autocomplete=\"off\" onInput=\"validPwdSets();\" onChange=\"validPwdSets();\" />\n\
+            <input id=\"oldPwd\" class=\"menuInput\" type=\"password\" onInput=\"validPwdSets();\" onChange=\"validPwdSets();\" name=\"hhl7oldPwd\" autocomplete=\"new-password\" />\n\
           </div>\n\
         </div>\n\
         <div class=\"menuItem\">\n\
           <div class=\"menuSubHeader\">New Pwd:</div>\n\
           <div class=\"menuDataItem\">\n\
-            <input id=\"newPwd\" class=\"menuInput\" type=\"password\" autocomplete=\"new-password\" onInput=\"validPwdSets();\" onChange=\"validPwdSets();\" />\n\
+            <input id=\"newPwd\" class=\"menuInput\" type=\"password\" onInput=\"validPwdSets();\" onChange=\"validPwdSets();\" name=\"hhl7newPwd\" autocomplete=\"new-password\" />\n\
           </div>\n\
         </div>\n\
         <div class=\"menuItem\">\n\
           <div class=\"menuSubHeader\">Confirm Pwd:</div>\n\
           <div class=\"menuDataItem\">\n\
-            <input id=\"conPwd\" class=\"menuInput\" type=\"password\" autocomplete=\"new-password\" onInput=\"validPwdSets();\" onChange=\"validPwdSets();\" />\n\
+            <input id=\"conPwd\" class=\"menuInput\" type=\"password\" onInput=\"validPwdSets();\" onChange=\"validPwdSets();\" name=\"hhl7conPwd\" autocomplete=\"new-password\" />\n\
           </div>\n\
         </div>\n\
         <button id=\"resetPW\" class=\"menuItemButtonInactive\">Reset Password</button>\n\
