@@ -13,6 +13,7 @@ You should have received a copy of the GNU General Public License along with hhl
 #include <unistd.h>
 #include <string.h>
 #include <stdio.h>
+#include <syslog.h>
 #include <openssl/evp.h> 
 #include <openssl/rand.h>
 #include <json.h>
@@ -41,7 +42,7 @@ static void genPwdHash(const char* pwd, size_t pwdS, char *pwdHash) {
   binHash[0] = '\0';
 
   const EVP_MD *md = EVP_get_digestbyname(algo);
-  if(NULL != md) {
+  if (md != NULL) {
     // TODO - check if error handling needed or checking md_len is enough?
     EVP_MD_CTX *mdctx;
     mdctx = EVP_MD_CTX_new();
@@ -57,9 +58,7 @@ static void genPwdHash(const char* pwd, size_t pwdS, char *pwdHash) {
     EVP_EncodeBlock((unsigned char *) pwdHash, binHash, pwdS);
 
   } else {
-    // TODO Send error to web
-    printf("ERROR: Could not create password hash\n");
-    exit(1);
+    handleError(LOG_ERR, "ERROR: Could not create password hash", 1, 0, 1);
   }
 }
 
@@ -81,6 +80,7 @@ static int createPWFile(char *fileName) {
       fflush(fp);
       fsync(fileno(fp));
       fclose(fp);
+      writeLog(LOG_INFO, "New password file created", 0);
       return 0;
     }
   }
@@ -90,7 +90,6 @@ static int createPWFile(char *fileName) {
 
 // Check if a user exists
 static int userExists(struct json_object *userArray, char *uid) {
-  //struct json_object *userArray = NULL;
   struct json_object *userObj = NULL, *uidStr = NULL, *enabledStr = NULL;
   int u = 0, uCount = 0, enabled = 0;
 
@@ -141,15 +140,13 @@ int regNewUser(char *uid, char *passwd) {
   // If lock is true, sleep until lock is cleared
   while (PWLOCK == 1) {
     usleep(250000);
-    printf("sleep\n");
   }
   PWLOCK = 1;
 
   // Re-read the passwd file to ensure we have the latest info
   pwObj = json_object_from_file(pwFile);
   if (pwObj == NULL) {
-    printf("Failed to read password file\n");
-    exit(1);
+    handleError(LOG_ERR, "Failed to read password file", 1, 0, 0);
   }
 
   json_object_object_get_ex(pwObj, "users", &userArray);
@@ -177,18 +174,23 @@ int regNewUser(char *uid, char *passwd) {
     if (json_object_to_file_ext(pwFile, pwObj,
         JSON_C_TO_STRING_SPACED | JSON_C_TO_STRING_PRETTY) == -1) {
 
-      printf("ERROR: Couldn't write passwd file\n");
+      sprintf(infoStr, "Couldn't write new user (%s) to passwd file", uid);
+      handleError(LOG_ERR, infoStr, 1, 0, 0);
+
       PWLOCK = 0;
       json_object_put(pwObj);
       return 1;
     }
 
   } else {
-    printf("User already exists\n");
+    sprintf(infoStr, "Tried to create already existing user (%s)", uid);
+    writeLog(LOG_WARNING, infoStr, 0);
 
   }
   PWLOCK = 0;
   json_object_put(pwObj);
+  sprintf(infoStr, "New user registered succesfully (%s)", uid);
+  writeLog(LOG_INFO, infoStr, 0);
   return 0;
 }
 
@@ -210,23 +212,21 @@ int updatePasswdFile(char *uid, const char *key, const char *val, int iVal) {
   // This should not be needed under normal use, however it's here for security purposes
   if (strcmp(key, "uid") == 0 || strcmp(key, "salt") == 0 || strcmp(key, "passwd") == 0 ||
       strcmp(key, "enabled") == 0 || strcmp(key, "admin") == 0) {
-    // TODO - error handle (check entire auth file)
-    printf("ERROR: Unexpected attempt to update user credentials, exiting\n");
-    exit(1);
+
+    sprintf(infoStr, "Unexpected attempt to update user (%s) credentials, exiting", uid);
+    handleError(LOG_CRIT, infoStr, 1, 1, 0);
   }
 
   // TODO - add max sleep count as timeout? Look for other sleeps
   // If lock is true, sleep until lock is cleared
   while (PWLOCK == 1) {
     usleep(250000);
-    printf("sleep\n");
   }
   PWLOCK = 1;
 
   pwObj = json_object_from_file(pwFile);
   if (pwObj == NULL) {
-    printf("Failed to read password file\n");
-    exit(1);
+    handleError(LOG_ERR, "Failed to read password file", 1, 0, 0);
   }
 
   json_object_object_get_ex(pwObj, "users", &userArray);
@@ -248,10 +248,12 @@ int updatePasswdFile(char *uid, const char *key, const char *val, int iVal) {
 
         if (val != NULL) {
           json_object_object_add(userObj, key, json_object_new_string(val));
+
         } else if (iVal >= 0) {
           json_object_object_add(userObj, key, json_object_new_int(iVal));
+
         } else {
-          // TODO error message - bad attempt to update passwd file
+          handleError(LOG_ERR, "Attempt to update password file with no values supplied", 1, 0, 0);
           PWLOCK = 0;
           json_object_put(pwObj);
           return 1;
@@ -263,7 +265,9 @@ int updatePasswdFile(char *uid, const char *key, const char *val, int iVal) {
     if (json_object_to_file_ext(pwFile, pwObj,
         JSON_C_TO_STRING_SPACED | JSON_C_TO_STRING_PRETTY) == -1) {
 
-      printf("ERROR: Couldn't write passwd file\n");
+      sprintf(infoStr, "Couldn't write password update (%s - %s) to passwd file", uid, key);
+      handleError(LOG_ERR, infoStr, 1, 0, 0);
+
       PWLOCK = 0;
       json_object_put(pwObj);
       return 1;
@@ -306,17 +310,14 @@ int checkAuth(char *uid, const char *passwd) {
   // Read the password file to a json_object
   pwObj = json_object_from_file(pwFile);
   if (pwObj == NULL) {
-    printf("Failed to read password file\n");
-    exit(1);
+    handleError(LOG_ERR, "Failed to read password file", 1, 0, 0);
   }
 
   json_object_object_get_ex(pwObj, "users", &userArray);
   if (userArray == NULL) {
-    printf("Failed to get user object, passwd file corrupt?\n");
-    exit(1);
+    handleError(LOG_ERR, "Failed to get user object, passwd file corrupt?", 1, 0, 0);
   }
 
-  // If... blah == 0
   uExists = userExists(userArray, uid);
   if (uExists == 1) {
     json_object_put(pwObj);
@@ -346,9 +347,8 @@ int checkAuth(char *uid, const char *passwd) {
         if (strlen(json_object_get_string(saltStr)) < maxPassL ||
             strlen(json_object_get_string(pwdStr)) < maxPassL) {
 
-          // TODO - error handle
-          printf("Invalid password in password file\n");
-          exit(1);
+          sprintf(infoStr, "Invalid password in password file (%s)", uid);
+          handleError(LOG_WARNING, infoStr, 1, 0, 0);
 
         } else {
           sprintf(saltPasswd, "%s%s", json_object_get_string(saltStr), passwd);
@@ -399,15 +399,13 @@ int updatePasswd(char *uid, const char *password) {
   // If lock is true, sleep until lock is cleared
   while (PWLOCK == 1) {
     usleep(250000);
-    printf("sleep\n");
   }
   PWLOCK = 1;
 
   // Re-read the passwd file to ensure we have the latest info
   pwObj = json_object_from_file(pwFile);
   if (pwObj == NULL) {
-    printf("Failed to read password file\n");
-    exit(1);
+    handleError(LOG_ERR, "Failed to read password file", 1, 0, 0);
   }
 
   json_object_object_get_ex(pwObj, "users", &userArray);
@@ -440,7 +438,9 @@ int updatePasswd(char *uid, const char *password) {
     if (json_object_to_file_ext(pwFile, pwObj,
         JSON_C_TO_STRING_SPACED | JSON_C_TO_STRING_PRETTY) == -1) {
 
-      printf("ERROR: Couldn't write passwd file\n");
+      sprintf(infoStr, "Failed to update password file with new password (%s)", uid);
+      handleError(LOG_ERR, infoStr, 1, 0, 0);
+
       PWLOCK = 0;
       json_object_put(pwObj);
       return 1;
@@ -470,8 +470,7 @@ int lPortUsed(char *uid, const char *lPort) {
 
   pwObj = json_object_from_file(pwFile);
   if (pwObj == NULL) {
-    printf("Failed to read password file\n");
-    exit(1);
+    handleError(LOG_ERR, "Failed to read password file", 1, 0, 0);
   }
 
   json_object_object_get_ex(pwObj, "users", &userArray);
