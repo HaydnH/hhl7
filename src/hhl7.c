@@ -26,16 +26,47 @@ You should have received a copy of the GNU General Public License along with hhl
 int isDaemon = 0;
 
 
-// Show help message
-// TODO: Write help message, no point doing it until we've coded it...
-void showHelp() {
-  printf("TODO: Help Message!\n");
+// Show version number
+static void showVersion() {
+  printf("HHL7 - version 0.01\n");
+  exit(0);
 }
 
 
-// TODO - if no arguments are provided then there's no error message, showHelp
+// Show help message
+static void showHelp(int exCode) {
+  printf("Usage:\n");
+  printf("  hhl7 [-s <IP>] [-L <IP] [-p <port>] [-P <port>] [-o]\n");
+  printf("       {-D|-f|-F|-t|-T|-l|-r} [options] [argument ...]\n\n");
+  printf("Help Options:\n");
+  printf("  -h, --help               Show help page and exit\n");
+  printf("  -v, --version            Show version information and exit\n\n");
+  printf("Network Options:\n");
+  printf("  -s <ip>                  Target IP/hostname to send messages to\n");
+  printf("  -L <ip>                  IP address to bind when listening/responding\n");
+  printf("  -p <port>                Target port number to send messages to\n");
+  printf("  -P <port>                Target port number to use for listening/responding\n\n");
+  printf("Functional Options:\n");
+  printf("  -f <fileName>            Send contents of a file\n");
+  printf("  -F                       Send ./file.txt (shorthand for \"-f ./file.txt\")\n");
+  printf("  -t <temp> [args ...]     Generate a message from a JSON template and send it\n");
+  printf("  -T <temp> [<arg ...]     Same as -t, but also print message to STDOUT\n");
+  printf("  -o                       Suppress sending message, use with -T for STDOUT only\n");
+  printf("  -l                       Listen for incomming messages\n");
+  printf("  -r <temps ...>           Respond to incomming messages if they match template\n\n");
+  printf("Other Options:\n");
+  printf("  -D <socket>              Run as a daemon, for systemd.socket use ONLY\n");
+  printf("  -w                       Run web interface, for development use ONLY\n\n");
+
+  exit(exCode);
+}
+
+
 // Main
 int main(int argc, char *argv[]) {
+  // Arguments are required
+  if (argc == 1) showHelp(1);
+
   int daemonSock = 0, sockfd, opt, option_index = 0;
   int fSend = 0, fListen = 0, fRespond = 0, fSendTemplate = 0, fShowTemplate = 0;
   int noSend = 0, fWeb = 0;
@@ -62,21 +93,22 @@ int main(int argc, char *argv[]) {
   // TODO: Check error message for unknown long options works properly
   // Parse command line options
   static struct option long_options[] = {
-    {"help", no_argument, 0, 'H'},
+    {"version", no_argument, 0, 'v'},
+    {"help",    no_argument, 0, 'h'},
     {0, 0, 0, 0}
   };
 
-  while((opt = getopt_long(argc, argv, ":0hHD:f:Flrt:T:owWs:L:p:P:", long_options, &option_index)) != -1) {
+  while((opt = getopt_long(argc, argv, ":0vhD:f:Flrt:T:owWs:L:p:P:", long_options, &option_index)) != -1) {
     switch(opt) {
       case 0:
         exit(1);
 
-      case 'h':
-        showHelp();
+      case 'v':
+        showVersion();
         exit(0);
 
-      case 'H':
-        showHelp();
+      case 'h':
+        showHelp(0);
         exit(0);
 
       case 'D':
