@@ -431,12 +431,15 @@ char *dblBuf(char *buf, int *bufS, int reqS) {
 }
 
 
-// Empty a fifo by reading it dry
-void emptyFifo(int fd) {
-  char nullBuf[513] = "";
-  int rSize = 1;
+// Check if a string is valid vanilla ascii and correct length
+int validStr(char *buf, int minL, int maxL, int aCheck) {
+  if (strlen(buf) < minL || strlen(buf) > maxL) {
+    return(1);
 
-  while (rSize > 0) {
-    rSize = read(fd, nullBuf, 512);
+  } else if (aCheck == 1) {
+    for (int i = 0; i < strlen(buf); i++) {
+      if (buf[i] < 32 || buf[i] > 126) return(2);
+    }
   }
+  return(0);
 }

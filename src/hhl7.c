@@ -73,25 +73,23 @@ int main(int argc, char *argv[]) {
   int noSend = 0, fWeb = 0;
   FILE *fp;
 
-  // TODO - error check for file names, hostnames > 256 etc
   // TODO move bind port (sIP) to config file
+  int maxNameL = 255;
   char sIP[256] = "127.0.0.1";
   char lIP[256] = "127.0.0.1";
   char sPort[6] = "11011";
   char lPort[6] = "22022";
-  char tName[256] = "";
+  char tName[51] = "";
   char fileName[256] = "file.txt";
   char errStr[28] = "";
 
   // Seed RNG
   struct timespec ts;
   if (clock_gettime(CLOCK_MONOTONIC_RAW, &ts) == -1) {
-    // TODO - use error handle function
     handleError(LOG_CRIT, "Failed to obtain system timestamp", 1, 1, 1);
   }
   srand((uint64_t) ts.tv_nsec);
 
-  // TODO: Check error message for unknown long options works properly
   // Parse command line options
   static struct option long_options[] = {
     {"version", no_argument, 0, 'v'},
@@ -113,14 +111,19 @@ int main(int argc, char *argv[]) {
         exit(0);
 
       case 'D':
-        if (*argv[optind-1] == '-') handleError(LOG_ERR, "Option -D requires a value", 1, 1, 1);
+        if (*argv[optind-1] == '-')
+          handleError(LOG_ERR, "Option -D requires a value", 1, 1, 1);
         isDaemon = 1;
         if (optarg) daemonSock = atoi(optarg);
         break;
 
       case 'f':
         fSend = 1;
-        if (*argv[optind-1] == '-') handleError(LOG_ERR, "Option -f requires a value", 1, 1, 1);
+        if (*argv[optind-1] == '-')
+          handleError(LOG_ERR, "Option -f requires a value", 1, 1, 1);
+        if (validStr(optarg, 1, maxNameL, 1) > 0)
+          handleError(LOG_ERR, "Invalid value for -f flag (1-255 chars, ASCII only)", 1, 1, 1);
+
         if (optarg) strcpy(fileName, optarg);
         break;
 
@@ -137,13 +140,21 @@ int main(int argc, char *argv[]) {
         break;
 
       case 't':
-        if (*argv[optind-1] == '-') handleError(LOG_ERR, "Option -t requires a value", 1, 1, 1);
+        if (*argv[optind-1] == '-')
+          handleError(LOG_ERR, "Option -t requires a value", 1, 1, 1);
+        if (validStr(optarg, 1, 50, 1) > 0)
+          handleError(LOG_ERR, "Invalid value for -t flag (1-50 chars, ASCII only)", 1, 1, 1);
+
         fSendTemplate = 1;
         if (optarg) strcpy(tName, optarg);
         break;
 
       case 'T':
-        if (*argv[optind-1] == '-') handleError(LOG_ERR, "Option -T requires a value", 1, 1, 1);
+        if (*argv[optind-1] == '-')
+          handleError(LOG_ERR, "Option -T requires a value", 1, 1, 1);
+        if (validStr(optarg, 1, 50, 1) > 0)
+          handleError(LOG_ERR, "Invalid value for -T flag (1-50 chars, ASCII only)", 1, 1, 1);
+
         fSendTemplate = 1;
         fShowTemplate = 1;
         if (optarg) strcpy(tName, optarg);
@@ -158,13 +169,20 @@ int main(int argc, char *argv[]) {
         break;
 
       case 's':
-        if (*argv[optind-1] == '-') handleError(LOG_ERR, "Option -h requires a value", 1, 1, 1);
-        // TODO error check all command line arguments (length etc)
+        if (*argv[optind-1] == '-')
+          handleError(LOG_ERR, "Option -s requires a value", 1, 1, 1);
+        if (validStr(optarg, 1, 255, 1) > 0)
+          handleError(LOG_ERR, "Invalid value for -s flag (1-255 chars, ASCII only)", 1, 1, 1);
+
         if (optarg) strcpy(sIP, optarg);
         break;
 
       case 'L':
-        if (*argv[optind-1] == '-') handleError(LOG_ERR, "Option -L requires a value", 1, 1, 1);
+        if (*argv[optind-1] == '-')
+          handleError(LOG_ERR, "Option -L requires a value", 1, 1, 1);
+        if (validStr(optarg, 1, 255, 1) > 0)
+          handleError(LOG_ERR, "Invalid value for -L flag (1-255 chars, ASCII only)", 1, 1, 1);
+
         if (optarg) strcpy(lIP, optarg);
         break;
 
