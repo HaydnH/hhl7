@@ -17,6 +17,7 @@ You should have received a copy of the GNU General Public License along with hhl
 #include <string.h>
 #include <getopt.h>
 #include <systemd/sd-daemon.h>
+#include <syslog.h>
 #include "hhl7extern.h"
 #include "hhl7utils.h"
 #include "hhl7json.h"
@@ -86,7 +87,7 @@ int main(int argc, char *argv[]) {
   struct timespec ts;
   if (clock_gettime(CLOCK_MONOTONIC_RAW, &ts) == -1) {
     // TODO - use error handle function
-    handleError(2, "Failed to obtain system timestamp", 1, 1, 1);
+    handleError(LOG_CRIT, "Failed to obtain system timestamp", 1, 1, 1);
   }
   srand((uint64_t) ts.tv_nsec);
 
@@ -112,14 +113,14 @@ int main(int argc, char *argv[]) {
         exit(0);
 
       case 'D':
-        if (*argv[optind-1] == '-') handleError(3, "Option -D requires a value", 1, 1, 1);
+        if (*argv[optind-1] == '-') handleError(LOG_ERR, "Option -D requires a value", 1, 1, 1);
         isDaemon = 1;
         if (optarg) daemonSock = atoi(optarg);
         break;
 
       case 'f':
         fSend = 1;
-        if (*argv[optind-1] == '-') handleError(3, "Option -f requires a value", 1, 1, 1);
+        if (*argv[optind-1] == '-') handleError(LOG_ERR, "Option -f requires a value", 1, 1, 1);
         if (optarg) strcpy(fileName, optarg);
         break;
 
@@ -136,13 +137,13 @@ int main(int argc, char *argv[]) {
         break;
 
       case 't':
-        if (*argv[optind-1] == '-') handleError(3, "Option -t requires a value", 1, 1, 1);
+        if (*argv[optind-1] == '-') handleError(LOG_ERR, "Option -t requires a value", 1, 1, 1);
         fSendTemplate = 1;
         if (optarg) strcpy(tName, optarg);
         break;
 
       case 'T':
-        if (*argv[optind-1] == '-') handleError(3, "Option -T requires a value", 1, 1, 1);
+        if (*argv[optind-1] == '-') handleError(LOG_ERR, "Option -T requires a value", 1, 1, 1);
         fSendTemplate = 1;
         fShowTemplate = 1;
         if (optarg) strcpy(tName, optarg);
@@ -157,35 +158,35 @@ int main(int argc, char *argv[]) {
         break;
 
       case 's':
-        if (*argv[optind-1] == '-') handleError(3, "Option -h requires a value", 1, 1, 1);
+        if (*argv[optind-1] == '-') handleError(LOG_ERR, "Option -h requires a value", 1, 1, 1);
         // TODO error check all command line arguments (length etc)
         if (optarg) strcpy(sIP, optarg);
         break;
 
       case 'L':
-        if (*argv[optind-1] == '-') handleError(3, "Option -L requires a value", 1, 1, 1);
+        if (*argv[optind-1] == '-') handleError(LOG_ERR, "Option -L requires a value", 1, 1, 1);
         if (optarg) strcpy(lIP, optarg);
         break;
 
       case 'p':
-        if (*argv[optind-1] == '-') handleError(3, "Option -p requires a value", 1, 1, 1);
-        if (validPort(optarg) > 0) handleError(3, "Port provided by -p is invalid (valid: 1024-65535)", 1, 1, 1);
+        if (*argv[optind-1] == '-') handleError(LOG_ERR, "Option -p requires a value", 1, 1, 1);
+        if (validPort(optarg) > 0) handleError(LOG_ERR, "Port provided by -p is invalid (valid: 1024-65535)", 1, 1, 1);
         if (optarg) strcpy(sPort, optarg);
         break;
 
       case 'P':
-        if (*argv[optind-1] == '-') handleError(3, "Option -P requires a value", 1, 1, 1);
-        if (validPort(optarg) > 0) handleError(3, "Port provided by -P is invalid (valid: 1024-65535)", 1, 1, 1);
+        if (*argv[optind-1] == '-') handleError(LOG_ERR, "Option -P requires a value", 1, 1, 1);
+        if (validPort(optarg) > 0) handleError(LOG_ERR, "Port provided by -P is invalid (valid: 1024-65535)", 1, 1, 1);
         if (optarg) strcpy(lPort, optarg);
         break;
 
       case ':':
         sprintf(errStr, "Option -%c requires a value", optopt);
-        handleError(3, errStr, 1, 1, 1);
+        handleError(LOG_ERR, errStr, 1, 1, 1);
 
       case '?':
         sprintf(errStr, "Unknown option: -%c", optopt);
-        handleError(3, errStr, 1, 1, 1);
+        handleError(LOG_ERR, errStr, 1, 1, 1);
     } 
   } 
 
@@ -193,13 +194,13 @@ int main(int argc, char *argv[]) {
   if (isDaemon == 1) {
     // Check for valid options when running as Daemon
     if (fSend + fListen + fSendTemplate + fWeb > 0)
-      handleError(3, "-D can only be used on it's own, no other functional flags", 1, 1, 1);
+      handleError(LOG_ERR, "-D can only be used on it's own, no other functional flags", 1, 1, 1);
 
     // Open the syslog file
     openLog();
 
     if (sd_listen_fds(0) != 1) 
-      handleError(3, "Systemd has sent an unexpected number of socket file descriptors", 1, 1, 0);   
+      handleError(LOG_ERR, "Systemd has sent an unexpected number of socket file descriptors", 1, 1, 0);   
 
     daemonSock = SD_LISTEN_FDS_START + 0;
   }
@@ -207,7 +208,7 @@ int main(int argc, char *argv[]) {
 
   // Check we're only using 1 of listen, send, template or web option
   if (fSend + fListen + fSendTemplate + fWeb > 1)
-    handleError(3, "Only one of -f, -l, -s, -t or -w may be used at a time", 1, 1, 1);
+    handleError(LOG_ERR, "Only one of -f, -l, -s, -t or -w may be used at a time", 1, 1, 1);
 
   if (fSend == 1) {
     // Connect to the server
