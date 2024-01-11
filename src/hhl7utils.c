@@ -22,11 +22,6 @@ You should have received a copy of the GNU General Public License along with hhl
 #include <math.h>
 #include "hhl7extern.h"
 
-// TODO - move infoStr to each function using it
-char infoStr[513] = "";
-// TODO - this should be no longer needed
-static const char logLevels[8][9] = { "[EMERG] ", "[ALERT] ", "[CRIT]  ", "[ERROR] ",
-                                      "[WARN]  ", "[NOTIC] ", "[INFO]  ", "[DUBUG] " };
 
 // DEBUG function to show ascii character codes in a buffer, useful for seeing hidden chars
 void printChars(char *buf) {
@@ -54,6 +49,8 @@ void closeLog() {
 // Write to the logs, either syslog or stderr if not running as daemon
 // See sys/syslog.h for int <-> log level values
 void writeLog(int logLvl, char *logStr, int stdErr) {
+  static const char logLevels[8][9] = { "[EMERG] ", "[ALERT] ", "[CRIT]  ", "[ERROR] ",
+                                        "[WARN]  ", "[NOTIC] ", "[INFO]  ", "[DUBUG] " };
   if (isDaemon == 1) {
     syslog(logLvl, "%s%s", logLevels[logLvl], logStr);
   } else if (stdErr == 1) {
@@ -308,6 +305,7 @@ void hl72web(char *msg) {
 FILE *findTemplate(char *fileName, char *tName, int isRespond) {
   FILE *fp;
   int p = 0;
+  char errStr[282] = "";
   const char *homeDir = getenv("HOME");
   char tPath[13] = "templates/";
   if (isRespond == 1) sprintf(tPath, "responders/");
@@ -315,15 +313,10 @@ FILE *findTemplate(char *fileName, char *tName, int isRespond) {
                          "./",
                          "/usr/local/hhl7/" };
 
-  sprintf(infoStr, "Attempting to find template: %s", tName);
-  writeLog(LOG_DEBUG, infoStr, 0);
-
   if (isDaemon == 1) {
     sprintf(fileName, "%s%s%s%s", tPaths[2], tPath, tName, ".json");
     fp = fopen(fileName, "r");
     if (fp != NULL) {
-      sprintf(infoStr, "Template: %s found, returning fp: %p for %s", tName, fp, fileName);
-      writeLog(LOG_DEBUG, infoStr, 1);
       return fp;
     }
 
@@ -336,25 +329,18 @@ FILE *findTemplate(char *fileName, char *tName, int isRespond) {
         sprintf(fileName, "%s%s%s%s", tPaths[p], tPath, tName, ".json");
       }
 
-      sprintf(infoStr, "Attempting to open file for reading: %s", fileName);
-      writeLog(LOG_DEBUG, infoStr, 0);
-
       // If we can open the file for reading, return the file pointer
       fp = fopen(fileName, "r");
       if (fp != NULL) {
-        sprintf(infoStr, "Template: %s found, returning fp: %p for %s", tName, fp, fileName);
-        writeLog(LOG_DEBUG, infoStr, 0);
         return fp;
       }
     }
   }
 
-printf("HH: %s\n", fileName);
-
   // Error if no template found
   if (fp == NULL) {
-    sprintf(infoStr, "Failed to find template: %s", tName);
-    handleError(LOG_ERR, infoStr, 1, 0, 1);
+    sprintf(errStr, "Failed to find template: %s", tName);
+    handleError(LOG_ERR, errStr, 1, 0, 1);
   }
 
   // We should never get here, but it's included to avoid compiler warnings

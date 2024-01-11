@@ -10,8 +10,6 @@ hhl7 is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY
 You should have received a copy of the GNU General Public License along with hhl7. If not, see <https://www.gnu.org/licenses/>. 
 */
 
-// TODO - check all files for printf errors instead of frpintf
-
 const char *mainPage = "<!DOCTYPE HTML>\n\
 <html>\n\
   <head>\n\
@@ -248,7 +246,6 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         font-family: \"Courier New\", Courier, monospace;\n\
         font-size: 16px;\n\
         padding: 10px 14px 10px 14px;\n\
-        /* TODO - scroll bar not showing scrolling - height? */\n\
         overflow-y: scroll;\n\
         outline: none;\n\
       }\n\
@@ -658,11 +655,13 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         pwd.removeEventListener(\"keyup\", logSubmitFunc);\n\
         cpw.removeEventListener(\"keyup\", logSubmitFunc);\n\
 \n\
-        /* TODO change min username & pw length to config file? */\n\
-        if (usr.value.length < 5 || pwd.value.length < 8) {\n\
+        if (usr.value.length < 5 || usr.value.length > 25 || \n\
+            pwd.value.length < 8 || pwd.value.length > 200) {\n\
+\n\
           sub.classList.replace(\"button\", \"buttonInactive\");\n\
           return false;\n\
         }\n\
+\n\
         if (reg == \"Login\") {\n\
           if (cpw.value.length < 8) {\n\
             sub.classList.replace(\"button\", \"buttonInactive\");\n\
@@ -959,18 +958,6 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         }\n\
       }\n\
 \n\
-      function startSendTimer(sTime, target) {\n\
-        setInterval(function () {\n\
-          var tNow = Date.now();\n\
-          var sTimer  = new Date(sTime - tNow);\n\
-          if (tNow < sTime) {\n\
-            target.innerText = sTimer.toISOString().slice(11, 19);\n\
-          } else {\n\
-            target.innerText = \"00:00:00\";\n\
-          }\n\
-        }, 1000);\n\
-      }\n\
-\n\
       function procQTimes() {\n\
         var tNow = Date.now();\n\
         var qTimes = document.querySelectorAll(\"#respQBody .rSendTime\");\n\
@@ -998,8 +985,6 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
 \n\
             var sTimer  = new Date(sDiff);\n\
             qTimesFmt[t].innerText = sTimer.toISOString().slice(11, 19);\n\
-            // TODO - remove startSendTimer if nt used\n\
-            //startSendTimer(sTime, qTimesFmt[t]);\n\
 \n\
           } else if (tNow < sTime) {\n\
             qTimesFmt[t].innerText = \"00:00:00\";\n\
@@ -1080,6 +1065,18 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
                   return false;\n\
 \n\
                } else {\n\
+                  errHandler(\"ERROR: Login failed, please try again\");\n\
+                  return false;\n\
+                }\n\
+              }\n\
+\n\
+            } else if (xhr.status === 400) {\n\
+              if (errHandler(xhr.responseText) == 0) {\n\
+                if (xhr.responseText == \"DP\") {\n\
+                  errHandler(\"ERROR: The backend received bad data from the client, please try again\");\n\
+                  return false;\n\
+\n\
+                } else {\n\
                   errHandler(\"ERROR: Login failed, please try again\");\n\
                   return false;\n\
                 }\n\
@@ -1353,7 +1350,6 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         var formData = new FormData();\n\
         formData.append(\"hl7MessageText\", HL7Text);\n\
         xhr.send(formData);\n\
-        // TODO: Add error checking for missing values here (or disable the button until form complete\n\
       }\n\
 \n\
       async function popTemplates(temptype) {\n\
@@ -1544,7 +1540,6 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         }\n\
       }\n\
 \n\
-      /* TODO - listen starts again after closing if no msgs sent */\n\
       function stopHL7Listener() {\n\
         if (isConnectionOpen) {\n\
           evtSource.close();\n\

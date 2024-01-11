@@ -123,6 +123,7 @@ int regNewUser(char *uid, char *passwd) {
   char saltPasswd[saltedL];
   char pwdHash[4* maxPassL];
   pwdHash[0] = '\0';
+  char errStr[68] = "";
 
   // Define passwd file location
   char pwFile[34];
@@ -177,22 +178,22 @@ int regNewUser(char *uid, char *passwd) {
     if (json_object_to_file_ext(pwFile, pwObj,
         JSON_C_TO_STRING_SPACED | JSON_C_TO_STRING_PRETTY) == -1) {
 
-      sprintf(infoStr, "Couldn't write new user (%s) to passwd file", uid);
-      handleError(LOG_ERR, infoStr, 1, 0, 0);
+      sprintf(errStr, "Couldn't write new user (%s) to passwd file", uid);
+      handleError(LOG_ERR, errStr, 1, 0, 0);
       PWLOCK = 0;
       json_object_put(pwObj);
       return 1;
     }
 
   } else {
-    sprintf(infoStr, "Tried to create already existing user (%s)", uid);
-    writeLog(LOG_WARNING, infoStr, 0);
+    sprintf(errStr, "Tried to create already existing user (%s)", uid);
+    writeLog(LOG_WARNING, errStr, 0);
 
   }
   PWLOCK = 0;
   json_object_put(pwObj);
-  sprintf(infoStr, "New user registered succesfully (%s)", uid);
-  writeLog(LOG_INFO, infoStr, 0);
+  sprintf(errStr, "New user registered succesfully (%s)", uid);
+  writeLog(LOG_INFO, errStr, 0);
   return 0;
 }
 
@@ -202,6 +203,7 @@ int regNewUser(char *uid, char *passwd) {
 int updatePasswdFile(char *uid, const char *key, const char *val, int iVal) {
   int uExists = 0, u = 0, uCount = 0;
   struct json_object *pwObj = NULL, *userArray = NULL, *userObj = NULL, *uidStr = NULL;
+  char errStr[125] = "";
 
   // Define passwd file location
   char pwFile[34];
@@ -215,8 +217,8 @@ int updatePasswdFile(char *uid, const char *key, const char *val, int iVal) {
   if (strcmp(key, "uid") == 0 || strcmp(key, "salt") == 0 || strcmp(key, "passwd") == 0 ||
       strcmp(key, "enabled") == 0 || strcmp(key, "admin") == 0) {
 
-    sprintf(infoStr, "Unexpected attempt to update user (%s) credentials, exiting", uid);
-    handleError(LOG_CRIT, infoStr, 1, 1, 0);
+    sprintf(errStr, "Unexpected attempt to update user (%s) credentials, exiting", uid);
+    handleError(LOG_CRIT, errStr, 1, 1, 0);
     return 1;
   }
 
@@ -271,8 +273,8 @@ int updatePasswdFile(char *uid, const char *key, const char *val, int iVal) {
     if (json_object_to_file_ext(pwFile, pwObj,
         JSON_C_TO_STRING_SPACED | JSON_C_TO_STRING_PRETTY) == -1) {
 
-      sprintf(infoStr, "Couldn't write password update (%s - %s) to passwd file", uid, key);
-      handleError(LOG_ERR, infoStr, 1, 0, 0);
+      sprintf(errStr, "Couldn't write password update (%s - %s) to passwd file", uid, key);
+      handleError(LOG_ERR, errStr, 1, 0, 0);
       PWLOCK = 0;
       json_object_put(pwObj);
       return 1;
@@ -298,6 +300,7 @@ int checkAuth(char *uid, const char *passwd) {
   size_t saltedL = 3 * maxPassL;
   char saltPasswd[saltedL];
   char pwdHash[4* maxPassL];
+  char errStr[63] = "";
 
   // Define passwd file location
   char pwFile[34];
@@ -356,8 +359,8 @@ int checkAuth(char *uid, const char *passwd) {
         if (strlen(json_object_get_string(saltStr)) < maxPassL ||
             strlen(json_object_get_string(pwdStr)) < maxPassL) {
 
-          sprintf(infoStr, "Invalid password in password file (%s)", uid);
-          handleError(LOG_WARNING, infoStr, 1, 0, 0);
+          sprintf(errStr, "Invalid password in password file (%s)", uid);
+          handleError(LOG_WARNING, errStr, 1, 0, 0);
           json_object_put(pwObj);
           return 1;
 
@@ -398,6 +401,7 @@ int updatePasswd(char *uid, const char *password) {
   char salt[maxPassL + 1];
   char saltPasswd[saltedL];
   char pwdHash[4* maxPassL];
+  char errStr[78] = "";
 
   // Define passwd file location
   char pwFile[34];
@@ -452,8 +456,8 @@ int updatePasswd(char *uid, const char *password) {
     if (json_object_to_file_ext(pwFile, pwObj,
         JSON_C_TO_STRING_SPACED | JSON_C_TO_STRING_PRETTY) == -1) {
 
-      sprintf(infoStr, "Failed to update password file with new password (%s)", uid);
-      handleError(LOG_ERR, infoStr, 1, 0, 0);
+      sprintf(errStr, "Failed to update password file with new password (%s)", uid);
+      handleError(LOG_ERR, errStr, 1, 0, 0);
       PWLOCK = 0;
       json_object_put(pwObj);
       return 1;

@@ -412,6 +412,7 @@ int parseJSONTemp(char *jsonMsg, char **hl7Msg, int *hl7MsgS, char **webForm,
   int argcount = 0, segCount = 0, s = 0, fieldCount = 0, f = 0, lastFid = 0;
   int msgCount = 0, subFCount = 0, sf = 0, retVal = 0;
   int incArray[10] = {-1};
+  char errStr[112] = "";
 
   rootObj = json_tokener_parse(jsonMsg);
   json_object_object_get_ex(rootObj, "argcount", &valObj);
@@ -423,8 +424,8 @@ int parseJSONTemp(char *jsonMsg, char **hl7Msg, int *hl7MsgS, char **webForm,
     return(1);
 
   } else if (isWeb == 0 && argc - argcount != 0) {
-    sprintf(infoStr, "The number of arguments passed on the commmand line (%d) does not match the json template (%d)", argc, argcount);
-    handleError(LOG_ERR, infoStr, 1, 0, 1);
+    sprintf(errStr, "The number of arguments passed on the commmand line (%d) does not match the json template (%d)", argc, argcount);
+    handleError(LOG_ERR, errStr, 1, 0, 1);
     json_object_put(rootObj);
     return(1);
 

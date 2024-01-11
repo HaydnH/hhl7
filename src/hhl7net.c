@@ -56,21 +56,6 @@ struct Response {
 static struct Response *responses;
 
 
-// Debug function to print auto response queue
-/*
-static void printResponses() {
-  struct Response *resp;
-
-  resp = responses;
-  while (resp != NULL) {
-    sprintf(infoStr, "RT: %ld", resp->sendTime);
-    writeLog(LOG_DEBUG, infoStr, 1);
-    resp = resp->next;
-  }
-}
-*/
-
-
 // Add a response struct to the queue
 static struct Response *queueResponse(struct Response *resp) {
   struct Response *this, *next;
@@ -240,9 +225,9 @@ int validPort(char *port) {
 
 // Connect to server on IP:Port
 int connectSvr(char *ip, char *port) {
-  int sockfd = -1;
+  int sockfd = -1, rv;
   struct addrinfo hints, *servinfo, *p;
-  int rv;
+  char errStr[299] = "";
   // TODO - this may need malloc or resize due to variables
 
   memset(&hints, 0, sizeof hints);
@@ -250,8 +235,7 @@ int connectSvr(char *ip, char *port) {
   hints.ai_socktype = SOCK_STREAM;
 
   if ((rv = getaddrinfo(ip, port, &hints, &servinfo)) != 0) {
-    sprintf(infoStr, "Can't obtain address info: %s", gai_strerror(rv));
-    handleError(LOG_ERR, infoStr, -1, 0, 1);
+    handleError(LOG_ERR, "Can't obtain address info when connecting to server", -1, 0, 1);
     return(-1);
   }
 
@@ -265,14 +249,14 @@ int connectSvr(char *ip, char *port) {
       close(sockfd);
       continue;
     }
-    sprintf(infoStr, "Connected to server %s on port %s", ip, port);
-    writeLog(LOG_INFO, infoStr, 1);
+    sprintf(errStr, "Connected to server %s on port %s", ip, port);
+    writeLog(LOG_INFO, errStr, 1);
     break;
   }
 
   if (p == NULL) {
-    sprintf(infoStr, "Failed to connect to server %s on port %s", ip, port);
-    handleError(LOG_ERR, infoStr, -1, 0, 1);
+    sprintf(errStr, "Failed to connect to server %s on port %s", ip, port);
+    handleError(LOG_ERR, errStr, -1, 0, 1);
     return(-1);
   }
 
@@ -283,7 +267,7 @@ int connectSvr(char *ip, char *port) {
 
 // Listen for ACK from server
 int listenACK(int sockfd, char *res) {
-  char ackBuf[256], app[12], code[12], aCode[3];
+  char ackBuf[256] = "", app[12] = "", code[7] = "", aCode[3] = "", errStr[46] = "";
   int ackErr = 0, recvL = 0;
 
   // TODO Add timeout to config file
@@ -336,19 +320,15 @@ int listenACK(int sockfd, char *res) {
       return -1;
 
     } else {
-      sprintf(infoStr, "Server ACK response: %s %s (%s)", app, code, aCode);
-      writeLog(LOG_INFO, infoStr, 1);
+      sprintf(errStr, "Server ACK response: %s %s (%s)", app, code, aCode);
+      writeLog(LOG_INFO, errStr, 1);
 
       if (res) {
-        //strncpy(res, aCode, 2);
         aCode[3] = '\0';
         strcpy(res, aCode);
         res[3] = '\0';
       }
     }
-    // TODO - add option to print ACK response
-    //printf("ACK:\n%s\n\n", ackBuf);
-
   }
   return recvL;
 }
@@ -382,6 +362,7 @@ int sendPacket(int sockfd, char *hl7msg, char *resStr) {
   char tokMsg[strlen(hl7msg) + 5];
   char *curMsg = hl7msg, *nextMsg;
   int msgCount = 0;
+  char errStr[43] = "";
  
   while (curMsg != NULL) {
     msgCount++;
@@ -396,8 +377,8 @@ int sendPacket(int sockfd, char *hl7msg, char *resStr) {
     }
 
     // Send the data file to the server
-    sprintf(infoStr, "Sending HL7 message %d to server", msgCount);
-    writeLog(LOG_INFO, infoStr, 1);
+    sprintf(errStr, "Sending HL7 message %d to server", msgCount);
+    writeLog(LOG_INFO, errStr, 1);
 
     // Add MLLP wrappre to this message
     wrapMLLP(tokMsg);
@@ -423,18 +404,19 @@ void sendTemp(char *sIP, char *sPort, char *tName, int noSend, int fShowTemplate
 
   FILE *fp;
   int sockfd, retVal = 0;
-  // TODO - error check file name length?
+  // TODO - error check file name length? tName is 256... incl path 256 too small?
   char fileName[256] = "";
+  char errStr[289] = "";
 
-  sprintf(infoStr, "Attempting to send template: %s", tName);
-  writeLog(LOG_DEBUG, infoStr, 0);
+  sprintf(errStr, "Attempting to send template: %s", tName);
+  writeLog(LOG_DEBUG, errStr, 0);
 
   // Find the template file
   fp = findTemplate(fileName, tName, 0);
   int fSize = getFileSize(fileName);
 
-  sprintf(infoStr, "Using template file: %s", fileName);
-  writeLog(LOG_INFO, infoStr, 1);
+  sprintf(errStr, "Using template file: %s", fileName);
+  writeLog(LOG_INFO, errStr, 1);
 
   char *jsonMsg = malloc(fSize + 1);
   int hl7MsgS = 1024;
@@ -450,8 +432,8 @@ void sendTemp(char *sIP, char *sPort, char *tName, int noSend, int fShowTemplate
                          argc - optind, argv + optind, 0);
 
   if (retVal > 0) {
-    sprintf(infoStr, "Failed to parse JSON template (%s)", tName);
-    handleError(LOG_ERR, infoStr, 1, 0, 1);
+    sprintf(errStr, "Failed to parse JSON template (%s)", tName);
+    handleError(LOG_ERR, errStr, 1, 0, 1);
 
   } else {
     writeLog(LOG_DEBUG, "JSON Template parsed OK", 0);
@@ -479,7 +461,7 @@ void sendTemp(char *sIP, char *sPort, char *tName, int noSend, int fShowTemplate
 // TODO - rewrite to use json template? Performance vs portability (e.g: FIX)
 int sendAck(int sessfd, char *hl7msg) {
   // TODO - control id seems long at 201 characters, check hl7 spec for max length
-  char dt[26] = "", cid[201] = "";
+  char dt[26] = "", cid[201] = "", errStr[251] = "";
   char ackBuf[1024];
   int writeL = 0;
 
@@ -497,8 +479,8 @@ int sendAck(int sessfd, char *hl7msg) {
 
   } else {
     close(sessfd);
-    sprintf(infoStr, "Message with control ID %s received OK and ACK sent", cid);
-    writeLog(LOG_INFO, infoStr, 1);
+    sprintf(errStr, "Message with control ID %s received OK and ACK sent", cid);
+    writeLog(LOG_INFO, errStr, 1);
   }
 
   return writeL;
@@ -513,7 +495,7 @@ static struct Response *checkResponse(char *msg, char *sIP, char *sPort, char *t
   struct json_object *minObj = NULL, *maxObj = NULL, *sendT = NULL, *respN = NULL;
   int m = 0, mCount = 0, fldInt = 0, exclInt = 0, minT = 0, maxT = 0;
   // TODO - check values, malloc?
-  char resFile[290], fldStr[256], resStr[3];
+  char resFile[290], fldStr[256], resStr[3], errStr[542] = "";
 
   // Define template location
   if (isDaemon == 1) {
@@ -537,7 +519,7 @@ static struct Response *checkResponse(char *msg, char *sIP, char *sPort, char *t
 
   // Check that each matches item matches, return responses if no match
   for (m = 0; m < mCount; m++) {
-    // TODO - error handling
+    // TODO - error handling + implement size checks for values from json
     matchObj = json_object_array_get_idx(jArray, m);
     segStr = json_object_object_get(matchObj, "segment"); 
     json_object_object_get_ex(matchObj, "field", &fldObj);
@@ -552,25 +534,25 @@ static struct Response *checkResponse(char *msg, char *sIP, char *sPort, char *t
 
     // Check if we've mached this match clause, if not return
     if (strcmp(json_object_get_string(valStr), fldStr) == 0 && exclInt == 0) {
-      sprintf(infoStr, "Comparing %s against %s... matched",
+      sprintf(errStr, "Comparing %s against %s... matched",
               json_object_get_string(valStr), fldStr);
-      writeLog(LOG_INFO, infoStr, 1);
+      writeLog(LOG_INFO, errStr, 1);
 
     } else if (strcmp(json_object_get_string(valStr), fldStr) != 0 && exclInt == 1) {
-      sprintf(infoStr, "Comparing %s against %s... exclusion, match",
+      sprintf(errStr, "Comparing %s against %s... exclusion, match",
               json_object_get_string(valStr), fldStr);
-      writeLog(LOG_INFO, infoStr, 1);
+      writeLog(LOG_INFO, errStr, 1);
 
     } else if (strcmp(json_object_get_string(valStr), fldStr) == 0 && exclInt == 1) {
-      sprintf(infoStr, "Comparing %s against %s... exclusion, no match",
+      sprintf(errStr, "Comparing %s against %s... exclusion, no match",
               json_object_get_string(valStr), fldStr);
-      writeLog(LOG_INFO, infoStr, 1);
+      writeLog(LOG_INFO, errStr, 1);
       return responses;
 
     } else {
-      sprintf(infoStr, "Comparing %s against %s... no match",
+      sprintf(errStr, "Comparing %s against %s... no match",
               json_object_get_string(valStr), fldStr);
-      writeLog(LOG_INFO, infoStr, 1);
+      writeLog(LOG_INFO, errStr, 1);
       return responses;
     }
   }
@@ -628,8 +610,8 @@ static struct Response *checkResponse(char *msg, char *sIP, char *sPort, char *t
 
   // Add the response to the queue
   respHead = queueResponse(resp);
-  sprintf(infoStr, "Response queued, delivery in %ld secs", resp->sendTime - time(NULL));
-  writeLog(LOG_INFO, infoStr, 1);
+  sprintf(errStr, "Response queued, delivery in %ld secs", resp->sendTime - time(NULL));
+  writeLog(LOG_INFO, errStr, 1);
 
   json_object_put(resObj);
   return respHead;
@@ -647,6 +629,7 @@ static struct Response *handleMsg(int sessfd, int fd, char *sIP, char *sPort,
   char rcvBuf[readSize+1];
   char *msgBuf = malloc(maxSize);
   char writeSize[11];
+  char errStr[306] = "";
   msgBuf[0] = '\0';
 
   while (rcvSize > 0) {
@@ -681,9 +664,9 @@ static struct Response *handleMsg(int sessfd, int fd, char *sIP, char *sPort,
           // If we're responding, parse each respond template to see if msg matches
           if (argc > 0) {
             for (int i = optind; i < argc; i++) {
-              sprintf(infoStr, "Checking if incomming message matches responder: %s",
+              sprintf(errStr, "Checking if incomming message matches responder: %s",
                       argv[i]);
-              writeLog(LOG_INFO, infoStr, 1);
+              writeLog(LOG_INFO, errStr, 1);
               respHead = checkResponse(msgBuf, sIP, sPort, argv[i]);
               responses = respHead;
             }
@@ -741,8 +724,7 @@ static int createSession(char *ip, const char *port) {
   hints.ai_flags=AI_PASSIVE|AI_ADDRCONFIG;
 
   if ((rv = getaddrinfo(ip, port, &hints, &res)) != 0) {
-    sprintf(infoStr, "Can't obtain address info: %s", gai_strerror(rv));
-    handleError(LOG_ERR, infoStr, 1, 0, 1);
+    handleError(LOG_ERR, "Can't obtain address info when creating session", 1, 0, 1);
     return -1;
   }
 
@@ -814,6 +796,7 @@ int startMsgListener(char *lIP, const char *lPort, char *sIP, char *sPort,
   // TODO - malloc instead of limited resp templates
   char respTemps[20][256];
   char *respTempsPtrs[20];
+  char errStr[58] = "";
   // TODO - move timeout/polling interval nextResponse to config file
   int svrfd = 0, sessfd = 0, fd = 0, rfd = 0, nextResp = -1, resU = 0, respUpdated = 0;
 
@@ -830,9 +813,6 @@ int startMsgListener(char *lIP, const char *lPort, char *sIP, char *sPort,
     sprintf(hhl7rfifo, "%s%d", "/tmp/hhl7rfifo.", getpid());
     mkfifo(hhl7rfifo, 0666);
     rfd = open(hhl7rfifo, O_RDONLY | O_NONBLOCK);
-
-  sprintf(infoStr, "RDFD1: %d - %s", rfd, hhl7rfifo);
-  writeLog(LOG_CRIT, infoStr, 0);
 
   }
 
@@ -853,8 +833,7 @@ int startMsgListener(char *lIP, const char *lPort, char *sIP, char *sPort,
     int res = select(svrfd + 1, &rs, NULL, NULL, tvp);
     if (res == -1) {
       if (errno != EINTR) {
-        sprintf(infoStr, "Aborting due to error during select: %s", strerror(errno));
-        handleError(LOG_ERR, infoStr, 1, 1, 1);
+        handleError(LOG_ERR, "startMsgListener() Failed during select() routine", 1, 1, 1);
         break;
       }
 
@@ -864,8 +843,8 @@ int startMsgListener(char *lIP, const char *lPort, char *sIP, char *sPort,
         if (nextResp == -1) {
           writeLog(LOG_INFO, "Response queue empty, awaiting next received message", 1);
         } else {
-          sprintf(infoStr, "Responses processed, next response in %d seconds", nextResp);
-          writeLog(LOG_INFO, infoStr, 1);
+          sprintf(errStr, "Responses processed, next response in %d seconds", nextResp);
+          writeLog(LOG_INFO, errStr, 1);
         }
       }
 

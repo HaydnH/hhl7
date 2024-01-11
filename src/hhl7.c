@@ -49,6 +49,7 @@ int main(int argc, char *argv[]) {
   char lPort[6] = "22022";
   char tName[256] = "";
   char fileName[256] = "file.txt";
+  char errStr[28] = "";
 
   // Seed RNG
   struct timespec ts;
@@ -147,12 +148,12 @@ int main(int argc, char *argv[]) {
         break;
 
       case ':':
-        sprintf(infoStr, "Option -%c requires a value", optopt);
-        handleError(3, infoStr, 1, 1, 1);
+        sprintf(errStr, "Option -%c requires a value", optopt);
+        handleError(3, errStr, 1, 1, 1);
 
       case '?':
-        sprintf(infoStr, "Unknown option: -%c", optopt);
-        handleError(3, infoStr, 1, 1, 1);
+        sprintf(errStr, "Unknown option: -%c", optopt);
+        handleError(3, errStr, 1, 1, 1);
     } 
   } 
 
