@@ -228,7 +228,6 @@ int connectSvr(char *ip, char *port) {
   int sockfd = -1, rv;
   struct addrinfo hints, *servinfo, *p;
   char errStr[299] = "";
-  // TODO - this may need malloc or resize due to variables
 
   memset(&hints, 0, sizeof hints);
   hints.ai_family = AF_INET;
@@ -267,7 +266,7 @@ int connectSvr(char *ip, char *port) {
 
 // Listen for ACK from server
 int listenACK(int sockfd, char *res) {
-  char ackBuf[256] = "", app[12] = "", code[7] = "", aCode[3] = "", errStr[46] = "";
+  char ackBuf[512] = "", app[12] = "", code[7] = "", aCode[3] = "", errStr[46] = "";
   int ackErr = 0, recvL = 0;
 
   // TODO Add timeout to config file
@@ -281,13 +280,12 @@ int listenACK(int sockfd, char *res) {
   writeLog(LOG_INFO, "Listening for ACK...", 1);
 
   // Receive the response from the server and strip MLLP wrapper
-  // TODO - change 256: malloc a buffer, read 256, check if complete ack, expand if needed
-  if ((recvL = recv(sockfd, ackBuf, 256, 0)) == -1) {
+  if ((recvL = recv(sockfd, ackBuf, 512, 0)) == -1) {
     handleError(LOG_ERR, "Timeout listening for ACK response", 1, 0, 1);
     return -1;
 
   } else {
-    close(sockfd);
+    //close(sockfd);
     stripMLLP(ackBuf);
     ackBuf[strlen(ackBuf) - 1] = '\0';
 
@@ -352,18 +350,18 @@ void sendFile(FILE *fp, long int fileSize, int sockfd) {
 
   // Send the data file to the server
   unix2hl7(fileData);
-  sendPacket(sockfd, fileData, resStr);
+  sendPacket(sockfd, fileData, resStr, 0);
 }
 
 
 // Send a string packet over socket
-int sendPacket(int sockfd, char *hl7msg, char *resStr) {
+int sendPacket(int sockfd, char *hl7msg, char *resStr, int fShowTemplate) {
   const char msgDelim[6] = "MSH|";
   char tokMsg[strlen(hl7msg) + 5];
   char *curMsg = hl7msg, *nextMsg;
-  int msgCount = 0;
+  int msgCount = 0, retVal = 0;
   char errStr[43] = "";
- 
+
   while (curMsg != NULL) {
     msgCount++;
     nextMsg = strstr(curMsg + 1, msgDelim);
@@ -380,6 +378,11 @@ int sendPacket(int sockfd, char *hl7msg, char *resStr) {
     sprintf(errStr, "Sending HL7 message %d to server", msgCount);
     writeLog(LOG_INFO, errStr, 1);
 
+    // Print the HL7 message if requested
+    if (fShowTemplate == 1) {
+       hl72unix(tokMsg, 1);
+    }
+
     // Add MLLP wrappre to this message
     wrapMLLP(tokMsg);
 
@@ -390,11 +393,12 @@ int sendPacket(int sockfd, char *hl7msg, char *resStr) {
       return -1;
 
     } else {
-      return listenACK(sockfd, resStr);
+      retVal = listenACK(sockfd, resStr);
 
     }
   }
-  return 0;
+  close(sockfd);
+  return(retVal);
 }
 
 
@@ -404,7 +408,6 @@ void sendTemp(char *sIP, char *sPort, char *tName, int noSend, int fShowTemplate
 
   FILE *fp;
   int sockfd, retVal = 0;
-  // TODO - error check file name length? tName is 256... incl path 256 too small?
   char fileName[256] = "";
   char errStr[289] = "";
 
@@ -441,12 +444,11 @@ void sendTemp(char *sIP, char *sPort, char *tName, int noSend, int fShowTemplate
     if (noSend == 0) {
       // Connect to server, send & listen for ack
       sockfd = connectSvr(sIP, sPort);
-      sendPacket(sockfd, hl7Msg, resStr);
-    }
+      sendPacket(sockfd, hl7Msg, resStr, fShowTemplate);
 
-    // Print the HL7 message if requested
-    if (fShowTemplate == 1) {
+    } else if (fShowTemplate == 1) {
        hl72unix(hl7Msg, 1);
+
     }
   }
 
@@ -458,9 +460,7 @@ void sendTemp(char *sIP, char *sPort, char *tName, int noSend, int fShowTemplate
 
 
 // Send and ACK after receiving a message
-// TODO - rewrite to use json template? Performance vs portability (e.g: FIX)
 int sendAck(int sessfd, char *hl7msg) {
-  // TODO - control id seems long at 201 characters, check hl7 spec for max length
   char dt[26] = "", cid[201] = "", errStr[251] = "";
   char ackBuf[1024];
   int writeL = 0;
@@ -478,7 +478,6 @@ int sendAck(int sessfd, char *hl7msg) {
     return -1;
 
   } else {
-    close(sessfd);
     sprintf(errStr, "Message with control ID %s received OK and ACK sent", cid);
     writeLog(LOG_INFO, errStr, 1);
   }
@@ -494,8 +493,7 @@ static struct Response *checkResponse(char *msg, char *sIP, char *sPort, char *t
   struct json_object *segStr = NULL, *fldObj = NULL, *valStr = NULL, *exclObj = NULL;
   struct json_object *minObj = NULL, *maxObj = NULL, *sendT = NULL, *respN = NULL;
   int m = 0, mCount = 0, fldInt = 0, exclInt = 0, minT = 0, maxT = 0;
-  // TODO - check values, malloc?
-  char resFile[290], fldStr[256], resStr[3], errStr[542] = "";
+  char resFile[290], fldStr[256], resStr[3] = "", errStr[542] = "";
 
   // Define template location
   if (isDaemon == 1) {
@@ -849,7 +847,6 @@ int startMsgListener(char *lIP, const char *lPort, char *sIP, char *sPort,
       }
 
     } else {
-      // TODO - is webRunning Global? Need to move to sessions? Maybe ok?
       if (webRunning == 1) {
         resU = readRespTemps(rfd, respTemps, respTempsPtrs);
         if (resU > 0) respUpdated = resU;

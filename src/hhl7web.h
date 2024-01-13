@@ -12,3 +12,4 @@ You should have received a copy of the GNU General Public License along with hhl
 
 // Function prototypes
 int listenWeb(int daemonSock);
+void cleanAllSessions();

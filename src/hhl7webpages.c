@@ -824,6 +824,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
       }\n\
 \n\
       function showTempForm() {\n\
+        clrRes();\n\
         var sel = document.getElementById(\"tempSelect\");\n\
         var tForm = document.getElementById(\"tempForm\");\n\
         if (sel.value == \"None\") {\n\

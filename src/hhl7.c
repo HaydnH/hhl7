@@ -18,6 +18,7 @@ You should have received a copy of the GNU General Public License along with hhl
 #include <getopt.h>
 #include <systemd/sd-daemon.h>
 #include <syslog.h>
+#include <signal.h>
 #include "hhl7extern.h"
 #include "hhl7utils.h"
 #include "hhl7json.h"
@@ -63,6 +64,14 @@ static void showHelp(int exCode) {
 }
 
 
+// Clean shutdown
+static void cleanShutdown() {
+  writeLog(LOG_INFO, "Received signal, politely shutting down", 1);
+  if (webRunning == 1) cleanAllSessions();
+  exit(0);
+}
+
+
 // Main
 int main(int argc, char *argv[]) {
   // Arguments are required
@@ -82,6 +91,13 @@ int main(int argc, char *argv[]) {
   char tName[51] = "";
   char fileName[256] = "file.txt";
   char errStr[28] = "";
+
+  // Catch signals for clean shutdown
+  struct sigaction sa;
+  sa.sa_handler = cleanShutdown;
+  sigaction(SIGINT, &sa, NULL);
+  sigaction(SIGKILL, &sa, NULL);
+  sigaction(SIGTERM, &sa, NULL);
 
   // Seed RNG
   struct timespec ts;
@@ -257,19 +273,17 @@ int main(int argc, char *argv[]) {
 
 
   if (fWeb == 1) {
-    writeLog(6, "Local web process starting...", 1);
+    writeLog(LOG_INFO, "Local web process starting...", 1);
     listenWeb(daemonSock);
   }
 
   if (isDaemon == 1) {
-    writeLog(6, "Daemon starting...", 0);
+    writeLog(LOG_INFO, "Daemon starting...", 0);
     listenWeb(daemonSock);
   }
 
   if (fWeb == 1) {
-    writeLog(6, "Local web process starting...", 1);
+    writeLog(LOG_INFO, "Local web process starting...", 1);
     listenWeb(daemonSock);
   }
-
-// TODO - Make sure we're closing fp etc etc - not much here!
 }

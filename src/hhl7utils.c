@@ -45,7 +45,6 @@ void closeLog() {
 }
 
 
-// TODO - rework this? Useful to auto write to syslog or stsdout depending on -D or -w?
 // Write to the logs, either syslog or stderr if not running as daemon
 // See sys/syslog.h for int <-> log level values
 void writeLog(int logLvl, char *logStr, int stdErr) {
@@ -141,7 +140,6 @@ void getRand(int lower, int upper, int dp, char *res, int *resInt) {
 
 
 // Get the current time on yyymmddhhmmss.ms+tz format
-// TODO - add support for millisenconds and timezone??
 void timeNow(char *dt, int aMins) {
   time_t t = time(NULL) + (aMins * 60);
   struct tm *tm = localtime(&t);
@@ -170,7 +168,7 @@ void stripMLLP(char *hl7msg) {
 
 
 // Add MLLP wrapper to packet
-// TODO - is hl7msg a fixed length? May need to realloc it to grow by 3 
+// NOTE: No need to realloc hl7msg, the +4b is handled in dblBuf()'s +10b safety
 void wrapMLLP(char *hl7msg) {
   char tmpBuf[strlen(hl7msg) + 4];
 
@@ -181,19 +179,14 @@ void wrapMLLP(char *hl7msg) {
 }
 
 
-// TODO - let rBuf expand if field size > 255
+//
 int getHL7Field(char *hl7msg, char *seg, int field, char *res) {
   int msgLen = strlen(hl7msg), segLen = strlen(seg);
   int m = 0, s = 0, f = 0, fc = 0, sFound = 0, fFound = 0;
-  char sBuf[segLen + 1];
+  char sBuf[segLen + 1], errStr[48] = "";
  
   for (m = 0; m < msgLen; m++) {
     if (hl7msg[m] == '\r' && hl7msg[m-1] != '\\') {
-      // TODO - This always prints the error... need to check error handling
-      //if (sFound == 1) {
-      //  fprintf(stderr, "ERROR: Failed to find field %d in segment %s\n", field, seg);
-        //exit(1); 
-      //}
       s = 0;
       fc = 0;
 
@@ -218,7 +211,6 @@ int getHL7Field(char *hl7msg, char *seg, int field, char *res) {
       } else if (fFound == 1) {
         res[f] = '\0';
         return 0;
-        //break;
 
       }
     } else if (fFound == 1) {
@@ -227,6 +219,9 @@ int getHL7Field(char *hl7msg, char *seg, int field, char *res) {
 
     }
   }
+
+  sprintf(errStr, "Failed to find field %d in segment %s", field, seg);
+  handleError(LOG_ERR, errStr, 1, 0, 1);
   return 1;
 }
 
@@ -285,8 +280,8 @@ void unix2hl7(char *msg) {
 
 
 // Change a hl7 message to web, \r -> <br />
+// NOTE: sendHL72Web() handles additional memory allocation for the added <br />'s
 void hl72web(char *msg) {
-  // TODO need to realloc msg AND res once it's malloc'd 
   char res[1224] = "";
   char *tokState;
   char *token = strtok_r(msg, "\r", &tokState);
@@ -300,7 +295,7 @@ void hl72web(char *msg) {
   strcpy(msg, res);
 }
 
-// TODO - could use some tidying, multiple strcpy to sprintf(.., %s%s..) etc
+
 // Find fullpath of a json template file
 FILE *findTemplate(char *fileName, char *tName, int isRespond) {
   FILE *fp;
@@ -412,15 +407,16 @@ char *dblBuf(char *buf, int *bufS, int reqS) {
   char *tmpPtr;
   int oldSize = *bufS;
 
-  // While the buffer size is less than the required size, double size
+  // While the buffer size is less than the required size, double size + 10b safety
   while (*bufS < reqS) {
     *bufS = *bufS * 2;
   }
+  *bufS = *bufS + 10;
 
   // realloc memory to the new size
   tmpPtr = realloc(buf, *bufS);
   if (tmpPtr == NULL) {
-    // TODO - add error message on memor allocation failure
+    handleError(LOG_ERR, "dblBuf() failed to allocate memory - server OOM??", 1, 0, 1);
     free(buf);
     *bufS = oldSize;
 

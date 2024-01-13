@@ -36,7 +36,7 @@ You should have received a copy of the GNU General Public License along with hhl
 #include "hhl7json.h"
 #include <errno.h>
 
-// TODO - make these variable
+// TODO - Add dev port to config file
 #define PORT            5377
 #define REALM           "\"Maintenance\""
 #define COOKIE_NAME      "hhl7Session"
@@ -46,7 +46,8 @@ You should have received a copy of the GNU General Public License along with hhl
 #define MAXANSWERSIZE   50 
 #define POSTBUFFERSIZE  65536
 
-// Global variables TODO - review these to see if we can not use globals
+
+// Global variables
 int webRunning = 0;
 
 
@@ -263,7 +264,6 @@ static enum MHD_Result getImage(struct Session *session,
   if (fp == NULL) {
     fclose(fp);
 
-    // TODO... need to pass this to error handler, check for all 501 errors
     response = MHD_create_response_from_buffer(strlen (errorstr), 
                                                (void *) errorstr,
                                                MHD_RESPMEM_PERSISTENT);
@@ -408,7 +408,7 @@ static enum MHD_Result getSettings(struct Session *session,
     handleError(LOG_ERR, errStr, 1, 0, 1);
   }
 
-  // TODO - using a lot of for i in userArrays throughout code, hash table?
+  // Loop through users and get their settings
   uCount = json_object_array_length(userArray);
   for (u = 0; u < uCount; u++) {
     userObj = json_object_array_get_idx(userArray, u);
@@ -473,11 +473,10 @@ static enum MHD_Result getTemplateList(struct Session *session,
   char tPath[29] = "/usr/local/hhl7/responders/";
   char fExt[6] = "";
   const char *nOpt = "<option value=\"None\">None</option>\n";
-  char fName[128], tName[128], fullName[128+strlen(tPath)], *ext; //, *tempOpts;
+  char fName[128], tName[128], fullName[128+strlen(tPath)], *ext;
   char *newPtr;
   char errStr[300] = "";
 
-  // TODO - WORKING - check malloc here
   char *tempOpts = malloc(36);
   if (tempOpts == NULL) {
     sprintf(errStr, "[S: %03d] Cannot cannot allocate memory for template list",
@@ -503,13 +502,11 @@ static enum MHD_Result getTemplateList(struct Session *session,
       ext = strrchr(file->d_name, '.');
       if (strcmp(ext, ".json") == 0) {
         // Create a template name and full path to file from filename
-        // TODO - long template names (>128) will break - OK? At least error handle
         memcpy(fName, file->d_name, strlen(file->d_name) - strlen(ext));
         fName[strlen(file->d_name) - strlen(ext)] = '\0';
         strcpy(fullName, tPath);
         strcat(fullName, file->d_name);
 
-        // TODO - change to use json library get json from file
         // Read the template and check if it's hidden:
         int fSize = getFileSize(fullName);
         char *jsonMsg = malloc(fSize + 1);
@@ -584,7 +581,6 @@ static enum MHD_Result getTempForm(struct Session *session,
   char fileName[strlen(tPath) + strlen(url) + 1];
   sprintf(fileName, "%s%s", tPath, url);
 
-  // TODO - use json from file function
   fp = openFile(fileName, "r");
   int fSize = getFileSize(fileName); 
   char *jsonMsg = malloc(fSize + 1);
@@ -605,8 +601,17 @@ static enum MHD_Result getTempForm(struct Session *session,
     tmpBuf[strlen(tmpBuf)] = '\0';
 
     // Construct the JSON reply
-    // TODO add newPtr in case of memory allocation failure - error handle OOM
     jsonReply = realloc(jsonReply, strlen(webForm) + strlen(webHL7) + 53);
+    if (jsonReply == NULL) {
+      handleError(LOG_ERR, "Failed to allocate memory when creating temp form", 1, 0, 1);
+      fclose(fp);
+      free(webForm);
+      free(webHL7);
+      free(jsonMsg);
+      free(jsonReply);
+      return(MHD_NO);
+    }
+
     sprintf(jsonReply, "%s%s%s%s%s", "{ \"form\":\"", webForm,
                        "\",\n\"hl7\":\"", tmpBuf, "\" }");
 
@@ -668,10 +673,9 @@ static enum MHD_Result sendHL72Web(struct Session *session,
 
       if ((pLen = read(fd, rBuf, readSize)) > 0) {
         rBuf[readSize] = '\0';
-        hl72web(rBuf);
 
-        if (strlen(fBuf) + strlen(rBuf) + 50 > fBufS) {
-          fBufS = strlen(fBuf) + strlen(rBuf) + 50;
+        if (strlen(fBuf) + (2 * strlen(rBuf)) + 50 > fBufS) {
+          fBufS = strlen(fBuf) + (2 * strlen(rBuf)) + 50;
           char *fBufNew = realloc(fBuf, fBufS);
           if (fBufNew == NULL) {
             sprintf(errStr, "[S: %03d] Can't realloc memory sendHL72Web, fBuf",
@@ -685,6 +689,7 @@ static enum MHD_Result sendHL72Web(struct Session *session,
         }
 
         strcat(fBuf, rBuf);
+        hl72web(fBuf);
         strcat(fBuf, "<br />");
         p++;
       }
@@ -725,8 +730,6 @@ static enum MHD_Result sendHL72Web(struct Session *session,
 }
 
 
-// TODO - clean old fifos (when process exits we don't clean them)
-
 // Remove the named pipe and kill the listening child process if required
 static void cleanSession(struct Session *session) {
   // Remove the listeners named pipe if it exists
@@ -748,6 +751,21 @@ static void cleanSession(struct Session *session) {
   if (session->lpid > 0) {
     kill(session->lpid, SIGTERM);
     session->lpid = 0;
+  }
+}
+
+
+// Clean all web sessions
+void cleanAllSessions() {
+  struct Session *pos;
+  struct Session *next;
+
+  pos = sessions;
+  while (pos != NULL) {
+    next = pos->next;
+    cleanSession(pos);
+    pos = next;
+
   }
 }
 
@@ -824,7 +842,6 @@ static enum MHD_Result stopListenWeb(struct Session *session,
   cleanSession(session);
   session->isListening = 0;
 
-  // TODO We should probably check the listener actually stopped and retry a few times
   response = MHD_create_response_from_buffer(2, "OK", MHD_RESPMEM_PERSISTENT);
 
   if (!response) return MHD_NO;
@@ -896,24 +913,28 @@ static void sendRespList(struct Session *session, struct json_object *rootObj) {
   sprintf(writeSize, "%d", (int) strlen(tempStr));
 
   if (write(session->respFD, writeSize, 11) == -1) {
-    handleError(LOG_ERR, "ERROR: Failed to write to named pipe", 1, 0, 1);
+    handleError(LOG_ERR, "Failed to write to named pipe", 1, 0, 0);
   }
 
   if (write(session->respFD, tempStr, strlen(tempStr)) == -1) {
-    handleError(LOG_ERR, "ERROR: Failed to write to named pipe", 1, 0, 1);
+    handleError(LOG_ERR, "Failed to write to named pipe", 1, 0, 0);
   }
 }
 
 
 // Start the message responder 
-static void startResponder(struct Session *session, struct MHD_Connection *connection,
+static int startResponder(struct Session *session, struct MHD_Connection *connection,
                            struct json_object *rootObj) {
 
   struct json_object *dataArray = NULL, *dataObj = NULL;
   int dataInt = 0, curInt = 0, i = 0, maxL = 0;
 
-  // TODO - IMPORTANT - error check! data can come from external and may seg fault
   json_object_object_get_ex(rootObj, "templates", &dataArray);
+  if (dataArray == NULL) {
+    handleError(LOG_ERR, "Responder list from web post missing templates object", 1, 0, 0);
+    return(1);
+  }
+
   dataInt = json_object_array_length(dataArray);
 
   // Find the longest template name
@@ -933,6 +954,7 @@ static void startResponder(struct Session *session, struct MHD_Connection *conne
   }
 
   startListenWeb(session, connection, "/respond", dataInt, tempPtrs);
+  return(0);
 }
 
 
@@ -964,7 +986,6 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
   }
 
   if ((size > 0) && (size <= MAXNAMESIZE)) {
-    // TODO - if we don't add logging here, change login to avoid pointless else
     // Security check, only these post items are allowed without already being authed
     if (con_info->session->aStatus < 1) {
       if (strcmp(key, "pcaction") == 0 || strcmp(key, "uname") == 0 ||
@@ -983,8 +1004,8 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
       json_object_object_get_ex(rootObj, "postFunc", &postObj);
 
       if (json_object_get_type(postObj) != json_type_string) {
-        // TODO - error handle
-        writeLog(LOG_ERR, "POST received a non-string value", 0);
+        writeLog(LOG_ERR, "POST received a non-string value for postFunc", 0);
+        return(MHD_NO);
 
       } else {
         if (strcmp(json_object_get_string(postObj), "procRespond") == 0) {
@@ -1005,11 +1026,9 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
       strcpy(newData, data);
 
       sockfd = connectSvr(con_info->session->sIP, con_info->session->sPort);
-      // TODO - Sock number increases with each message? free? 
-      //printf("Debug SOCK: %d\n", sockfd);
  
       if (sockfd >= 0) {
-        sendPacket(sockfd, newData, resStr);
+        sendPacket(sockfd, newData, resStr, 0);
         sprintf(errStr, "[S: %03d][%s] Sent %ld byte packet to socket: %d",
                         con_info->session->shortID, resStr, strlen(newData), sockfd);
         writeLog(LOG_INFO, errStr, 0);
@@ -1028,14 +1047,12 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
       }  
 
     } else if (strcmp(key, "pcaction") == 0 ) {
-      // TODO - sanitise username and password
       con_info->session->pcaction = atoi(data);
       // Temporarily list the answer code as DP (partial data) until we receive passwd
       snprintf(answerstring, 3, "%s", "DP");
 
     } else if (strcmp(key, "uname") == 0 ) {
-      // TODO sanitise username and password
-      if (strlen(data) > 4 || strlen(data) < 26) 
+      if (validStr((char *) data, 4, 26, 1) == 0)
         sprintf(con_info->session->userid, "%s", data);
 
       // Temporarily list the answer code as DP (partial data) until we receive passwd
@@ -1044,11 +1061,10 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
     } else if (strcmp(key, "pword") == 0 ) {
       // Return partial data code if invalid request
       if (strlen(con_info->session->userid) == 0 || con_info->session->pcaction < 1 ||
-          strlen(data) < 8 || strlen(data) > 200) {
+          validStr((char *) data, 8, 200, 1) > 0) {
         snprintf(answerstring, 3, "%s", "DP");
 
       } else {
-        // TODO - using aStatus as a variable here when it's also the session status is confusing, change one?
         aStatus = checkAuth(con_info->session->userid, data);
 
         if (aStatus == 3 && con_info->session->pcaction == 2) {
@@ -1110,7 +1126,7 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
       // username/passwd check from a username/passwd/newPasswd post.
       snprintf(answerstring, 3, "%s", "SX");
       if (con_info->session->aStatus == 2) {
-        if (strlen(data) < 8 || strlen(data) > 200) {
+        if (validStr((char *) data, 8, 200, 1) > 0) {
           snprintf(answerstring, 3, "%s", "DP");
 
         } else {
@@ -1125,8 +1141,6 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
         } 
       }
 
-      // TODO - Overwrite password with nulls for security
-      //memset(data, '\0', strlen(data));
       con_info->answerstring = answerstring;
 
     } else if (strcmp(key, "sIP") == 0 ) {
@@ -1205,7 +1219,6 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
 }
 
 
-// TODO - Use this instead of all the individual functions for pages?
 static enum MHD_Result sendPage(struct Session *session, struct MHD_Connection *connection,                                const char* connectiontype, const char *page,
                                 const char *url) {
 
@@ -1277,7 +1290,7 @@ static enum MHD_Result logout(struct Session *session, struct MHD_Connection *co
 //}
 
 
-// TODO - Using the web's listen interface breaks the post interface...
+// Answer to a connection request
 static enum MHD_Result answer_to_connection(void *cls, struct MHD_Connection *connection,
                                             const char *url, const char *method,
                                             const char *version, const char *upload_data,
@@ -1368,7 +1381,6 @@ static enum MHD_Result answer_to_connection(void *cls, struct MHD_Connection *co
       if (session->aStatus != 1) return requestLogin(session, connection, url);
       return logout(session, connection, url);
 
-    // TODO pull this out to a function?? 
     } else if (strcmp(url, "/listenHL7") == 0) {
       if (session->aStatus != 1) return requestLogin(session, connection, url);
       if (session->isListening == 0) {
@@ -1400,7 +1412,7 @@ static enum MHD_Result answer_to_connection(void *cls, struct MHD_Connection *co
     }
   }
 
-  // TODO - error page
+  // We should never get here, but left as a catch all
   return sendPage(session, connection, method, errorPage, url);
 }
 
@@ -1458,9 +1470,7 @@ static int expireSessions(int expireAfter) {
   // If the last session has expired, close the daemon
   sessCount = sessCount - rmCount;
   if (sessCount < 1 && isDaemon == 1) {
-    // TODO - Tidy up before close... maybe create tidy function
     writeLog(LOG_INFO, "No active sessions remaining, exiting", 0);
-
     closeLog();
     exit(0);
   }
@@ -1591,7 +1601,7 @@ int listenWeb(int daemonSock) {
 
     }
 
-    // watch until FDs are active or timeout reached (TODO: consider using EPOLL?)
+    // watch until FDs are active or timeout reached
     if (select(max + 1, &rs, &ws, &es, tvp) == -1) {
       if (errno != EINTR) {
         handleError(LOG_ERR, "listenWeb() Failed during select() routine", 1, 1, 1);

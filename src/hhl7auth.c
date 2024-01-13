@@ -39,22 +39,22 @@ static void genPwdHash(const char* pwd, size_t pwdS, char *pwdHash) {
   char algo[7] = "SHA256";
   unsigned char binHash[4 * pwdS];
   unsigned int md_len = -1;
+  int isErr = 0;
   binHash[0] = '\0';
 
   const EVP_MD *md = EVP_get_digestbyname(algo);
   if (md != NULL) {
-    // TODO - check if error handling needed or checking md_len is enough?
     EVP_MD_CTX *mdctx;
     mdctx = EVP_MD_CTX_new();
-    EVP_MD_CTX_init(mdctx);
-    EVP_DigestInit_ex(mdctx, md, NULL);
-    EVP_DigestUpdate(mdctx, pwd, pwdS);
-    EVP_DigestFinal_ex(mdctx, binHash, &md_len);
+    if (mdctx == NULL) isErr = 1;
+    if (isErr == 0) EVP_MD_CTX_init(mdctx);
+    if (isErr == 0) { if (EVP_DigestInit_ex(mdctx, md, NULL) != 1) isErr = 1; }
+    if (isErr == 0) { if (EVP_DigestUpdate(mdctx, pwd, pwdS) != 1) isErr = 1; }
+    if (isErr == 0) { if (EVP_DigestFinal_ex(mdctx, binHash, &md_len) != 1) isErr = 1; }
     EVP_MD_CTX_free(mdctx);
-
   }
 
-  if (md_len >= ((int) pwdS / 2)) { 
+  if (isErr == 0 && md_len >= ((int) pwdS / 2)) { 
     EVP_EncodeBlock((unsigned char *) pwdHash, binHash, pwdS);
 
   } else {
@@ -64,7 +64,6 @@ static void genPwdHash(const char* pwd, size_t pwdS, char *pwdHash) {
 
 
 // Create a new passwd file if needed
-// TODO - error handling
 static int createPWFile(char *fileName) {
   FILE *fp;
   char fileData[21] = "{\n  \"users\": [\n  ]\n}\n";
@@ -73,6 +72,7 @@ static int createPWFile(char *fileName) {
     fp = openFile(fileName, "w");
     if (fp == NULL) {
       fclose(fp);
+      handleError(LOG_ERR, "ERROR: Could not create new password file", 1, 1, 1);
       return 1;
 
     } else {
@@ -84,6 +84,7 @@ static int createPWFile(char *fileName) {
       return 0;
     }
   }
+  handleError(LOG_ERR, "ERROR: Could not create new password file", 1, 1, 1);
   return 1;
 }
  
@@ -116,6 +117,7 @@ int regNewUser(char *uid, char *passwd) {
   struct json_object *newUserObj = json_object_new_object();
   struct json_object *pwObj = NULL, *userArray = NULL;
 
+  int sleepInt = 250000, sleepC = 0, sleepMax = 8;
   int uExists = 0;
   int maxPassL = 32;
   size_t saltedL = 3 * maxPassL;
@@ -140,7 +142,9 @@ int regNewUser(char *uid, char *passwd) {
 
   // If lock is true, sleep until lock is cleared
   while (PWLOCK == 1) {
-    usleep(250000);
+    usleep(sleepInt);
+    sleepC++;
+    if (sleepC > sleepMax) handleError(LOG_CRIT, "Could not unlock password file", 1, 1, 0);
   }
   PWLOCK = 1;
 
@@ -204,6 +208,7 @@ int updatePasswdFile(char *uid, const char *key, const char *val, int iVal) {
   int uExists = 0, u = 0, uCount = 0;
   struct json_object *pwObj = NULL, *userArray = NULL, *userObj = NULL, *uidStr = NULL;
   char errStr[125] = "";
+  int sleepInt = 250000, sleepC = 0, sleepMax = 8;
 
   // Define passwd file location
   char pwFile[34];
@@ -222,10 +227,11 @@ int updatePasswdFile(char *uid, const char *key, const char *val, int iVal) {
     return 1;
   }
 
-  // TODO - add max sleep count as timeout? Look for other sleeps
   // If lock is true, sleep until lock is cleared
   while (PWLOCK == 1) {
-    usleep(250000);
+    usleep(sleepInt);
+    sleepC++;
+    if (sleepC > sleepMax) handleError(LOG_CRIT, "Could not unlock password file", 1, 1, 0);
   }
   PWLOCK = 1;
 
@@ -395,6 +401,7 @@ int checkAuth(char *uid, const char *passwd) {
 int updatePasswd(char *uid, const char *password) {
   struct json_object *pwObj = NULL, *userArray = NULL, *userObj = NULL, *uidStr = NULL;
 
+  int sleepInt = 250000, sleepC = 0, sleepMax = 8;
   int uExists = 0, u = 0, uCount = 0;
   int maxPassL = 32;
   size_t saltedL = 3 * maxPassL;
@@ -413,7 +420,9 @@ int updatePasswd(char *uid, const char *password) {
 
   // If lock is true, sleep until lock is cleared
   while (PWLOCK == 1) {
-    usleep(250000);
+    usleep(sleepInt);
+    sleepC++;
+    if (sleepC > sleepMax) handleError(LOG_CRIT, "Could not unlock password file", 1, 1, 0);
   }
   PWLOCK = 1;
 

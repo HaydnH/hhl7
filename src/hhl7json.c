@@ -21,7 +21,6 @@ You should have received a copy of the GNU General Public License along with hhl
 
 
 // Read a json file from file pointer
-// TODO change any references of this to use the library json from file
 int readJSONFile(FILE *fp, long int fileSize, char *jsonMsg) {
   if (!fread(jsonMsg, fileSize, 1, fp)) {
     fprintf(stderr, "ERROR: Could not read contents of json template\n");
@@ -144,7 +143,6 @@ static int parseVals(char ***hl7Msg, int *hl7MsgS, char *vStr, char *nStr, char 
   struct json_object *defObj = NULL, *min = NULL, *max = NULL, *dp = NULL;
   struct json_object *start = NULL, *iMax = NULL, *iType = NULL;
   char *dStr = NULL;
-  // TODO - 32? Random length, check it
   char rndStr[32];
   int varLen = strlen(vStr), varNum = 0, reqS = 0;
   char varNumBuf[varLen];
@@ -169,18 +167,23 @@ static int parseVals(char ***hl7Msg, int *hl7MsgS, char *vStr, char *nStr, char 
         strcat(**hl7Msg, dtVar);
 
       } else {
-        // TODO Error handle
-        printf("Invalid time adjustment\n");
+        handleError(LOG_ERR, "Invalid time adjustment for JSON template", 1, 0, 1);
+        return(1);
+
       }
     }
 
   } else if (strncmp(vStr, "$INC", 4) == 0) {
     incNum = vStr[4] - 48; 
     if (incNum >= 0 && incNum <= 9) {
-      // TODO- No error checking here, bad template will seg fault
       json_object_object_get_ex(fieldObj, "start", &start);
       json_object_object_get_ex(fieldObj, "max", &iMax);
       json_object_object_get_ex(fieldObj, "type", &iType);
+
+      if (start == NULL || iMax == NULL || iType == NULL) {
+        handleError(LOG_ERR, "Template $INC missing start, max or type", 1, 0, 1);
+        return(1);
+      }
 
       const int s = json_object_get_int(start);
       const int m = json_object_get_int(iMax);
@@ -206,16 +209,19 @@ static int parseVals(char ***hl7Msg, int *hl7MsgS, char *vStr, char *nStr, char 
     }
 
   } else if (strncmp(vStr, "$RND", 4) == 0) {
-    // TODO- No error checking here, bad template will seg fault
     json_object_object_get_ex(fieldObj, "min", &min);
     json_object_object_get_ex(fieldObj, "max", &max);
     json_object_object_get_ex(fieldObj, "dp", &dp);
+
+    if (min == NULL || max == NULL || dp == NULL) {
+      handleError(LOG_ERR, "Template $RND missing min, max or dp", 1, 0, 1);
+      return(1);
+    }
 
     const char *l = json_object_get_string(min);
     const char *u = json_object_get_string(max);
     const char *d = json_object_get_string(dp);
 
-    // TODO why am I using atoi? Can't we get float above?
     int negOne = -1;
     getRand(atoi(l), atoi(u), atoi(d), rndStr, &negOne);
     reqS = strlen(**hl7Msg) + strlen(rndStr); 
@@ -227,39 +233,37 @@ static int parseVals(char ***hl7Msg, int *hl7MsgS, char *vStr, char *nStr, char 
     if (varLen == 4) {
       handleError(LOG_ERR, "No numeric value found after $VAR in JSON template", 1, 0, 1);
       return(1);
+    }
+
+    strncpy(varNumBuf, vStr + 4, varLen - 4);
+    varNumBuf[varLen - 4] = '\0';
+    varNum = atoi(varNumBuf) - 1;
+
+    // Add the variable to the web form and add spans to the HL7 message for linking
+    if (isWeb == 1) {
+      // Check if ths value has a default and add it to the JSON template
+      json_object_object_get_ex(fieldObj, "default", &defObj);
+      dStr = (char *) json_object_get_string(defObj);
+        
+      // Increase the memory allocated to hl7Msg if needed
+      reqS = strlen(**hl7Msg) + strlen(nStr) + 37;
+      if (dStr) reqS = reqS + strlen(dStr);
+      if (reqS > *hl7MsgS) **hl7Msg = dblBuf(**hl7Msg, hl7MsgS, reqS);
+
+      // Write the span to the HL7 message to link from web form
+      if (dStr) {
+        sprintf(**hl7Msg + strlen(**hl7Msg), "%s%s%s%s%s", "<span class='HHL7_FL_",
+                                             nStr, "_HL7'>", dStr, "</span>");
+      } else {
+        sprintf(**hl7Msg + strlen(**hl7Msg), "%s%s%s", "<span class='HHL7_FL_",
+                                             nStr, "_HL7'></span>");
+      }
 
     } else {
-      strncpy(varNumBuf, vStr + 4, varLen - 4);
-      varNumBuf[varLen - 4] = '\0';
-      // TODO error check for non-integers
-      varNum = atoi(varNumBuf) - 1;
+      reqS = strlen(**hl7Msg) + strlen(argv[varNum]) + 2;
+      if (reqS > *hl7MsgS) **hl7Msg = dblBuf(**hl7Msg, hl7MsgS, reqS);
 
-      // Add the variable to the web form and add spans to the HL7 message for linking
-      if (isWeb == 1) {
-        // Check if ths value has a default and add it to the JSON template
-        json_object_object_get_ex(fieldObj, "default", &defObj);
-        dStr = (char *) json_object_get_string(defObj);
-        
-        // Increase the memory allocated to hl7Msg if needed
-        reqS = strlen(**hl7Msg) + strlen(nStr) + 37;
-        if (dStr) reqS = reqS + strlen(dStr);
-        if (reqS > *hl7MsgS) **hl7Msg = dblBuf(**hl7Msg, hl7MsgS, reqS);
-
-        // Write the span to the HL7 message to link from web form
-        if (dStr) {
-          sprintf(**hl7Msg + strlen(**hl7Msg), "%s%s%s%s%s", "<span class='HHL7_FL_",
-                                                       nStr, "_HL7'>", dStr, "</span>");
-        } else {
-          sprintf(**hl7Msg + strlen(**hl7Msg), "%s%s%s", "<span class='HHL7_FL_",
-                                                            nStr, "_HL7'></span>");
-        }
-
-      } else {
-        reqS = strlen(**hl7Msg) + strlen(argv[varNum]) + 2;
-        if (reqS > *hl7MsgS) **hl7Msg = dblBuf(**hl7Msg, hl7MsgS, reqS);
-
-        strcat(**hl7Msg, argv[varNum]);
-      }
+      strcat(**hl7Msg, argv[varNum]);
     }
 
   } else {
@@ -321,25 +325,27 @@ static int parseJSONField(struct json_object *fieldObj, int *lastFid, int lastFi
   // Add the prefix to to the field
   if (preL > 0) sprintf(*hl7Msg + strlen(*hl7Msg), "%s", pre);
 
-  // TODO - remove a value and/or name from a template to test error checking
   // Parse the value for this field
   json_object_object_get_ex(fieldObj, "value", &valObj);
-  if (json_object_get_type(valObj) == json_type_string) {
-    vStr = (char *) json_object_get_string(valObj);
+  if (valObj != NULL) {
+    if (json_object_get_type(valObj) == json_type_string) {
+      vStr = (char *) json_object_get_string(valObj);
 
-    // Get the name of the field for use on the web form
-    if (isWeb == 1) {
-      json_object_object_get_ex(fieldObj, "name", &valObj);
-      nStr = (char *) json_object_get_string(valObj);
+      // Get the name of the field for use on the web form
+      if (isWeb == 1) {
+        json_object_object_get_ex(fieldObj, "name", &valObj);
+        if (valObj != NULL) {
+          nStr = (char *) json_object_get_string(valObj);
 
-      if (json_object_get_type(valObj) == json_type_string) {
-        // TODO - consider allowing longer names and malloc - or pointer to json object!
-        if (strlen(nStr) > 64) {
-          handleError(LOG_ERR, "JSON template name exceeds 64 character limit", 1, 0, 1);
-          return(1);
+          if (json_object_get_type(valObj) == json_type_string) {
+            if (strlen(nStr) > 64) {
+              handleError(LOG_ERR, "JSON template name exceeds 64 character limit", 1, 0, 1);
+              return(1);
 
-        } else {
-          strcpy(nameStr, nStr);
+            } else {
+              strcpy(nameStr, nStr);
+            }
+          }
         }
       }
     }
@@ -469,13 +475,22 @@ int parseJSONTemp(char *jsonMsg, char **hl7Msg, int *hl7MsgS, char **webForm,
 
       // Loop through all fields
       json_object_object_get_ex(segObj, "fields", &fieldsObj);
-      // TODO - error handle all the JSON template functions for temps with missing objs
+      if (fieldsObj == NULL) {
+        handleError(LOG_ERR, "Segment in JSON template missing fields array", 1, 0, 1);
+        return(1);
+      }
+
       fieldCount = json_object_array_length(fieldsObj);
       lastFid = 0;
 
       for (f = 0; f < fieldCount; f++) {
         // Get field and add it to the HL7 message and web form if appropriate
         fieldObj = json_object_array_get_idx(fieldsObj, f);
+        if (fieldObj == NULL) {
+          handleError(LOG_ERR, "Field array in JSON template missing field object", 1, 0, 1);
+          return(1);
+        }
+
         if (isWeb == 1) addVar2WebForm(webForm, webFormS, fieldObj);
 
         retVal = parseJSONField(fieldObj, &lastFid, fieldCount - f, hl7Msg, hl7MsgS, argv,
