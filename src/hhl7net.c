@@ -44,12 +44,11 @@ struct Response {
   char sPort[6];
   char *rName;
   char *tName;
+  // TODO - Consider malloc to allow more than 25 args
+  char *sArgs[25];
   int sent;
   char resCode[3];
   int argc;
-  // TODO make these dynamic, malloc
-  char sendArgs[20][256];
-  char *sendPtrs[20];
 };
 
 // Linked list of responses
@@ -122,8 +121,9 @@ static int processResponses(int fd) {
   time_t tNow = time(NULL), fTime;
   char writeSize[11];
   char resStr[3] = "";
+  char *sArg = "";
   // TODO - add expiry time to config file
-  int nextResp = -1, respCount = 0, rmCount = 0, expTime = 900;
+  int nextResp = -1, respCount = 0, rmCount = 0, argCount = 0, expTime = 900;
   int webRespS = 1024, reqS = 0;
   char *webResp = malloc(webRespS);
   webResp[0] = '\0';
@@ -143,6 +143,16 @@ static int processResponses(int fd) {
       responses = resp->next;
       free(resp->tName);
       free(resp->rName);
+
+      // Free all template send arguments
+      sArg = resp->sArgs[0];
+      while (sArg != NULL) {
+        free(resp->sArgs[argCount]);
+        argCount++;
+        sArg = resp->sArgs[argCount];
+      }
+
+      argCount = 0;
       free(resp);
       resp = responses;
       rmCount++;
@@ -152,7 +162,7 @@ static int processResponses(int fd) {
       // Send the response to the server
       writeLog(LOG_DEBUG, "Response queue processing, response sent", 0);
       sendTemp(resp->sIP, resp->sPort, resp->tName, 0, 0, 0, resp->argc,
-               resp->sendPtrs, resStr);
+               resp->sArgs, resStr);
 
       resp->sent = 1;
       sprintf(resp->resCode, "%s", resStr);
@@ -188,7 +198,6 @@ static int processResponses(int fd) {
 
   if (webRunning == 1 && (respCount + rmCount) > 0) {
     if ((int) strlen(webResp) == 0) sprintf(webResp, "%s", "QE");
-
     sprintf(writeSize, "%d", (int) strlen(webResp));
 
     if (write(fd, writeSize, 11) == -1) {
@@ -202,7 +211,7 @@ static int processResponses(int fd) {
 
   webResp[0] = '\0';
   free(webResp);
-  if (nextResp == expTime) return(-1);
+  if (respCount > 0 && (nextResp == expTime || nextResp== -1)) return(expTime);
   return(nextResp);
 }
 
@@ -494,6 +503,7 @@ static struct Response *checkResponse(char *msg, char *sIP, char *sPort, char *t
   struct json_object *minObj = NULL, *maxObj = NULL, *sendT = NULL, *respN = NULL;
   int m = 0, mCount = 0, fldInt = 0, exclInt = 0, minT = 0, maxT = 0;
   char resFile[290], fldStr[256], resStr[3] = "", errStr[542] = "";
+  char *tmpPtr = NULL;
 
   // Define template location
   if (isDaemon == 1) {
@@ -565,10 +575,15 @@ static struct Response *checkResponse(char *msg, char *sIP, char *sPort, char *t
 
   json_object_object_get_ex(resObj, "sendArgs", &jArray);
   if (jArray == NULL) {
-    handleError(LOG_ERR, "Responder template contains no send arguments", 1, 0, 1);
+    handleError(LOG_INFO, "Responder template contains no send arguments", 1, 0, 1);
   }
 
   mCount = json_object_array_length(jArray);
+
+  if (mCount > 25) {
+    handleError(LOG_WARNING, "A responder template created too many arguments (>25)", 1, 0, 0);
+    return respHead;
+  }
 
   struct Response *resp;
   resp = calloc(1, sizeof(struct Response));
@@ -579,9 +594,8 @@ static struct Response *checkResponse(char *msg, char *sIP, char *sPort, char *t
     json_object_object_get_ex(matchObj, "field", &fldObj);
     fldInt = json_object_get_int(fldObj);
     getHL7Field(msg, (char *) json_object_get_string(segStr), fldInt, fldStr);
-    strcpy(resp->sendArgs[m], fldStr);
-    resp->sendPtrs[m] = resp->sendArgs[m];
-
+    tmpPtr = strdup(fldStr);
+    resp->sArgs[m] = tmpPtr;
   }
 
   // Get a random value between the min and max times
@@ -600,7 +614,7 @@ static struct Response *checkResponse(char *msg, char *sIP, char *sPort, char *t
   // If min and max times are 0, send immediately
   if (minT == 0 && maxT == 0) {
     sendTemp(sIP, sPort, (char *) json_object_get_string(sendT), 0, 0, 0,
-             mCount, resp->sendPtrs, resStr);
+             mCount, resp->sArgs, resStr);
     resp->sent = 1;
     sprintf(resp->resCode, "%s", resStr);
 
@@ -841,7 +855,7 @@ int startMsgListener(char *lIP, const char *lPort, char *sIP, char *sPort,
         if (nextResp == -1) {
           writeLog(LOG_INFO, "Response queue empty, awaiting next received message", 1);
         } else {
-          sprintf(errStr, "Responses processed, next response in %d seconds", nextResp);
+          sprintf(errStr, "Responses processed, next process in %d seconds", nextResp);
           writeLog(LOG_INFO, errStr, 1);
         }
       }
