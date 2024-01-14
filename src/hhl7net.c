@@ -581,7 +581,7 @@ static struct Response *checkResponse(char *msg, char *sIP, char *sPort, char *t
   mCount = json_object_array_length(jArray);
 
   if (mCount > 25) {
-    handleError(LOG_WARNING, "A responder template created too many arguments (>25)", 1, 0, 0);
+    handleError(LOG_WARNING, "A responder template created too many arguments (>25)", 1, 0, 1);
     return respHead;
   }
 
