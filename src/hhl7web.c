@@ -749,7 +749,7 @@ static void cleanSession(struct Session *session) {
     char hhl7rfifo[21];
     sprintf(hhl7rfifo, "%s%d", "/tmp/hhl7rfifo.", session->lpid);
     close(session->respFD);
-    unlink(hhl7rfifo);
+    FFS = unlink(hhl7rfifo);
   }
 
   // Stop the listening child process if running
@@ -902,7 +902,9 @@ static void startListenWeb(struct Session *session, struct MHD_Connection *conne
   char hhl7rfifo[22];
   sprintf(hhl7rfifo, "%s%d", "/tmp/hhl7rfifo.", session->lpid);
   mkfifo(hhl7rfifo, 0666);
-  session->respFD = open(hhl7rfifo, O_WRONLY | O_NONBLOCK);
+  // Do not combine these two lines to "O_WRONLY | O_NONBLOCK" or open fails
+  session->respFD = open(hhl7rfifo, O_WRONLY);
+  fcntl(session->respFD, F_SETFL, O_NONBLOCK);
   //fcntl(session->respFD, F_SETPIPE_SZ, 1048576); // Change pipe size, default seems OK
 
   session->isListening = 1;
