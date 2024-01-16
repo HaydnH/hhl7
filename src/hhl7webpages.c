@@ -158,7 +158,6 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
       #tempForm {\n\
         display: flex;\n\
         flex-wrap: wrap;\n\
-        //justify-content: space-between;\n\
         font-family: Verdana, Helvetica, sans-serif;\n\
         font-size: 14px;\n\
         display: none;\n\
@@ -277,7 +276,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         background-color: rgba(0, 0, 0, 0.5);\n\
       }\n\
       #loginDim {\n\
-        display: none;\n\
+        display: block;\n\
       }\n\
       #menuDim {\n\
         display: none;\n\
@@ -396,7 +395,6 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         color: #fff;\n\
         height: 36px;\n\
         line-height: 32px;\n\
-        //padding: 0px 15px;\n\
         text-align: center;\n\
         border-width: 3px;\n\
         border-style: double;\n\
@@ -452,7 +450,6 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
       }\n\
       .menuDataItem {\n\
         display: inline-block;\n\
-        //width: 60%;\n\
         flex-grow: 4;\n\
         font-family: Verdana, Helvetica, sans-serif;\n\
         font-size: 13px;\n\
@@ -551,7 +548,6 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         bottom: 15px;\n\
         height: 32px;\n\
         width: 92px;\n\
-        //line-height: 28px;\n\
       }\n\
       #submit {\n\
         position: absolute;\n\
@@ -559,7 +555,6 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         bottom: 15px;\n\
         height: 32px;\n\
         width: 52px;\n\
-        //line-height: 26px;\n\
         padding: 0px 0px 0px 3px;\n\
       }\n\
       #hl7Queue {\n\
@@ -612,9 +607,11 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
     </style>\n\
 \n\
     <script>\n\
+      var webLocked = true;\n\
       var isConnectionOpen = false;\n\
 \n\
       function showLogin() {\n\
+        webLocked = true;\n\
         hideMenu();\n\
         var login = document.getElementById(\"loginDim\");\n\
         var uname = document.getElementById(\"uname\");\n\
@@ -876,11 +873,12 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         var wImg = new Image();\n\
         wImg.src = \"/images/warning.png\";\n\
 \n\
-        popTemplates(0);\n\
-        popTemplates(1);\n\
+        checkAuth();\n\
+        if (webLocked = false) unlockWeb();\n\
       }\n\
 \n\
       function unlockWeb() {\n\
+        webLocked = false;\n\
         var errWin = document.getElementById(\"loginDim\");\n\
         errWin.style.display = \"none\";\n\
         var pwdInp = document.getElementById(\"newPwd\");\n\
@@ -888,7 +886,6 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         pwdInp.value = \"\";\n\
         conInp.value = \"\";\n\
 \n\
-        /* Try to load the template list again */\n\
         popSettings();\n\
         popTemplates(0);\n\
         popTemplates(1);\n\
@@ -1121,7 +1118,6 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         formData.append(\"pword\", pword);\n\
 \n\
         xhr.send(formData);\n\
-        //return false;\n\
       }\n\
 \n\
       function postSendSets() {\n\
@@ -1253,6 +1249,30 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         xhr.send(formData);\n\
       }\n\
 \n\
+      async function checkAuth() {\n\
+        try {\n\
+          const response = await fetch(\"/getTemplateList\");\n\
+          const htmlData = await response.text();\n\
+\n\
+          if (response.status == 401) {\n\
+            webLocked = true;\n\
+            showLogin();\n\
+\n\
+          } else if (response.status == 500) {\n\
+            // TODO internal server error\n\
+\n\
+          } else if (response.ok) {\n\
+            webLocked = false;\n\
+            unlockWeb();\n\
+\n\
+          }\n\
+\n\
+        } catch(error) {\n\
+          console.log(error);\n\
+          errHandler(\"ERROR: The hhl7 backend is not running.\");\n\
+        }\n\
+      }\n\
+\n\
       async function logout() {\n\
         try {\n\
           const response = await fetch(\"/logout\");\n\
@@ -1291,7 +1311,6 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
               var tHeader = '<thead><th class=\"thSendT\">Responder</th><th class=\"thSendT\">Send Template</th><th class=\"thDest\">Destination</th><th class=\"thSendTime\"></th><th class=\"thSTFmt\">Send Time</th><th class=\"thResp\">Response</th></thead>';\n\
 \n\
               var respTable = document.getElementById(\"respQBody\");\n\
-              //respTable.innerHTML = tHeader + htmlData;\n\
               if (htmlData === \"QE\") {\n\
                 respTable.innerHTML = \"\";\n\
               } else {\n\
@@ -1425,8 +1444,6 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
             jObj = JSON.parse(htmlData, function(key, value) {\n\
               return value;\n\
             });\n\
-\n\
-            //popServers();\n\
 \n\
             var sHost = document.getElementById(\"tHost\");\n\
             var sHostSave = document.getElementById(\"tHostSave\");\n\

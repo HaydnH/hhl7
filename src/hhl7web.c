@@ -903,7 +903,6 @@ static void startListenWeb(struct Session *session, struct MHD_Connection *conne
   sprintf(hhl7rfifo, "%s%d", "/tmp/hhl7rfifo.", session->lpid);
   mkfifo(hhl7rfifo, 0666);
   session->respFD = open(hhl7rfifo, O_WRONLY | O_NONBLOCK);
-  //fcntl(session->respFD, F_SETFL, O_NONBLOCK);
   //fcntl(session->respFD, F_SETPIPE_SZ, 1048576); // Change pipe size, default seems OK
 
   session->isListening = 1;
