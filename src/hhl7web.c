@@ -638,15 +638,16 @@ static enum MHD_Result getTempForm(struct Session *session,
 }
 
 
+// Send a HL7 message from the Listener to the web client
 static enum MHD_Result sendHL72Web(struct Session *session,
                                    struct MHD_Connection *connection, int fd,
                                    const char *url) {
-
   enum MHD_Result ret;
   struct MHD_Response *response;
-  int fBufS = 2048, rBufS = 512;
+  int fBufS = 2048, rBufS = 512, mBufS = 0;
   char *fBuf = malloc(fBufS);
   char *rBuf = malloc(rBufS);
+  char *fBufNew = NULL, *rBufNew = NULL;
   char readSizeBuf[11];
   int p = 0, pLen = 1, maxPkts = 250, readSize = 0;
   char errStr[65] = "";
@@ -654,11 +655,13 @@ static enum MHD_Result sendHL72Web(struct Session *session,
   strcpy(fBuf, "event: rcvHL7\ndata: ");
 
   while (pLen > 0 && p < maxPkts) {
+    mBufS = 0;
     if ((pLen = read(fd, readSizeBuf, 11)) > 0) {
       readSize = atoi(readSizeBuf);
 
-      if (readSize > rBufS) {
-        char *rBufNew = realloc(rBuf, readSize + 1);
+      mBufS = (2 * readSize) + 1;
+      if (mBufS > rBufS) {
+        rBufNew = realloc(rBuf, mBufS);
         if (rBufNew == NULL) {
           sprintf(errStr, "[S: %03d] Can't realloc memory sendHL72Web, rBuf",
                           session->shortID);
@@ -666,17 +669,17 @@ static enum MHD_Result sendHL72Web(struct Session *session,
 
         } else {
           rBuf = rBufNew;
-          rBufS = readSize;
 
         }
       }
 
       if ((pLen = read(fd, rBuf, readSize)) > 0) {
         rBuf[readSize] = '\0';
+        hl72web(rBuf, mBufS);
 
-        if (strlen(fBuf) + (2 * strlen(rBuf)) + 50 > fBufS) {
-          fBufS = strlen(fBuf) + (2 * strlen(rBuf)) + 50;
-          char *fBufNew = realloc(fBuf, fBufS);
+        mBufS = strlen(rBuf) + strlen(fBuf) + 50;
+        if (mBufS > fBufS) {
+          fBufNew = realloc(fBuf, mBufS);
           if (fBufNew == NULL) {
             sprintf(errStr, "[S: %03d] Can't realloc memory sendHL72Web, fBuf",
                             session->shortID);
@@ -684,14 +687,16 @@ static enum MHD_Result sendHL72Web(struct Session *session,
 
           } else {
             fBuf = fBufNew;
+            fBufS = mBufS;
 
           }
         }
 
+
         strcat(fBuf, rBuf);
-        hl72web(fBuf);
-        strcat(fBuf, "<br />");
+        rBuf[0] = '\0';
         p++;
+
       }
     }
   }
@@ -897,11 +902,11 @@ static void startListenWeb(struct Session *session, struct MHD_Connection *conne
   char hhl7rfifo[22];
   sprintf(hhl7rfifo, "%s%d", "/tmp/hhl7rfifo.", session->lpid);
   mkfifo(hhl7rfifo, 0666);
-  session->respFD = open(hhl7rfifo, O_WRONLY);
-  fcntl(session->respFD, F_SETFL, O_NONBLOCK);
+  session->respFD = open(hhl7rfifo, O_WRONLY | O_NONBLOCK);
+  //fcntl(session->respFD, F_SETFL, O_NONBLOCK);
+  //fcntl(session->respFD, F_SETPIPE_SZ, 1048576); // Change pipe size, default seems OK
 
   session->isListening = 1;
-  //fcntl(readFD, F_SETPIPE_SZ, 1048576); // Change size of pipe, default seems OK
 }
 
 

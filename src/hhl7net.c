@@ -92,10 +92,11 @@ static struct Response *queueResponse(struct Response *resp) {
 
 
 // Add a response to the web list
-static void addRespWeb(char *newResp, struct Response *resp, int resEven) {
+static void addRespWeb(char *newResp, struct Response *resp, int respCount) {
   char resEvenOdd[7] = "trEven";
   char resClass[17] = "";
   char newResCode[3] = "";
+  int resEven = respCount % 2;
 
   // Provide conditional html/css options to the response queue
   newResp[0] = '\0';
@@ -110,7 +111,7 @@ static void addRespWeb(char *newResp, struct Response *resp, int resEven) {
     sprintf(resClass, " class=\"tdCtrR\"");
   }
 
-  sprintf(newResp, "<tr class=\"%s\"><td>%s</td><td>%s</td><td>%s:%s</td><td class=\"rSendTime\">%ld</td><td class=\"rSTFmt\"></td><td%s>%s</td></tr>\n", resEvenOdd, resp->rName, resp->tName, resp->sIP, resp->sPort, resp->sendTime, resClass, newResCode);
+  sprintf(newResp, "<tr class=\"%s\"><td class=\"tdCtr\">%d</td><td>%s</td><td>%s</td><td>%s:%s</td><td class=\"rSendTime\">%ld</td><td class=\"rSTFmt\"></td><td%s>%s</td></tr>\n", resEvenOdd, respCount + 1, resp->rName, resp->tName, resp->sIP, resp->sPort, resp->sendTime, resClass, newResCode);
 
 }
 
@@ -127,12 +128,13 @@ static int processResponses(int fd) {
   int webRespS = 1024, reqS = 0;
   char *webResp = malloc(webRespS);
   webResp[0] = '\0';
+  char errStr[256] = "";
 
   resp = responses;
   if (resp == NULL) return nextResp;
 
   char newResp[strlen(resp->rName) + strlen(resp->tName) +
-               strlen(resp->sIP) + strlen(resp->sPort) + 256]; // was 144
+               strlen(resp->sIP) + strlen(resp->sPort) + 293];
 
   writeLog(LOG_DEBUG, "Processing response queue...", 0);
 
@@ -166,14 +168,14 @@ static int processResponses(int fd) {
 
       resp->sent = 1;
       sprintf(resp->resCode, "%s", resStr);
-      if (webRunning == 1) addRespWeb(newResp, resp, respCount % 2);
+      if (webRunning == 1) addRespWeb(newResp, resp, respCount);
       respCount++;
 
     } else if (resp->sendTime > tNow) {
       writeLog(LOG_DEBUG, "Response queue processing, future response added to queue", 0);
       fTime = resp->sendTime - tNow;
       if (nextResp == -1 || fTime < nextResp) nextResp = fTime;
-      if (webRunning == 1) addRespWeb(newResp, resp, respCount % 2);
+      if (webRunning == 1) addRespWeb(newResp, resp, respCount);
       respCount++;
       if (nextResp < 0) nextResp = 0;
 
@@ -181,7 +183,7 @@ static int processResponses(int fd) {
       writeLog(LOG_DEBUG, "Response queue processing, sent response added to queue", 0);
       if (nextResp == -1 || nextResp > expTime) nextResp = expTime;
 
-      if (webRunning == 1) addRespWeb(newResp, resp, respCount % 2);
+      if (webRunning == 1) addRespWeb(newResp, resp, respCount);
       respCount++;
 
     }
@@ -201,11 +203,13 @@ static int processResponses(int fd) {
     sprintf(writeSize, "%d", (int) strlen(webResp));
 
     if (write(fd, writeSize, 11) == -1) {
-      handleError(LOG_ERR, "ERROR: Failed to write to named pipe", 1, 0, 1);
+      sprintf(errStr, "Failed to write to named pipe: %s", strerror(errno));
+      handleError(LOG_ERR, errStr, 1, 0, 0);
     }
 
     if (write(fd, webResp, strlen(webResp)) == -1) {
-      handleError(LOG_ERR, "ERROR: Failed to write to named pipe", 1, 0, 1);
+      sprintf(errStr, "Failed to write to named pipe: %s", strerror(errno));
+      handleError(LOG_ERR, errStr, 1, 0, 0);
     }
   }
 
@@ -392,7 +396,7 @@ int sendPacket(int sockfd, char *hl7msg, char *resStr, int fShowTemplate) {
        hl72unix(tokMsg, 1);
     }
 
-    // Add MLLP wrappre to this message
+    // Add MLLP wrapper to this message
     wrapMLLP(tokMsg);
 
     // Send the message to the server
@@ -811,6 +815,9 @@ int startMsgListener(char *lIP, const char *lPort, char *sIP, char *sPort,
   char errStr[58] = "";
   // TODO - move timeout/polling interval nextResponse to config file
   int svrfd = 0, sessfd = 0, fd = 0, rfd = 0, nextResp = -1, resU = 0, respUpdated = 0;
+  time_t lastProcess = time(NULL), now;
+  // TODO add to config file? Maybe remove it once we only send respond updates to web?
+  int procThrot = 1;
 
   if ((svrfd = createSession(lIP, lPort)) == -1) return -1;
 
@@ -825,10 +832,12 @@ int startMsgListener(char *lIP, const char *lPort, char *sIP, char *sPort,
     sprintf(hhl7rfifo, "%s%d", "/tmp/hhl7rfifo.", getpid());
     mkfifo(hhl7rfifo, 0666);
     rfd = open(hhl7rfifo, O_RDONLY | O_NONBLOCK);
+    //fcntl(rfd, F_SETPIPE_SZ, 1048576); // Change pipe size, default seems OK
 
   }
 
   while(1) {
+    now = time(NULL);
     struct timeval tv, *tvp;
     fd_set rs;
     FD_ZERO(&rs);
@@ -851,7 +860,13 @@ int startMsgListener(char *lIP, const char *lPort, char *sIP, char *sPort,
 
     } else if (res == 0) {
       if (argc > 0) {
-        nextResp = processResponses(fd);
+        if ((now - lastProcess) >= procThrot) {
+          if (argc > 0) nextResp = processResponses(fd);
+          lastProcess = now;
+        } else {
+          nextResp = procThrot;
+        }
+
         if (nextResp == -1) {
           writeLog(LOG_INFO, "Response queue empty, awaiting next received message", 1);
         } else {
@@ -878,10 +893,14 @@ int startMsgListener(char *lIP, const char *lPort, char *sIP, char *sPort,
         responses = handleMsg(sessfd, fd, sIP, sPort, respUpdated, 0, respTempsPtrs);
       }
 
-      //printResponses(responses);
       close(sessfd);
 
-      if (argc > 0) nextResp = processResponses(fd);
+      if ((now - lastProcess) >= procThrot) {
+        if (argc > 0) nextResp = processResponses(fd);
+        lastProcess = now;
+      } else {
+        nextResp = procThrot;
+      }
     }
   }
 

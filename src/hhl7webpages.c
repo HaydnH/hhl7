@@ -1604,6 +1604,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
       <div id=\"hl7Queue\" class=\"hl7Message\">\n\
         <table id=\"respQTable\">\n\
           <thead>\n\
+            <th class==\"thResp\">#</th>\n\
             <th class=\"thSendT\">Responder</th>\n\
             <th class=\"thSendT\">Send Template</th>\n\
             <th class=\"thDest\">Destination</th>\n\

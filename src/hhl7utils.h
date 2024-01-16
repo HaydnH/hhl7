@@ -25,7 +25,7 @@ void stripMLLP(char *hl7msg);
 void wrapMLLP(char *hl7msg);
 int getHL7Field(char *hl7msg, char *seg, int field, char *res);
 void hl72unix(char *msg, int onlyPrint);
-void hl72web(char *msg);
+void hl72web(char *msg, int maxSize);
 void unix2hl7(char *msg);
 FILE *findTemplate(char *fileName, char *tName, int isRespond);
 char *str2base64(const char *message);

@@ -281,17 +281,24 @@ void unix2hl7(char *msg) {
 
 // Change a hl7 message to web, \r -> <br />
 // NOTE: sendHL72Web() handles additional memory allocation for the added <br />'s
-void hl72web(char *msg) {
-  char res[1224] = "";
-  char *tokState;
-  char *token = strtok_r(msg, "\r", &tokState);
+void hl72web(char *msg, int maxSize) {
+  char res[maxSize];
+  int i, strLen = 0;
+  res[0] = '\0';
 
-  while (token != NULL) {
-    strcat(res, token);
-    strcat(res, "<br />");
-    token = strtok_r(NULL, "\r", &tokState);
+  for (i = 0; i < strlen(msg); i++) {
+    if (msg[i] == '\r') {
+      res[strLen] = '\0';
+      strcat(res, "<br />");
+      strLen = strLen + 6;
 
+    } else {
+      res[strLen] = msg[i];
+      strLen++;
+    }
   }
+
+  res[strLen + 1] = '\0';
   strcpy(msg, res);
 }
 
