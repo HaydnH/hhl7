@@ -825,7 +825,7 @@ int startMsgListener(char *lIP, const char *lPort, char *sIP, char *sPort,
   // TODO add to config file? Maybe remove it once we only send respond updates to web?
   int procThrot = 1;
 
-  writeLog(LOG_INFO, "Listener child process starting up", 1);
+  writeLog(LOG_INFO, "Listener child process starting up", 0);
 
   if ((svrfd = createSession(lIP, lPort)) == -1) return -1;
 

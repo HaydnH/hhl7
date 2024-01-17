@@ -40,7 +40,7 @@ static void showVersion() {
 static void showHelp(int exCode) {
   printf("Usage:\n");
   printf("  hhl7 [-s <IP>] [-L <IP] [-p <port>] [-P <port>] [-o]\n");
-  printf("       {-D|-f|-F|-t|-T|-l|-r} [options] [argument ...]\n\n");
+  printf("       {-D|-f|-F|-t|-T|-l|-r|-n|-N} [options] [argument ...]\n\n");
   printf("Help Options:\n");
   printf("  -h, --help               Show help page and exit\n");
   printf("  -v, --version            Show version information and exit\n\n");
@@ -56,7 +56,10 @@ static void showHelp(int exCode) {
   printf("  -T <temp> [<arg ...]     Same as -t, but also print message to STDOUT\n");
   printf("  -o                       Suppress sending message, use with -T for STDOUT only\n");
   printf("  -l                       Listen for incomming messages\n");
-  printf("  -r <temps ...>           Respond to incomming messages if they match template\n\n");
+  printf("  -r <temps ...>           Respond to incomming messages if they match template\n");
+  printf("  -n <integer>             Send template multiple times, meant for stress testing\n");
+  printf("  -r <temps ...>           Delay between sending multiple messages with -n\n\n");
+
   printf("Other Options:\n");
   printf("  -D <socket>              Run as a daemon, for systemd.socket use ONLY\n");
   printf("  -w                       Run web interface, for development use ONLY\n\n");
@@ -68,7 +71,7 @@ static void showHelp(int exCode) {
 // Clean shutdown
 static void cleanShutdown() {
   if (getppid() > 1) {
-    writeLog(LOG_INFO, "Listener child process shutting down", 1);
+    writeLog(LOG_INFO, "Listener child process shutting down", 0);
   } else {
     writeLog(LOG_INFO, "Received signal, politely shutting down", 1);
   }
@@ -84,7 +87,7 @@ int main(int argc, char *argv[]) {
 
   int daemonSock = 0, sockfd, opt, option_index = 0;
   int fSend = 0, fListen = 0, fRespond = 0, fSendTemplate = 0, fShowTemplate = 0;
-  int noSend = 0, fWeb = 0;
+  int noSend = 0, fWeb = 0, sc = 0, sCount = 1, sSleep = 500;
   FILE *fp;
 
   // TODO move bind port (sIP) to config file
@@ -118,7 +121,7 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-  while((opt = getopt_long(argc, argv, ":0vhD:f:Flrt:T:owWs:L:p:P:", long_options, &option_index)) != -1) {
+  while((opt = getopt_long(argc, argv, ":0vhD:f:Flrt:T:n:N:owWs:L:p:P:", long_options, &option_index)) != -1) {
     switch(opt) {
       case 0:
         exit(1);
@@ -132,7 +135,7 @@ int main(int argc, char *argv[]) {
         exit(0);
 
       case 'D':
-        if (*argv[optind-1] == '-')
+        if (*argv[optind - 1] == '-')
           handleError(LOG_ERR, "Option -D requires a value", 1, 1, 1);
         isDaemon = 1;
         if (optarg) daemonSock = atoi(optarg);
@@ -140,7 +143,7 @@ int main(int argc, char *argv[]) {
 
       case 'f':
         fSend = 1;
-        if (*argv[optind-1] == '-')
+        if (*argv[optind - 1] == '-')
           handleError(LOG_ERR, "Option -f requires a value", 1, 1, 1);
         if (validStr(optarg, 1, maxNameL, 1) > 0)
           handleError(LOG_ERR, "Invalid value for -f flag (1-255 chars, ASCII only)", 1, 1, 1);
@@ -161,7 +164,7 @@ int main(int argc, char *argv[]) {
         break;
 
       case 't':
-        if (*argv[optind-1] == '-')
+        if (*argv[optind - 1] == '-')
           handleError(LOG_ERR, "Option -t requires a value", 1, 1, 1);
         if (validStr(optarg, 1, 50, 1) > 0)
           handleError(LOG_ERR, "Invalid value for -t flag (1-50 chars, ASCII only)", 1, 1, 1);
@@ -171,7 +174,7 @@ int main(int argc, char *argv[]) {
         break;
 
       case 'T':
-        if (*argv[optind-1] == '-')
+        if (*argv[optind - 1] == '-')
           handleError(LOG_ERR, "Option -T requires a value", 1, 1, 1);
         if (validStr(optarg, 1, 50, 1) > 0)
           handleError(LOG_ERR, "Invalid value for -T flag (1-50 chars, ASCII only)", 1, 1, 1);
@@ -179,6 +182,20 @@ int main(int argc, char *argv[]) {
         fSendTemplate = 1;
         fShowTemplate = 1;
         if (optarg) strcpy(tName, optarg);
+        break;
+
+      case 'n':
+        if (*argv[optind - 1] == '-')
+          handleError(LOG_ERR, "Option -n requires a value", 1, 1, 1);
+
+        if (optarg) sCount = atoi(optarg);
+        break;
+
+      case 'N':
+        if (*argv[optind - 1] == '-')
+          handleError(LOG_ERR, "Option -n requires a value", 1, 1, 1);
+
+        if (optarg) sSleep = atoi(optarg);
         break;
 
       case 'o':
@@ -190,7 +207,7 @@ int main(int argc, char *argv[]) {
         break;
 
       case 's':
-        if (*argv[optind-1] == '-')
+        if (*argv[optind - 1] == '-')
           handleError(LOG_ERR, "Option -s requires a value", 1, 1, 1);
         if (validStr(optarg, 1, 255, 1) > 0)
           handleError(LOG_ERR, "Invalid value for -s flag (1-255 chars, ASCII only)", 1, 1, 1);
@@ -199,7 +216,7 @@ int main(int argc, char *argv[]) {
         break;
 
       case 'L':
-        if (*argv[optind-1] == '-')
+        if (*argv[optind - 1] == '-')
           handleError(LOG_ERR, "Option -L requires a value", 1, 1, 1);
         if (validStr(optarg, 1, 255, 1) > 0)
           handleError(LOG_ERR, "Invalid value for -L flag (1-255 chars, ASCII only)", 1, 1, 1);
@@ -208,13 +225,13 @@ int main(int argc, char *argv[]) {
         break;
 
       case 'p':
-        if (*argv[optind-1] == '-') handleError(LOG_ERR, "Option -p requires a value", 1, 1, 1);
+        if (*argv[optind - 1] == '-') handleError(LOG_ERR, "Option -p requires a value", 1, 1, 1);
         if (validPort(optarg) > 0) handleError(LOG_ERR, "Port provided by -p is invalid (valid: 1024-65535)", 1, 1, 1);
         if (optarg) strcpy(sPort, optarg);
         break;
 
       case 'P':
-        if (*argv[optind-1] == '-') handleError(LOG_ERR, "Option -P requires a value", 1, 1, 1);
+        if (*argv[optind - 1] == '-') handleError(LOG_ERR, "Option -P requires a value", 1, 1, 1);
         if (validPort(optarg) > 0) handleError(LOG_ERR, "Port provided by -P is invalid (valid: 1024-65535)", 1, 1, 1);
         if (optarg) strcpy(lPort, optarg);
         break;
@@ -256,6 +273,9 @@ int main(int argc, char *argv[]) {
     // Send a file test
     fp = openFile(fileName, "r");
     sendFile(fp, getFileSize(fileName), sockfd);
+
+    // Close connection
+    close(sockfd);
   } 
 
 
@@ -272,8 +292,12 @@ int main(int argc, char *argv[]) {
 
 
   if (fSendTemplate == 1) {
-    // Send a message based on the given jon template & arguments
-    sendTemp(sIP, sPort, tName, noSend, fShowTemplate, optind, argc, argv, NULL);
+    
+    // Send a message based on the given JSON template & arguments, repeat N times
+    for (sc = 0; sc < sCount; sc++) {
+      sendTemp(sIP, sPort, tName, noSend, fShowTemplate, optind, argc, argv, NULL);
+      usleep(sSleep);
+    }
   }
 
 

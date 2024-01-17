@@ -29,23 +29,47 @@
 hhl7 \- A Linux command line HL7 sender, receiver and responder with a web interface
 .SH "SYNOPSIS"
 .sp
-\fBhhl7\fP [-s <IP>] [-L <IP] [-p <port>] [-P <port>] [-o] {-D|-f|-F|-t|-T|-l|-r} [options] [argument ...]
+\fBhhl7\fP [-s <IP>] [-L <IP] [-p <port>] [-P <port>] [-o] {-D|-f|-F|-t|-T|-l|-r|-n|-N} [options] [argument ...]
 .SH "DESCRIPTION"
 .sp
-\fBhhl7\fP is a developer tool for sending, receiving and automatically responding to HL7 messages. It utilizes JSON formatted templates to quickly generate messages based on the provided command line arguments, random numbers, time values etc.
+\fBhhl7\fP is a development tool for sending, receiving and automatically responding to HL7 messages. It utilises JSON formatted templates to quickly generate messages based on the provided command line arguments, random numbers, time values etc.
 .sp
-\fBhhl7 is currently only intended as development tool and should not be used in a production environment without extensive testing.\fP
-.SH "OPTIONS"
+\fBWARNING: hhl7 is currently only intended as a development tool and should not be used in a production environment without extensive testing.\fP
+.SH "HELP OPTIONS"
 .sp
 \fB\-h\fP, \fB\-H\fP, \fB\-\-help\fP
 .RS 4
 Show command usage help.
 .RE
 .sp
-\fB\-D\fP <systemd socket>
+\fB\--v\fP, \fB\-\-version\fP
 .RS 4
-Used to launch hhl7 as a systemd service triggered by a systemd socket. See /lib/systemd//system/hhl7.service and /lib/systemd//system/hhl7.socket for configuration. \fBThis argument should only be used in a systemd service and is not intended for general command line use.\fP
+Show version information.
 .RE
+.sp
+.SH "NETWORK OPTIONS"
+.sp
+\fB\-s\fP, <ip address>
+.RS 4
+The target IP address to use when sending outgoing messages. (default: 127.0.0.1)
+.RE
+.sp
+\fB\-L\fP, <ip address>
+.RS 4
+The IP address to use when listening for incoming messages. (default: 127.0.0.1)
+.RE
+.sp
+\fB\-p\fP <port number>
+.RS 4
+The target port to use when sending outgoing messages. (default: 11011)
+.RE
+.sp
+\fB\-P\fP <port number>
+.RS 4
+The port to use when listening for incoming messages. (default: 22022)
+.RE
+.sp
+.SH "FUNCTIONAL OPTIONS"
 .sp
 \fB\-f\fP <filename>
 .RS 4
@@ -54,7 +78,7 @@ Send the contents of the provided filename as a HL7 message. The contents of the
 .sp
 \fB\-F\fP
 .RS 4
-Send file.txt from the current path as HL7 message, shorthand for \(aq./hhl7 file.txt\(aq.
+Send file.txt from the current path as HL7 message, shorthand for \(aqhhl7 ./file.txt\(aq.
 .RE
 .sp
 \fB\-t\fP <template> (arguments ...)
@@ -74,38 +98,37 @@ Suppress sending the HL7 message, only print the message to stdout. Used in conj
 .sp
 \fB\-l\fP
 .RS 4
-Listen for incomming HL7 messages and print them to stdout. All messages will currently be replied to with an application accept (AA) ACK response, however this will be configurable in a future update.
+Listen for incoming HL7 messages and print them to stdout. All messages will currently be replied to with an application accept (AA) ACK response, however this will be configurable in a future update.
 .RE
 .sp
 \fB\-r\fP <template>
 .RS 4
-Listen for incomming HL7 messages and compare them against the \(aqmatches\(aq section of a responder template. If the incomming message matches the template, send a HL7 message based on the template\(aqs configuration. hhl7 will attempt to locate a responder template in \(aq~/.config/hhl7/responders/\(aq, \(aq./responders/\(aq and then \(aq/usr/local/hhl7/responders/\(aq using the first it finds. A template argument provided on the command line should not include the .json extension.
+Listen for incoming HL7 messages and compare them against the \(aqmatches\(aq section of a responder template. If the incoming message matches the template, send a HL7 message based on the template\(aqs configuration. hhl7 will attempt to locate a responder template in \(aq~/.config/hhl7/responders/\(aq, \(aq./responders/\(aq and then \(aq/usr/local/hhl7/responders/\(aq using the first it finds. A template argument provided on the command line should not include the .json extension.
 .RE
 .sp
-\fB\-s\fP, <ip address>
+\fB\-n\fP <integer>
 .RS 4
-The target IP address to use when sending outgoing messages. (default: 127.0.0.1)
+Repeat sending the same template and arguments multiple times. This is intended for stress testing purposes and offers no options for altering arguments with each iteration. For real world usage requiring different template argument\(aqs, multiple messages may be combined in a single template. Alternatively a shell script can be used to generate a list of commands/arguments.
 .RE
 .sp
-\fB\-L\fP, <ip address>
+\fB\-N\fP <integer>
 .RS 4
-The IP address to use when listening for incomming messages. (default: 127.0.0.1)
+Delay in microseconds between sending repeat messages with -n. A delay of 0 is supported for no delay and the CLI arguments should support this. The web interfaces listen and respond pages may struggle with a value below ~250 depending on server specs. (Default: 500).
 .RE
 .sp
-\fB\-p\fP <port number>
+.SH "OTHER OPTIONS"
+.sp
+\fB\-D\fP <systemd socket>
 .RS 4
-The target port to use when sending outgoing messages. (default: 11011)
+Used to launch hhl7 as a systemd service triggered by a systemd socket. See /lib/systemd//system/hhl7.service and /lib/systemd//system/hhl7.socket for configuration. \fBThis argument should only be used in a systemd service and is not intended for general command line use.\fP
 .RE
 .sp
-\fB\-P\fP <port number>
+\fB\-w\fP 
 .RS 4
-The port to use when listening for incomming messages. (default: 22022)
+Used to launch hhl7's web interface without using a systemd socket. This is intended for development use only and some parts of the web interface may not function correctly in this run mode.
+\fP
 .RE
 .sp
-\fB\-v\fP, \fB\-\-version\fP
-.RS 4
-Display version information and exit.
-.RE
 .SH "COMMANDS"
 .sp
 \fBINTERRUPT (ctrl+c)\fP
