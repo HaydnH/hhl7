@@ -749,7 +749,7 @@ static void cleanSession(struct Session *session) {
     char hhl7rfifo[21];
     sprintf(hhl7rfifo, "%s%d", "/tmp/hhl7rfifo.", session->lpid);
     close(session->respFD);
-    FFS = unlink(hhl7rfifo);
+    unlink(hhl7rfifo);
   }
 
   // Stop the listening child process if running

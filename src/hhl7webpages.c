@@ -25,7 +25,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         text-decoration: none;\n\
         color: #fff;\n\
       }\n\
-      a.black {\n\
+      .black {\n\
         color: #000;\n\
       }\n\
       a:hover {\n\
@@ -566,6 +566,23 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         font-size: 14px;\n\
         width: 100%;\n\
         border-spacing: 1px;\n\
+      }\n\
+      #rCount {\n\
+        position: absolute;\n\
+        right: 0px;\n\
+        padding: 0px 0px 0px 4px;\n\
+        font-size: 24px;\n\
+        height: 36px;\n\
+        line-height: 36px;\n\
+        width: 100px;\n\
+        display: inline-block;\n\
+        text-align: right;\n\
+        line-height: 38px;\n\
+        padding: 0px 15px;\n\
+        font-family: Verdana, Helvetica, sans-serif;\n\
+        font-size: 14px;\n\
+        font-weight: bold;\n\
+        color: #000;\n\
       }\n\
       thead, tr, tfoot {\n\
         height: 36px;\n\
@@ -1308,13 +1325,18 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
 \n\
           } else if (response.ok) {\n\
             if (htmlData.length > 0 || htmlData === \"QE\") {\n\
-              var tHeader = '<thead><th class=\"thSendT\">Responder</th><th class=\"thSendT\">Send Template</th><th class=\"thDest\">Destination</th><th class=\"thSendTime\"></th><th class=\"thSTFmt\">Send Time</th><th class=\"thResp\">Response</th></thead>';\n\
-\n\
               var respTable = document.getElementById(\"respQBody\");\n\
+              var rCount = document.getElementById(\"rCount\");\n\
+\n\
               if (htmlData === \"QE\") {\n\
                 respTable.innerHTML = \"\";\n\
               } else {\n\
-                respTable.innerHTML = htmlData;\n\
+                jObj = JSON.parse(htmlData);\n\
+                respTable.innerHTML = jObj.data;\n\
+                if (jObj.count < (0.9 * jObj.max)) rCount.style.color = \"#000\";\n\
+                if (jObj.count >= (0.9 * jObj.max)) rCount.style.color = \"#fa7d00\";\n\
+                if (jObj.count >= jObj.max) rCount.style.color = \"#ff5151\";\n\
+                rCount.innerText = jObj.count + \" / \" + jObj.max;\n\
               }\n\
             }\n\
 \n\
@@ -1617,7 +1639,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         <a href=\"\" onClick=\"addResponder(); return false;\">&nbsp;&#10133;</a>\n\
       </div>\n\
       <div id=\"respForm\"></div>\n\
-      <div class=\"titleBar\">Response queue:</div>\n\
+      <div class=\"titleBar\">Response queue:<div id=\"rCount\"></div></div>\n\
       <div id=\"hl7Queue\" class=\"hl7Message\">\n\
         <table id=\"respQTable\">\n\
           <thead>\n\

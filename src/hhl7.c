@@ -13,6 +13,7 @@ You should have received a copy of the GNU General Public License along with hhl
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <unistd.h> 
 #include <time.h>
 #include <string.h>
 #include <getopt.h>
@@ -66,7 +67,11 @@ static void showHelp(int exCode) {
 
 // Clean shutdown
 static void cleanShutdown() {
-  writeLog(LOG_INFO, "Received signal, politely shutting down", 1);
+  if (getppid() > 1) {
+    writeLog(LOG_INFO, "Listener child process shutting down", 1);
+  } else {
+    writeLog(LOG_INFO, "Received signal, politely shutting down", 1);
+  }
   if (webRunning == 1) cleanAllSessions();
   exit(0);
 }

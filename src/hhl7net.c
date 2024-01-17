@@ -104,14 +104,14 @@ static void addRespWeb(char *newResp, struct Response *resp, int respCount) {
   sprintf(newResCode, "%s", resp->resCode);
   if (strlen(resp->resCode) == 0) {
     sprintf(newResCode, "--");
-    sprintf(resClass, " class=\"tdCtr\"");
+    sprintf(resClass, " class='tdCtr'");
   } else if (strcmp(newResCode, "AA") == 0 || strcmp(newResCode, "CA") == 0) {
-    sprintf(resClass, " class=\"tdCtrG\"");
+    sprintf(resClass, " class='tdCtrG'");
   } else {
-    sprintf(resClass, " class=\"tdCtrR\"");
+    sprintf(resClass, " class='tdCtrR'");
   }
 
-  sprintf(newResp, "<tr class=\"%s\"><td class=\"tdCtr\">%d</td><td>%s</td><td>%s</td><td>%s:%s</td><td class=\"rSendTime\">%ld</td><td class=\"rSTFmt\"></td><td%s>%s</td></tr>\n", resEvenOdd, respCount + 1, resp->rName, resp->tName, resp->sIP, resp->sPort, resp->sendTime, resClass, newResCode);
+  sprintf(newResp, "<tr class='%s'><td class='tdCtr'>%d</td><td>%s</td><td>%s</td><td>%s:%s</td><td class='rSendTime'>%ld</td><td class='rSTFmt'></td><td%s>%s</td></tr>", resEvenOdd, respCount + 1, resp->rName, resp->tName, resp->sIP, resp->sPort, resp->sendTime, resClass, newResCode);
 
 }
 
@@ -125,7 +125,8 @@ static int processResponses(int fd) {
   char *sArg = "";
   // TODO - add expiry time to config file
   int nextResp = -1, respCount = 0, rmCount = 0, argCount = 0, expTime = 900;
-  int webRespS = 1024, reqS = 0;
+  // TODO - add webLimit to config file? Remove once changed to SSE?
+  int webRespS = 1024, reqS = 0, webLimit = 200;
   char *webResp = malloc(webRespS);
   webResp[0] = '\0';
   char errStr[256] = "";
@@ -137,6 +138,8 @@ static int processResponses(int fd) {
                strlen(resp->sIP) + strlen(resp->sPort) + 293];
 
   writeLog(LOG_DEBUG, "Processing response queue...", 0);
+
+  sprintf(webResp, "%s", "{ \"data\":\"");
 
   while (resp != NULL) {
     // Expire old responses
@@ -168,14 +171,14 @@ static int processResponses(int fd) {
 
       resp->sent = 1;
       sprintf(resp->resCode, "%s", resStr);
-      if (webRunning == 1) addRespWeb(newResp, resp, respCount);
+      if (webRunning == 1 && respCount <= webLimit) addRespWeb(newResp, resp, respCount);
       respCount++;
 
     } else if (resp->sendTime > tNow) {
       writeLog(LOG_DEBUG, "Response queue processing, future response added to queue", 0);
       fTime = resp->sendTime - tNow;
       if (nextResp == -1 || fTime < nextResp) nextResp = fTime;
-      if (webRunning == 1) addRespWeb(newResp, resp, respCount);
+      if (webRunning == 1 && respCount <= webLimit) addRespWeb(newResp, resp, respCount);
       respCount++;
       if (nextResp < 0) nextResp = 0;
 
@@ -183,18 +186,21 @@ static int processResponses(int fd) {
       writeLog(LOG_DEBUG, "Response queue processing, sent response added to queue", 0);
       if (nextResp == -1 || nextResp > expTime) nextResp = expTime;
 
-      if (webRunning == 1) addRespWeb(newResp, resp, respCount);
+      if (webRunning == 1  && respCount <= webLimit) addRespWeb(newResp, resp, respCount);
       respCount++;
 
     }
 
-    if (webRunning == 1) {
-      reqS = strlen(webResp) + strlen(newResp) + 1;
+    if (webRunning == 1 && respCount <= webLimit) {
+      reqS = strlen(webResp) + strlen(newResp) + 57;
       if (reqS > webRespS) webResp = dblBuf(webResp, &webRespS, reqS);
       strcat(webResp, newResp);
     }
     resp = resp->next;
   }
+
+  sprintf(webResp + strlen(webResp), "\", \"count\": %d, \"max\": %d }",
+                                     respCount, webLimit);
 
   writeLog(LOG_DEBUG, "Response queue processing complete", 0);
 
@@ -818,6 +824,8 @@ int startMsgListener(char *lIP, const char *lPort, char *sIP, char *sPort,
   time_t lastProcess = time(NULL), now;
   // TODO add to config file? Maybe remove it once we only send respond updates to web?
   int procThrot = 1;
+
+  writeLog(LOG_INFO, "Listener child process starting up", 1);
 
   if ((svrfd = createSession(lIP, lPort)) == -1) return -1;
 
