@@ -55,8 +55,8 @@ static void showHelp(int exCode) {
   printf("  -t <temp> [args ...]     Generate a message from a JSON template and send it\n");
   printf("  -T <temp> [<arg ...]     Same as -t, but also print message to STDOUT\n");
   printf("  -o                       Suppress sending message, use with -T for STDOUT only\n");
-  printf("  -l                       Listen for incomming messages\n");
-  printf("  -r <temps ...>           Respond to incomming messages if they match template\n");
+  printf("  -l                       Listen for incoming messages\n");
+  printf("  -r <temps ...>           Respond to incoming messages if they match template\n");
   printf("  -n <integer>             Send template multiple times, meant for stress testing\n");
   printf("  -r <temps ...>           Delay between sending multiple messages with -n\n\n");
 
@@ -280,13 +280,13 @@ int main(int argc, char *argv[]) {
 
 
   if (fListen == 1) {
-    // Listen for incomming messages
+    // Listen for incoming messages
     startMsgListener(lIP, lPort, NULL, NULL, -1, 0, NULL);
   }
 
 
   if (fRespond == 1) {
-    // Listen for incomming messages & respond using template
+    // Listen for incoming messages & respond using template
     startMsgListener(lIP, lPort, sIP, sPort, argc, optind, argv);
   }
 

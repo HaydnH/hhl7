@@ -484,7 +484,7 @@ int sendAck(int sessfd, char *hl7msg) {
   char ackBuf[1024];
   int writeL = 0;
 
-  // Get current time and control ID of incomming message
+  // Get current time and control ID of incoming message
   timeNow(dt, 0); 
   getHL7Field(hl7msg, "MSH", 9, cid);
   if (strlen(cid) == 0) sprintf(cid, "%s", "<UNKNOWN>");
@@ -505,7 +505,7 @@ int sendAck(int sessfd, char *hl7msg) {
 }
 
 
-// Check incomming message for responder match and send response
+// Check incoming message for responder match and send response
 static struct Response *checkResponse(char *msg, char *sIP, char *sPort, char *tName) {
   struct Response *respHead = responses;
   struct json_object *resObj = NULL, *jArray = NULL, *matchObj = NULL;
@@ -640,7 +640,7 @@ static struct Response *checkResponse(char *msg, char *sIP, char *sPort, char *t
 }
 
 
-// Handle an incomming message
+// Handle an incoming message
 static struct Response *handleMsg(int sessfd, int fd, char *sIP, char *sPort,
                                   int argc, int optind, char *argv[]) {
 
@@ -663,7 +663,7 @@ static struct Response *handleMsg(int sessfd, int fd, char *sIP, char *sPort,
 
     } else {
       if (rcvSize == -1 && msgCount == 0) {
-        handleError(LOG_ERR, "Failed to read incomming message from server", 1, 0, 1);
+        handleError(LOG_ERR, "Failed to read incoming message from server", 1, 0, 1);
         // TODO - check if we're still using webErr
         webErr = 1;
       }
@@ -686,7 +686,7 @@ static struct Response *handleMsg(int sessfd, int fd, char *sIP, char *sPort,
           // If we're responding, parse each respond template to see if msg matches
           if (argc > 0) {
             for (int i = optind; i < argc; i++) {
-              sprintf(errStr, "Checking if incomming message matches responder: %s",
+              sprintf(errStr, "Checking if incoming message matches responder: %s",
                       argv[i]);
               writeLog(LOG_INFO, errStr, 1);
               respHead = checkResponse(msgBuf, sIP, sPort, argv[i]);
@@ -734,7 +734,7 @@ static struct Response *handleMsg(int sessfd, int fd, char *sIP, char *sPort,
 }
 
 
-// Listen for incomming messages
+// Listen for incoming messages
 static int createSession(char *ip, const char *port) {
   int svrfd, rv;
   struct addrinfo hints, *res = 0;
@@ -812,7 +812,7 @@ static int readRespTemps(int respFD, char respTemps[20][256], char *respTempsPtr
 }
 
 
-// Start listening for incomming messages
+// Start listening for incoming messages
 int startMsgListener(char *lIP, const char *lPort, char *sIP, char *sPort,
                      int argc, int optind, char *argv[]) {
   // TODO - malloc instead of limited resp templates
