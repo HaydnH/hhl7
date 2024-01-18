@@ -101,10 +101,8 @@ int main(int argc, char *argv[]) {
   char errStr[28] = "";
 
   // Catch signals for clean shutdown
-  struct sigaction sa;
-  sa.sa_handler = cleanShutdown;
+  struct sigaction sa = { .sa_handler = cleanShutdown };
   sigaction(SIGINT, &sa, NULL);
-  sigaction(SIGKILL, &sa, NULL);
   sigaction(SIGTERM, &sa, NULL);
 
   // Seed RNG

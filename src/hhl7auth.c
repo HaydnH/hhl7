@@ -124,6 +124,7 @@ int regNewUser(char *uid, char *passwd) {
   char salt[maxPassL + 1];
   char saltPasswd[saltedL];
   char pwdHash[4* maxPassL];
+  saltPasswd[0] = '\0';
   pwdHash[0] = '\0';
   char errStr[68] = "";
 
@@ -302,10 +303,14 @@ int checkAuth(char *uid, const char *passwd) {
   struct json_object *pwObj = NULL, *userArray = NULL, *userObj = NULL;
   struct json_object *uidStr = NULL, *atInt = NULL, *saltStr = NULL, *pwdStr = NULL;
   int uCount = 0, u = 0, uExists = 0, attempts = 0;
+  // TODO - move maxAttempts to config file
+  int maxAttempts = 3;
   int maxPassL = 32;
   size_t saltedL = 3 * maxPassL;
   char saltPasswd[saltedL];
   char pwdHash[4* maxPassL];
+  saltPasswd[0] = '\0';
+  pwdHash[0] = '\0';
   char errStr[63] = "";
 
   // Define passwd file location
@@ -352,8 +357,6 @@ int checkAuth(char *uid, const char *passwd) {
         atInt = json_object_object_get(userObj, "attempts");
         attempts = json_object_get_int(atInt);
         // Return if the max failed login attempts breached 
-        // TODO - move maxAttempts to config file
-        int maxAttempts = 3;
         if (attempts >= maxAttempts && maxAttempts > 0) {
           json_object_put(pwObj);
           return 1;
@@ -408,6 +411,8 @@ int updatePasswd(char *uid, const char *password) {
   char salt[maxPassL + 1];
   char saltPasswd[saltedL];
   char pwdHash[4* maxPassL];
+  saltPasswd[0] = '\0';
+  pwdHash[0] = '\0';
   char errStr[78] = "";
 
   // Define passwd file location
@@ -512,8 +517,11 @@ int lPortUsed(char *uid, const char *lPort) {
 
     if (strcmp(json_object_get_string(lPortStr), lPort) == 0 &&
         strcmp(json_object_get_string(uidStr), uid) != 0) {
+
+      json_object_put(pwObj);
       return 1;
     }
   }
+  json_object_put(pwObj);
   return 0;
 }

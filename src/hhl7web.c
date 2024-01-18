@@ -473,11 +473,11 @@ static enum MHD_Result getTemplateList(struct Session *session,
   char tPath[29] = "/usr/local/hhl7/responders/";
   char fExt[6] = "";
   const char *nOpt = "<option value=\"None\">None</option>\n";
-  char fName[128], tName[128], fullName[128+strlen(tPath)], *ext;
+  char fName[128] = "", tName[128] = "", fullName[128+strlen(tPath)], *ext;
   char *newPtr;
   char errStr[300] = "";
 
-  char *tempOpts = malloc(36);
+  char *tempOpts = malloc(37);
   if (tempOpts == NULL) {
     sprintf(errStr, "[S: %03d] Cannot cannot allocate memory for template list",
                     session->shortID);
@@ -1114,6 +1114,7 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
 
         } else if (aStatus == 0) {
           con_info->session->aStatus = 1;
+          updatePasswdFile(con_info->session->userid, "attempts", NULL, 0);
           snprintf(answerstring, 3, "%s", "LA");  // Accept login
           sprintf(errStr, "[S: %03d] Login accepted, uid: %s",
                           con_info->session->shortID, con_info->session->userid);
