@@ -179,7 +179,7 @@ void wrapMLLP(char *hl7msg) {
 }
 
 
-//
+// Find the value of a HL7 segment/field 
 int getHL7Field(char *hl7msg, char *seg, int field, char *res) {
   int msgLen = strlen(hl7msg), segLen = strlen(seg);
   int m = 0, s = 0, f = 0, fc = 0, sFound = 0, fFound = 0;
@@ -221,7 +221,7 @@ int getHL7Field(char *hl7msg, char *seg, int field, char *res) {
   }
 
   sprintf(errStr, "Failed to find field %d in segment %s", field, seg);
-  handleError(LOG_ERR, errStr, 1, 0, 1);
+  handleError(LOG_WARNING, errStr, -1, 0, 1);
   return 1;
 }
 

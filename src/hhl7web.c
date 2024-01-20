@@ -43,7 +43,7 @@ You should have received a copy of the GNU General Public License along with hhl
 #define GET             0
 #define POST            1
 #define MAXNAMESIZE     1024
-#define MAXANSWERSIZE   50 
+#define MAXANSWERSIZE   3
 #define POSTBUFFERSIZE  65536
 
 
@@ -55,7 +55,7 @@ int webRunning = 0;
 struct connection_info_struct {
   struct MHD_Connection *connection;
   int connectiontype;
-  char *answerstring;
+  char answerstring[MAXANSWERSIZE];
   struct MHD_PostProcessor *postprocessor;
   struct Session *session;
 };
@@ -194,7 +194,12 @@ static void reqComplete(void *cls, struct MHD_Connection *connection,
 
   if (request == NULL) return;
   if (request->session != NULL) request->session->rc--;
-  free (request);
+
+  if (request->connectiontype == POST) {
+    MHD_destroy_post_processor(request->postprocessor);
+  }
+  free(request);
+  request = NULL;
 }
 
 
@@ -387,9 +392,10 @@ static enum MHD_Result getSettings(struct Session *session,
     sprintf(pwFile, "%s", "./conf/passwd.hhl7");
   }
 
-  struct json_object *resObj = json_object_new_object();
+  //struct json_object *resObj = json_object_new_object();
   struct json_object *pwObj = NULL, *userArray = NULL, *userObj = NULL;
   struct json_object  *uidStr = NULL, *sIP = NULL, *sPort = NULL, *lPort = NULL;
+  char setStr[300] = "";
   int uCount = 0, u = 0;
   char errStr[300] = "";
 
@@ -424,24 +430,18 @@ static enum MHD_Result getSettings(struct Session *session,
       sprintf(session->sPort, "%s", json_object_get_string(sPort));
       sprintf(session->lPort, "%s", json_object_get_string(lPort));
 
-      json_object_object_add(resObj, "sIP", sIP);
-      json_object_object_add(resObj, "sPort", sPort);
-      json_object_object_add(resObj, "lPort", lPort);
+      sprintf(setStr, "{\"sIP\":\"%s\",\"sPort\":\"%s\",\"lPort\":\"%s\"}",
+                      session->sIP, session->sPort, session->lPort);
 
       break;
     }
   }
 
-  const char *resStr = json_object_to_json_string_ext(resObj, JSON_C_TO_STRING_PLAIN);
-  char *resStrC = strdup(resStr);
- 
-  response = MHD_create_response_from_buffer(strlen(resStrC), (void *) resStrC,
+  response = MHD_create_response_from_buffer(strlen(setStr), (void *) setStr,
              MHD_RESPMEM_MUST_COPY);
 
   if (!response) {
-    json_object_put(resObj);
     json_object_put(pwObj);
-    free(resStrC);
     return MHD_NO;
   }
 
@@ -454,8 +454,7 @@ static enum MHD_Result getSettings(struct Session *session,
   writeLog(LOG_INFO, errStr, 0);
 
   MHD_destroy_response(response);
-  json_object_put(resObj);
-  free(resStrC);
+  json_object_put(pwObj);
   return ret;
 }
 
@@ -474,15 +473,16 @@ static enum MHD_Result getTemplateList(struct Session *session,
   char fExt[6] = "";
   const char *nOpt = "<option value=\"None\">None</option>\n";
   char fName[128] = "", tName[128] = "", fullName[128+strlen(tPath)], *ext;
-  char *newPtr;
+  char *newPtr = NULL;
   char errStr[300] = "";
 
-  char *tempOpts = malloc(37);
+  char *tempOpts = malloc(38);
   if (tempOpts == NULL) {
     sprintf(errStr, "[S: %03d] Cannot cannot allocate memory for template list",
                     session->shortID);
     handleError(LOG_ERR, errStr, 1, 0, 1);
   }
+  tempOpts[0] = '\0';
 
   if (respond == 0) {
     sprintf(tPath, "%s", "/usr/local/hhl7/templates/");
@@ -521,7 +521,7 @@ static enum MHD_Result getTemplateList(struct Session *session,
           }
 
           // Increase memory for tempOpts to allow file name etc
-          newPtr = realloc(tempOpts, (2*strlen(fName)) + strlen(tempOpts) + 37);
+          newPtr = realloc(tempOpts, (2*strlen(fName)) + strlen(tempOpts) + 38);
           if (newPtr == NULL) {
             sprintf(errStr, "[S: %03d] Can't realloc memory for template list (tempopts)",
                             session->shortID);
@@ -559,6 +559,7 @@ static enum MHD_Result getTemplateList(struct Session *session,
   MHD_destroy_response(response);
   return ret;
 }
+
 
 static enum MHD_Result getTempForm(struct Session *session,
                                    struct MHD_Connection *connection, const char *url) {
@@ -982,14 +983,13 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
   char errStr[90] = "";
   char resStr[3] = "";
   int aStatus = -1, nStatus = -1;
-  char *answerstring;
-  answerstring = malloc(MAXANSWERSIZE);
-  if (!answerstring) return MHD_NO;
 
   // A new connection should have already found it's sesssion, but check to be safe
   if (con_info->session == NULL) {
     con_info->session = getSession(con_info->connection);
   }
+
+  con_info->answerstring[0] = '\0';
 
   if ((size > 0) && (size <= MAXNAMESIZE)) {
     // Security check, only these post items are allowed without already being authed
@@ -998,8 +998,7 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
           strcmp(key, "pword") == 0) {
 
       } else {
-        snprintf(answerstring, 3, "%s", "L0");  // Require a login
-        con_info->answerstring = answerstring;
+        snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "L0");  // Require login
         return MHD_YES;
       }
     }
@@ -1038,16 +1037,13 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
         sprintf(errStr, "[S: %03d][%s] Sent %ld byte packet to socket: %d",
                         con_info->session->shortID, resStr, strlen(newData), sockfd);
         writeLog(LOG_INFO, errStr, 0);
-
-        snprintf(answerstring, MAXANSWERSIZE, resStr, newData);
-        con_info->answerstring = answerstring;
+        snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", resStr);
 
       } else {
         sprintf(errStr, "[S: %03d] Can't open socket to send packet",
                         con_info->session->shortID);
         handleError(LOG_ERR, errStr, 1, 0, 1);
-        sprintf(answerstring, "%s", "CX"); // Connection to target server failed
-        con_info->answerstring = answerstring;
+        snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "CX"); // Connection failed
         return MHD_YES;
 
       }  
@@ -1055,20 +1051,20 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
     } else if (strcmp(key, "pcaction") == 0 ) {
       con_info->session->pcaction = atoi(data);
       // Temporarily list the answer code as DP (partial data) until we receive passwd
-      snprintf(answerstring, 3, "%s", "DP");
+      snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "DP");
 
     } else if (strcmp(key, "uname") == 0 ) {
       if (validStr((char *) data, 4, 26, 1) == 0)
         sprintf(con_info->session->userid, "%s", data);
 
       // Temporarily list the answer code as DP (partial data) until we receive passwd
-      snprintf(answerstring, 3, "%s", "DP");
+      snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "DP");
 
     } else if (strcmp(key, "pword") == 0 ) {
       // Return partial data code if invalid request
       if (strlen(con_info->session->userid) == 0 || con_info->session->pcaction < 1 ||
           validStr((char *) data, 8, 200, 1) > 0) {
-        snprintf(answerstring, 3, "%s", "DP");
+        snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "DP");
 
       } else {
         aStatus = checkAuth(con_info->session->userid, data);
@@ -1077,13 +1073,13 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
           nStatus = regNewUser(con_info->session->userid, (char *) data);
 
           if (nStatus == 0) {
-            snprintf(answerstring, 3, "%s", "LC");  // New account created
+            snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "LC");  // Account created
             sprintf(errStr, "[S: %03d] New user account created, uid: %s",
                             con_info->session->shortID, con_info->session->userid);
             writeLog(LOG_INFO, errStr, 0);
 
           } else {
-            snprintf(answerstring, 3, "%s", "LF");  // New account creation failure
+            snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "LF");  // New account creation failure
             sprintf(errStr, "[S: %03d] New user account creation failed, uid: %s",
                             con_info->session->shortID, con_info->session->userid);
             writeLog(LOG_INFO, errStr, 0);
@@ -1091,55 +1087,53 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
           }
 
         } else if (aStatus == 3 && con_info->session->pcaction == 1) {
-          snprintf(answerstring, 3, "%s", "LR");  // Reject login, no account
+          snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "LR");  // Reject login, no account
           sprintf(errStr, "[S: %03d] Login rejected (no account), uid: %s",
                           con_info->session->shortID, con_info->session->userid);
           writeLog(LOG_INFO, errStr, 0);
 
         } else if (aStatus == 2) {
-          snprintf(answerstring, 3, "%s", "LR");  // Reject login, wrong password
+          snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "LR");  // Reject login, wrong password
           sprintf(errStr, "[S: %03d] Login rejected (wrong password), uid: %s",
                           con_info->session->shortID, con_info->session->userid);
           writeLog(LOG_INFO, errStr, 0);
 
         } else if (aStatus == 1) {
-          snprintf(answerstring, 3, "%s", "LD");  // Account disabled, but login OK
+          snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "LD");  // Account disabled, but login OK
           sprintf(errStr, "[S: %03d] Login rejected (account disabled), uid: %s",
                           con_info->session->shortID, con_info->session->userid);
           writeLog(LOG_INFO, errStr, 0);
 
         } else if (aStatus == 0 && con_info->session->pcaction == 3) {
           con_info->session->aStatus = 2;
-          snprintf(answerstring, 3, "%s", "DP");
+          snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "DP");
 
         } else if (aStatus == 0) {
           con_info->session->aStatus = 1;
           updatePasswdFile(con_info->session->userid, "attempts", NULL, 0);
-          snprintf(answerstring, 3, "%s", "LA");  // Accept login
+          snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "LA");  // Accept login
           sprintf(errStr, "[S: %03d] Login accepted, uid: %s",
                           con_info->session->shortID, con_info->session->userid);
           writeLog(LOG_INFO, errStr, 0);
 
         } else {
-          snprintf(answerstring, 3, "%s", "DP");
+          snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "DP");
  
         }
       }
 
-      con_info->answerstring = answerstring;
-
     } else if (strcmp(key, "npword") == 0 ) {
       // NOTE: con_info->session->aStatus = 2 can only be true after a succesful
       // username/passwd check from a username/passwd/newPasswd post.
-      snprintf(answerstring, 3, "%s", "SX");
+      snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "SX");
       if (con_info->session->aStatus == 2) {
         if (validStr((char *) data, 8, 200, 1) > 0) {
-          snprintf(answerstring, 3, "%s", "DP");
+          snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "DP");
 
         } else {
           con_info->session->aStatus = 1;
           if (updatePasswd(con_info->session->userid, data) == 0) {
-            snprintf(answerstring, 3, "%s", "OK");  // Password updated succesfully
+            snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "OK");  // Password updated succesfully
             sprintf(errStr, "[S: %03d] Password changed, uid: %s",
                             con_info->session->shortID, con_info->session->userid);
             writeLog(LOG_INFO, errStr, 0);
@@ -1148,45 +1142,41 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
         } 
       }
 
-      con_info->answerstring = answerstring;
-
     } else if (strcmp(key, "sIP") == 0 ) {
       if (updatePasswdFile(con_info->session->userid, key, data, -1) == 0) {
         sprintf(con_info->session->sIP, "%s", data);
-        snprintf(answerstring, 3, "%s", "OK");  // Save OK
+        snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "OK");  // Save OK
         sprintf(errStr, "[S: %03d] Send IP settings saved OK, uid: %s",
                         con_info->session->shortID, con_info->session->userid);
         writeLog(LOG_INFO, errStr, 0);
 
       } else {
-        snprintf(answerstring, 3, "%s", "SX");  // Save failed
+        snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "SX");  // Save failed
         sprintf(errStr, "[S: %03d] Failed to save send IP settings, uid: %s",
                         con_info->session->shortID, con_info->session->userid);
         writeLog(LOG_WARNING, errStr, 0);
 
       }
-      con_info->answerstring = answerstring;
 
     } else if (strcmp(key, "sPort") == 0 ) {
       if (updatePasswdFile(con_info->session->userid, key, data, -1) == 0) {
         sprintf(con_info->session->sPort, "%s", data);
-        snprintf(answerstring, 3, "%s", "OK");  // Save OK
+        snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "OK");  // Save OK
         sprintf(errStr, "[S: %03d] Send port settings saved OK, uid: %s",
                         con_info->session->shortID, con_info->session->userid);
         writeLog(LOG_INFO, errStr, 0);
 
       } else {
-        snprintf(answerstring, 3, "%s", "SX");  // Save failed
+        snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "SX");  // Save failed
         sprintf(errStr, "[S: %03d] Failed to save send port settings, uid: %s",
                         con_info->session->shortID, con_info->session->userid);
         writeLog(LOG_WARNING, errStr, 0);
 
       }
-      con_info->answerstring = answerstring;
 
     } else if (strcmp(key, "lPort") == 0 ) {
       if (lPortUsed(con_info->session->userid, data) == 1) {
-        snprintf(answerstring, 3, "%s", "SR");  // Save Rejected (port in use)
+        snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "SR");  // Save Rejected (port in use)
         sprintf(errStr, "[S: %03d] Rejected listen port change, port in use, uid: %s",
                         con_info->session->shortID, con_info->session->userid);
         writeLog(LOG_INFO, errStr, 0);
@@ -1195,30 +1185,27 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
         sprintf(con_info->session->lPort, "%s", data);
         stopListenWeb(con_info->session, con_info->connection, "/postListSets");
         startListenWeb(con_info->session, con_info->connection, "/postListSets", -1, NULL);
-        snprintf(answerstring, 3, "%s", "OK");  // Save OK
+        snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "OK");  // Save OK
         sprintf(errStr, "[S: %03d] Listen port settings saved OK, uid: %s",
                         con_info->session->shortID, con_info->session->userid);
         writeLog(LOG_INFO, errStr, 0);
 
       } else {
-        snprintf(answerstring, 3, "%s", "SX");  // Save failed
+        snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "SX");  // Save failed
         sprintf(errStr, "[S: %03d] Failed to save send port settings, uid: %s",
                         con_info->session->shortID, con_info->session->userid);
         writeLog(LOG_WARNING, errStr, 0);
 
       }
-      con_info->answerstring = answerstring;
-
     }
 
   } else {
     // No post data was received, reply with code "D0" (no data)
-    strcpy(answerstring, "D0");
+    snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "D0");
     sprintf(errStr, "[S: %03d] Post received with no data, uid: %s",
                     con_info->session->shortID, con_info->session->userid);
     writeLog(LOG_WARNING, errStr, 0);
 
-    con_info->answerstring = answerstring;
     return MHD_NO;
 
   }
@@ -1316,7 +1303,8 @@ static enum MHD_Result answer_to_connection(void *cls, struct MHD_Connection *co
     if (con_info == NULL) return MHD_NO;
     con_info->connection = connection;
     con_info->session = getSession(connection);
-    con_info->answerstring = NULL;
+    con_info->answerstring[0] = '\0';
+    con_info->postprocessor = NULL;
 
     if (strcmp(method, "POST") == 0) {
       con_info->postprocessor = MHD_create_post_processor(connection, POSTBUFFERSIZE,
@@ -1413,7 +1401,8 @@ static enum MHD_Result answer_to_connection(void *cls, struct MHD_Connection *co
       *upload_data_size = 0;
       return MHD_YES;
 
-    } else if (NULL != con_info->answerstring) {
+    //} else if (con_info->answerstring != NULL) {
+    } else if (strlen(con_info->answerstring) > 0) {
       return sendPage(session, connection, method, con_info->answerstring, url);
 
     }
@@ -1425,7 +1414,7 @@ static enum MHD_Result answer_to_connection(void *cls, struct MHD_Connection *co
 
 
 // Clear down old sessions
-static int expireSessions(int expireAfter) {
+static int expireSessions(struct MHD_Daemon *daemon, int expireAfter) {
   struct Session *pos;
   struct Session *prev;
   struct Session *next;
@@ -1479,6 +1468,7 @@ static int expireSessions(int expireAfter) {
   if (sessCount < 1 && isDaemon == 1) {
     writeLog(LOG_INFO, "No active sessions remaining, exiting", 0);
     closeLog();
+    MHD_stop_daemon(daemon);
     exit(0);
   }
 
@@ -1580,7 +1570,7 @@ int listenWeb(int daemonSock) {
     // Expire any old sessions and get the time of the last session expiry
     now = time(NULL);
     if (now >= (last + expireSecs + expireDelay)) {
-      maxExpire = expireSessions(expireSecs) + expireDelay;
+      maxExpire = expireSessions(daemon, expireSecs) + expireDelay;
       last = time(NULL);
     }
 

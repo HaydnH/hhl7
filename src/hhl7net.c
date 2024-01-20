@@ -120,7 +120,7 @@ static void addRespWeb(char *newResp, struct Response *resp, int respCount) {
 static int processResponses(int fd) {
   struct Response *resp;
   time_t tNow = time(NULL), fTime;
-  char writeSize[11];
+  char writeSize[11] = "";
   char resStr[3] = "";
   char *sArg = "";
   // TODO - add expiry time to config file
@@ -254,6 +254,7 @@ int connectSvr(char *ip, char *port) {
 
   if ((rv = getaddrinfo(ip, port, &hints, &servinfo)) != 0) {
     handleError(LOG_ERR, "Can't obtain address info when connecting to server", -1, 0, 1);
+    freeaddrinfo(servinfo);
     return(-1);
   }
 
@@ -275,6 +276,7 @@ int connectSvr(char *ip, char *port) {
   if (p == NULL) {
     sprintf(errStr, "Failed to connect to server %s on port %s", ip, port);
     handleError(LOG_ERR, errStr, -1, 0, 1);
+    freeaddrinfo(servinfo);
     return(-1);
   }
 
@@ -648,10 +650,11 @@ static struct Response *handleMsg(int sessfd, int fd, char *sIP, char *sPort,
   int readSize = 512, msgSize = 0, maxSize = readSize + msgSize, rcvSize = 1;
   int msgCount = 0, ignoreNext = 0, webErr = 0;
   int *ms = &maxSize;
-  char rcvBuf[readSize+1];
+  char rcvBuf[readSize + 1];
   char *msgBuf = malloc(maxSize);
-  char writeSize[11];
+  char writeSize[11] = "";
   char errStr[306] = "";
+  rcvBuf[0] = '\0';
   msgBuf[0] = '\0';
 
   while (rcvSize > 0) {
