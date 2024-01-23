@@ -23,7 +23,6 @@ You should have received a copy of the GNU General Public License along with hhl
 #include <sys/stat.h>
 #include <sys/socket.h>
 #include <sys/prctl.h>
-//#include <sys/wait.h>
 #include <time.h>
 #include <netdb.h>
 #include <netinet/in.h>
@@ -202,42 +201,6 @@ static void reqComplete(void *cls, struct MHD_Connection *connection,
   free(request);
   request = NULL;
 }
-
-
-/* TODO remove if not used
-// Send a response code to the web client
-static enum MHD_Result sendWebRet(struct Session *session,
-                                  struct MHD_Connection *connection,
-                                  const char *retCode, int isSSE) {
-  enum MHD_Result ret;
-  struct MHD_Response *response;
-
-  int sLen = strlen(retCode) + 34;
-  char sBuf[sLen];
-  sBuf[0] = '\0';
-
-  if (isSSE == 0) {
-    sprintf(sBuf, "%s", retCode);
-  } else {
-    sprintf(sBuf, "event: rcvHL7\ndata: %s\nretry:500\n\n", retCode);
-  }
-
- response = MHD_create_response_from_buffer(strlen(retCode), (void *) retCode,
-                                            MHD_RESPMEM_PERSISTENT);
-                                            //MHD_RESPMEM_MUST_COPY);
-
-  if (! response) return MHD_NO;
-
-  if (isSSE == 0) MHD_add_response_header(response, "Content-Type", "text/plain");
-  if (isSSE == 1) MHD_add_response_header(response, "Content-Type", "text/event-stream");
-  MHD_add_response_header(response, "Cache-Control", "no-cache");
-
-  ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
-
-  MHD_destroy_response(response);
-  return ret;
-}
-*/
 
 
 // Send a 401 unauth'd to the client to request a login
@@ -822,8 +785,7 @@ void cleanAllSessions() {
 
 // Get a list of responses via a fifo
 static enum MHD_Result getRespQueue(struct Session *session,
-                                    struct MHD_Connection *connection,
-                                    const char *url, const char answerstring[3]) {
+                                    struct MHD_Connection *connection, const char *url) {
 
   enum MHD_Result ret;
   struct MHD_Response *response;
@@ -1437,7 +1399,7 @@ static enum MHD_Result answer_to_connection(void *cls, struct MHD_Connection *co
     } else if (strcmp(url, "/getRespQueue") == 0) {
       // Request login if not logged in
       if (session->aStatus != 1) return requestLogin(session, connection, url);
-      return getRespQueue(session, connection, url, con_info->answerstring);
+      return getRespQueue(session, connection, url);
 
     } else if (strcmp(url, "/getServers") == 0) {
       // Request login if not logged in

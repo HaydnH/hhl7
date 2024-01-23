@@ -186,7 +186,6 @@ static int processResponses(int fd) {
       writeLog(LOG_DEBUG, "Response queue processing, sent response added to queue", 0);
       if (nextResp == -1 || nextResp > expTime) nextResp = expTime;
 
-      // TODO - nextResp is set to last expiry instead of next expiry... fixed below?
       nr = tNow - resp->sendTime;
       if (nextResp == -1 || nr < nextResp) nextResp = nr;
 
