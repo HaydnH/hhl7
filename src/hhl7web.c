@@ -23,6 +23,7 @@ You should have received a copy of the GNU General Public License along with hhl
 #include <sys/stat.h>
 #include <sys/socket.h>
 #include <sys/prctl.h>
+//#include <sys/wait.h>
 #include <time.h>
 #include <netdb.h>
 #include <netinet/in.h>
@@ -203,6 +204,43 @@ static void reqComplete(void *cls, struct MHD_Connection *connection,
 }
 
 
+/* TODO remove if not used
+// Send a response code to the web client
+static enum MHD_Result sendWebRet(struct Session *session,
+                                  struct MHD_Connection *connection,
+                                  const char *retCode, int isSSE) {
+  enum MHD_Result ret;
+  struct MHD_Response *response;
+
+  int sLen = strlen(retCode) + 34;
+  char sBuf[sLen];
+  sBuf[0] = '\0';
+
+  if (isSSE == 0) {
+    sprintf(sBuf, "%s", retCode);
+  } else {
+    sprintf(sBuf, "event: rcvHL7\ndata: %s\nretry:500\n\n", retCode);
+  }
+
+ response = MHD_create_response_from_buffer(strlen(retCode), (void *) retCode,
+                                            MHD_RESPMEM_PERSISTENT);
+                                            //MHD_RESPMEM_MUST_COPY);
+
+  if (! response) return MHD_NO;
+
+  if (isSSE == 0) MHD_add_response_header(response, "Content-Type", "text/plain");
+  if (isSSE == 1) MHD_add_response_header(response, "Content-Type", "text/event-stream");
+  MHD_add_response_header(response, "Cache-Control", "no-cache");
+
+  ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
+
+  MHD_destroy_response(response);
+  return ret;
+}
+*/
+
+
+// Send a 401 unauth'd to the client to request a login
 static enum MHD_Result requestLogin(struct Session *session,
                                     struct MHD_Connection *connection, const char *url) {
   enum MHD_Result ret;
@@ -642,7 +680,7 @@ static enum MHD_Result getTempForm(struct Session *session,
 // Send a HL7 message from the Listener to the web client
 static enum MHD_Result sendHL72Web(struct Session *session,
                                    struct MHD_Connection *connection, int fd,
-                                   const char *url) {
+                                   const char *url, char *retCode) {
   enum MHD_Result ret;
   struct MHD_Response *response;
   int fBufS = 2048, rBufS = 512, mBufS = 0;
@@ -655,51 +693,57 @@ static enum MHD_Result sendHL72Web(struct Session *session,
 
   strcpy(fBuf, "event: rcvHL7\ndata: ");
 
-  while (pLen > 0 && p < maxPkts) {
-    mBufS = 0;
-    if ((pLen = read(fd, readSizeBuf, 11)) > 0) {
-      readSize = atoi(readSizeBuf);
+  if (strlen(retCode) == 0) {
+    while (pLen > 0 && p < maxPkts) {
+      mBufS = 0;
+      if ((pLen = read(fd, readSizeBuf, 11)) > 0) {
+        readSize = atoi(readSizeBuf);
 
       mBufS = (2 * readSize) + 1;
-      if (mBufS > rBufS) {
-        rBufNew = realloc(rBuf, mBufS);
-        if (rBufNew == NULL) {
-          sprintf(errStr, "[S: %03d] Can't realloc memory sendHL72Web, rBuf",
-                          session->shortID);
-          handleError(LOG_ERR, errStr, 1, 0, 1);
-
-        } else {
-          rBuf = rBufNew;
-
-        }
-      }
-
-      if ((pLen = read(fd, rBuf, readSize)) > 0) {
-        rBuf[readSize] = '\0';
-        hl72web(rBuf, mBufS);
-
-        mBufS = strlen(rBuf) + strlen(fBuf) + 50;
-        if (mBufS > fBufS) {
-          fBufNew = realloc(fBuf, mBufS);
-          if (fBufNew == NULL) {
-            sprintf(errStr, "[S: %03d] Can't realloc memory sendHL72Web, fBuf",
+        if (mBufS > rBufS) {
+          rBufNew = realloc(rBuf, mBufS);
+          if (rBufNew == NULL) {
+            sprintf(errStr, "[S: %03d] Can't realloc memory sendHL72Web, rBuf",
                             session->shortID);
             handleError(LOG_ERR, errStr, 1, 0, 1);
 
           } else {
-            fBuf = fBufNew;
-            fBufS = mBufS;
+            rBuf = rBufNew;
 
           }
         }
 
+        if ((pLen = read(fd, rBuf, readSize)) > 0) {
+         rBuf[readSize] = '\0';
+          hl72web(rBuf, mBufS);
 
-        strcat(fBuf, rBuf);
-        rBuf[0] = '\0';
-        p++;
+          mBufS = strlen(rBuf) + strlen(fBuf) + 50;
+          if (mBufS > fBufS) {
+            fBufNew = realloc(fBuf, mBufS);
+            if (fBufNew == NULL) {
+              sprintf(errStr, "[S: %03d] Can't realloc memory sendHL72Web, fBuf",
+                              session->shortID);
+              handleError(LOG_ERR, errStr, 1, 0, 1);
 
+            } else {
+              fBuf = fBufNew;
+              fBufS = mBufS;
+
+            }
+          }
+
+
+          strcat(fBuf, rBuf);
+          rBuf[0] = '\0';
+          p++;
+
+        }
       }
     }
+
+  } else {
+    strcat(fBuf, retCode);
+    p = 1;
   }
 
   strcat(fBuf, "\nretry:500\n\n");
@@ -778,7 +822,8 @@ void cleanAllSessions() {
 
 // Get a list of responses via a fifo
 static enum MHD_Result getRespQueue(struct Session *session,
-                                    struct MHD_Connection *connection, const char *url) {
+                                    struct MHD_Connection *connection,
+                                    const char *url, const char answerstring[3]) {
 
   enum MHD_Result ret;
   struct MHD_Response *response;
@@ -866,8 +911,11 @@ static enum MHD_Result stopListenWeb(struct Session *session,
 
 
 // Start a HL7 Listener in a forked child process
-static void startListenWeb(struct Session *session, struct MHD_Connection *connection,
+static int startListenWeb(struct Session *session, struct MHD_Connection *connection,
                            const char *url, int argc, char *argv[]) {
+
+  int rc = -1, rLen = 0, rTries = 0, maxTries = 10;
+  char rBuf[3] = "", errStr[41] = "";
 
   // Make children ignore waiting for parent process before closing
   signal(SIGCHLD, SIG_IGN);
@@ -887,9 +935,15 @@ static void startListenWeb(struct Session *session, struct MHD_Connection *conne
       exit(0);
     }
 
-    // 127.0.0.1 should be fine for daemon on systemd socket, -w may need bind address
-    startMsgListener("127.0.0.1", session->lPort, session->sIP, session->sPort,
-                     argc, 0, argv);
+    rc = startMsgListener("127.0.0.1", session->lPort, session->sIP, session->sPort,
+                          argc, 0, argv);
+
+    if (rc < 0) {
+      stopListenWeb(session, connection, url);
+      sprintf(errStr, "Failed to start listener on port: %s", session->lPort);
+      handleError(LOG_ERR, errStr, 1, 1, 1);
+    }
+
     _exit(0);
 
   }
@@ -900,15 +954,33 @@ static void startListenWeb(struct Session *session, struct MHD_Connection *conne
   mkfifo(hhl7fifo, 0666);
   session->readFD = open(hhl7fifo, O_RDONLY | O_NONBLOCK);
 
-  char hhl7rfifo[22];
-  sprintf(hhl7rfifo, "%s%d", "/tmp/hhl7rfifo.", session->lpid);
-  mkfifo(hhl7rfifo, 0666);
-  // Do not combine these two lines to "O_WRONLY | O_NONBLOCK" or open fails
-  session->respFD = open(hhl7rfifo, O_WRONLY);
-  fcntl(session->respFD, F_SETFL, O_NONBLOCK);
-  //fcntl(session->respFD, F_SETPIPE_SZ, 1048576); // Change pipe size, default seems OK
+  // Read message from pipe, should return FS if child listener started OK.
+  while (rLen < 1 && rTries < maxTries) {
+    rLen = read(session->readFD, rBuf, 2);
+    usleep(100000);
+    rTries++;
+  }
 
-  session->isListening = 1;
+  if (strcmp(rBuf, "FS") == 0) {
+    char hhl7rfifo[22];
+    sprintf(hhl7rfifo, "%s%d", "/tmp/hhl7rfifo.", session->lpid);
+    mkfifo(hhl7rfifo, 0666);
+    // Do not combine these two lines to "O_WRONLY | O_NONBLOCK" or open fails
+    session->respFD = open(hhl7rfifo, O_WRONLY);
+    fcntl(session->respFD, F_SETFL, O_NONBLOCK);
+    //fcntl(session->respFD, F_SETPIPE_SZ, 1048576); // Change pipe size, default seems OK
+
+    session->isListening = 1;
+    return(0);
+
+  } else {
+    //stopListenWeb(session, connection, url);
+    session->isListening = 1;
+    sprintf(errStr, "Failed to start listener on port: %s", session->lPort);
+    handleError(LOG_ERR, errStr, 1, 0, 1);
+    return(1);
+  }
+  return(1);
 }
 
 
@@ -960,8 +1032,7 @@ static int startResponder(struct Session *session, struct MHD_Connection *connec
     sprintf(temps[i], "%s", json_object_get_string(dataObj));
   }
 
-  startListenWeb(session, connection, "/respond", dataInt, tempPtrs);
-  return(0);
+  return(startListenWeb(session, connection, "/respond", dataInt, tempPtrs));
 }
 
 
@@ -982,7 +1053,7 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
   int sockfd;
   char errStr[90] = "";
   char resStr[3] = "";
-  int aStatus = -1, nStatus = -1;
+  int aStatus = -1, nStatus = -1, rc = -1;
 
   // A new connection should have already found it's sesssion, but check to be safe
   if (con_info->session == NULL) {
@@ -1015,7 +1086,8 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
       } else {
         if (strcmp(json_object_get_string(postObj), "procRespond") == 0) {
           if (con_info->session->isListening == 0) {
-            startResponder(con_info->session, con_info->connection, rootObj);
+            rc = startResponder(con_info->session, con_info->connection, rootObj);
+            if (rc != 0) snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "RX");
 
           } else {
             sendRespList(con_info->session, rootObj);
@@ -1183,6 +1255,8 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
 
       } else if (updatePasswdFile(con_info->session->userid, key, data, -1) == 0) {
         sprintf(con_info->session->lPort, "%s", data);
+        // TODO - do we always start a listener after changing port??
+        // TODO - check return code from start listener
         stopListenWeb(con_info->session, con_info->connection, "/postListSets");
         startListenWeb(con_info->session, con_info->connection, "/postListSets", -1, NULL);
         snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "OK");  // Save OK
@@ -1220,12 +1294,13 @@ static enum MHD_Result sendPage(struct Session *session, struct MHD_Connection *
   struct MHD_Response *response;
   char errStr[300] = "";
 
-  response = MHD_create_response_from_buffer(strlen(page), (void *) page, MHD_RESPMEM_PERSISTENT);
+  response = MHD_create_response_from_buffer(strlen(page), (void *) page,
+                                             MHD_RESPMEM_PERSISTENT);
 
   if (! response) return MHD_NO;
-  if (strcmp(connectiontype, "POST") == 0) {
-    MHD_add_response_header(response, "Content-Type", "text/plain");
-  }
+
+  MHD_add_response_header(response, "Content-Type", "text/plain");
+  MHD_add_response_header(response, "Cache-Control", "no-cache");
 
   if (strcmp(page, "L0") == 0 || strcmp(page, "LR") == 0 || strcmp(page, "LD") == 0) {
     ret = MHD_queue_response(connection, MHD_HTTP_UNAUTHORIZED, response);
@@ -1236,6 +1311,11 @@ static enum MHD_Result sendPage(struct Session *session, struct MHD_Connection *
   } else if (strcmp(page, "DP") == 0) {
     ret = MHD_queue_response(connection, MHD_HTTP_BAD_REQUEST, response);
     sprintf(errStr, "[S: %03d][400] GET: %s", session->shortID, url);
+    writeLog(LOG_INFO, errStr, 0);
+
+  } else if (strcmp(page, "RX") == 0) {
+    ret = MHD_queue_response(connection, MHD_HTTP_CONFLICT, response);
+    sprintf(errStr, "[S: %03d][409] GET: %s", session->shortID, url);
     writeLog(LOG_INFO, errStr, 0);
 
   } else {
@@ -1294,7 +1374,8 @@ static enum MHD_Result answer_to_connection(void *cls, struct MHD_Connection *co
 
   struct connection_info_struct *con_info = *con_cls;
   struct Session *session;
-
+  char retCode[3] = "";
+  int rc = 0;
   // Debug - print connection values, e.g user-agent
   //MHD_get_connection_values(connection, MHD_HEADER_KIND, print_out_key, NULL);
 
@@ -1356,7 +1437,7 @@ static enum MHD_Result answer_to_connection(void *cls, struct MHD_Connection *co
     } else if (strcmp(url, "/getRespQueue") == 0) {
       // Request login if not logged in
       if (session->aStatus != 1) return requestLogin(session, connection, url);
-      return getRespQueue(session, connection, url);
+      return getRespQueue(session, connection, url, con_info->answerstring);
 
     } else if (strcmp(url, "/getServers") == 0) {
       // Request login if not logged in
@@ -1378,12 +1459,14 @@ static enum MHD_Result answer_to_connection(void *cls, struct MHD_Connection *co
 
     } else if (strcmp(url, "/listenHL7") == 0) {
       if (session->aStatus != 1) return requestLogin(session, connection, url);
+
       if (session->isListening == 0) {
-        startListenWeb(con_info->session, con_info->connection, url, -1, NULL);
+        rc = startListenWeb(con_info->session, con_info->connection, url, -1, NULL);
       }
 
       if (session->isListening == 1) {
-        return sendHL72Web(session, connection, session->readFD, url);
+        if (rc != 0) sprintf(retCode, "%s", "FX");
+        return sendHL72Web(session, connection, session->readFD, url, retCode);
 
       } else {
         session->isListening = 1;

@@ -124,7 +124,7 @@ static int processResponses(int fd) {
   char resStr[3] = "";
   char *sArg = "";
   // TODO - add expiry time to config file
-  int nextResp = -1, respCount = 0, rmCount = 0, argCount = 0, expTime = 900;
+  int nextResp = -1, nr = -1, respCount = 0, rmCount = 0, argCount = 0, expTime = 900;
   // TODO - add webLimit to config file? Remove once changed to SSE?
   int webRespS = 1024, reqS = 0, webLimit = 200;
   char *webResp = malloc(webRespS);
@@ -185,6 +185,10 @@ static int processResponses(int fd) {
     } else if (tNow - resp->sendTime < expTime) {
       writeLog(LOG_DEBUG, "Response queue processing, sent response added to queue", 0);
       if (nextResp == -1 || nextResp > expTime) nextResp = expTime;
+
+      // TODO - nextResp is set to last expiry instead of next expiry... fixed below?
+      nr = tNow - resp->sendTime;
+      if (nextResp == -1 || nr < nextResp) nextResp = nr;
 
       if (webRunning == 1  && respCount <= webLimit) addRespWeb(newResp, resp, respCount);
       respCount++;
@@ -749,6 +753,7 @@ static int createSession(char *ip, const char *port) {
   hints.ai_flags=AI_PASSIVE|AI_ADDRCONFIG;
 
   if ((rv = getaddrinfo(ip, port, &hints, &res)) != 0) {
+    freeaddrinfo(res);
     handleError(LOG_ERR, "Can't obtain address info when creating session", 1, 0, 1);
     return -1;
   }
@@ -756,22 +761,26 @@ static int createSession(char *ip, const char *port) {
   svrfd = socket(res->ai_family,res->ai_socktype,res->ai_protocol);
 
   if (svrfd == -1) {
+    freeaddrinfo(res);
     handleError(LOG_ERR, "Can't obtain socket address info", 1, 0, 1);
     return -1;
   }
 
   int reuseaddr = 1;
   if (setsockopt(svrfd, SOL_SOCKET, SO_REUSEADDR, &reuseaddr, sizeof(reuseaddr)) == -1) {
+    freeaddrinfo(res);
     handleError(LOG_ERR, "Can't set socket options", 1, 0, 1);
     return -1;
   }
 
   if (bind(svrfd, res->ai_addr, res->ai_addrlen) == -1) {
+    freeaddrinfo(res);
     handleError(LOG_ERR, "Can't bind address", 1, 0, 1);
     return -1;
   }
 
   if (listen(svrfd, SOMAXCONN)) {
+    freeaddrinfo(res);
     handleError(LOG_ERR, "Can't listen for connections", 1, 0, 1);
     return -1;
   }
@@ -830,14 +839,26 @@ int startMsgListener(char *lIP, const char *lPort, char *sIP, char *sPort,
 
   writeLog(LOG_INFO, "Listener child process starting up", 0);
 
-  if ((svrfd = createSession(lIP, lPort)) == -1) return -1;
+  svrfd = createSession(lIP, lPort);
 
   // Create a named pipe to write to
   if (webRunning == 1) {
     char hhl7fifo[21]; 
     sprintf(hhl7fifo, "%s%d", "/tmp/hhl7fifo.", getpid());
     mkfifo(hhl7fifo, 0666);
-    fd = open(hhl7fifo, O_WRONLY | O_NONBLOCK);
+    fd = open(hhl7fifo, O_WRONLY);
+
+    // Send FS code to parent process to state the listener has bound it's port
+    if (svrfd != -1) {
+      if (write(fd, "FS", 2) == -1) {
+        handleError(LOG_ERR, "Failed to write to named pipe while starting listener", 1, 1, 0);
+      }
+    } else {
+      return(-1);
+    }
+
+    // Switch to non blocking after initial FS message
+    fcntl(fd, F_SETFL, O_NONBLOCK);
 
     char hhl7rfifo[22];
     sprintf(hhl7rfifo, "%s%d", "/tmp/hhl7rfifo.", getpid());
@@ -894,6 +915,7 @@ int startMsgListener(char *lIP, const char *lPort, char *sIP, char *sPort,
 
       sessfd = accept(svrfd, 0, 0);
       if (sessfd == -1) {
+        close(svrfd);
         handleError(LOG_ERR, "Can't accept connections", 1, 0, 1);
         return -1;
       }

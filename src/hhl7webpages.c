@@ -217,7 +217,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         font-size: 14px;\n\
         margin: 3px 3px 4px 3px;\n\
         height: 30px;\n\
-        line-height: 32px;\n\
+        line-height: 30px;\n\
         background-color: #eeeff3;\n\
         border-radius: 6px;\n\
         border: 2px solid #8a93ae;\n\
@@ -1047,14 +1047,27 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
               if (errHandler(xhr.responseText) == 0) {\n\
                 return xhr.responseText;\n\
               }\n\
+\n\
+            } else if (xhr.status == 409) {\n\
+              if (xhr.responseText == \"RX\") {\n\
+                stopHL7Listener();\n\
+                errHandler(\"ERROR: Failed to start responder, port already in use?\");\n\
+              }\n\
+\n\
+            } else if (xhr.status == 500) {\n\
+              stopHL7Listener();\n\
+              errHandler(\"ERROR: An unexpected back end error occurred.\");\n\
+\n\
             } else {\n\
+              stopHL7Listener();\n\
               errHandler(\"ERROR: The hhl7 backend is not running.\");\n\
             }\n\
           }\n\
         };\n\
 \n\
         xhr.open(\"POST\", \"/postJSON\");\n\
-        xhr.timeout = 1000;\n\
+        // TODO review timeout\n\
+        xhr.timeout = 2500;\n\
         var formData = new FormData();\n\
         formData.append(\"jsonPOST\", jsonObj);\n\
         xhr.send(formData);\n\
@@ -1555,7 +1568,11 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
 \n\
       function updateHL7Log(event) {\n\
         hl7Log = document.getElementById(\"hl7Log\");\n\
-        if (event.data != \"HB\") {\n\
+        if (event.data == \"FX\") {\n\
+          stopHL7Listener();\n\
+          errHandler(\"ERROR: Failed to start listener, port already in use?\");\n\
+\n\
+        } else if (event.data != \"HB\") {\n\
           hl7Log.innerHTML += event.data;\n\
           hl7Log.scrollTo(0, hl7Log.scrollHeight);\n\
         }\n\

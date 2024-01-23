@@ -2,7 +2,7 @@
 Description=HHL7 incoming socket
 
 [Socket]
-ListenStream=192.168.0.28:5376
+ListenStream=5376
 MaxConnections=64
 
 [Install]

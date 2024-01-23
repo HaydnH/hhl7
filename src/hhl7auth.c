@@ -30,6 +30,7 @@ static void genPwdSalt(char *salt, int saltL) {
 
   RAND_bytes(tSalt, saltL);
   EVP_EncodeBlock((unsigned char *) salt, tSalt, saltL);
+  free(tSalt);
 }
 
 

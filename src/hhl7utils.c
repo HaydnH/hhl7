@@ -61,8 +61,8 @@ void writeLog(int logLvl, char *logStr, int stdErr) {
 // Handle an error
 void handleError(int logLvl, char *logStr, int exitCode, int exitWeb, int stdErr) {
   writeLog(logLvl, logStr, stdErr);
-  if (exitCode >= 0 && isDaemon == 1 && exitWeb == 1) exit(exitCode);
-  if (exitCode >= 0 && isDaemon == 0) exit(exitCode);
+  if (exitCode >= 0 && webRunning == 1 && exitWeb == 1) exit(exitCode);
+  if (exitCode >= 0 && webRunning == 0) exit(exitCode);
 }
 
 
