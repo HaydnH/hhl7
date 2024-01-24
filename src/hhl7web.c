@@ -1296,6 +1296,9 @@ static enum MHD_Result sendPage(struct Session *session, struct MHD_Connection *
     sprintf(errStr, "[S: %03d][413] %s: %s", session->shortID, connectiontype, url);
     writeLog(LOG_INFO, errStr, 0);
 
+  } else if (strcmp(page, "TP") == 0) {
+    ret = MHD_queue_response(connection, 418, response);
+
   } else {
     //addCookie(session, response);
     ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
@@ -1467,23 +1470,27 @@ static enum MHD_Result answer_to_connection(void *cls, struct MHD_Connection *co
     } else if (strlen(con_info->answerstring) > 0) {
       // If we have a hl7 message to send, send it and clear memory
       if (con_info->poststring != NULL) {
-        sockfd = connectSvr(con_info->session->sIP, con_info->session->sPort);
-
-        if (sockfd >= 0) {
-          sendPacket(sockfd, con_info->poststring, resStr, 0);
-          sprintf(errStr, "[S: %03d][%s] Sent %ld byte packet to socket: %d",
-                          con_info->session->shortID, resStr,
-                          strlen(con_info->poststring), sockfd);
-
-          writeLog(LOG_INFO, errStr, 0);
-          snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", resStr);
+        if (strncmp(con_info->poststring, "Coffee?", 7) == 0) {
+          snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "TP"); // Teapot
 
         } else {
-          sprintf(errStr, "[S: %03d] Can't open socket to send packet",
-                          con_info->session->shortID);
-          handleError(LOG_ERR, errStr, 1, 0, 1);
-          snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "CX"); // Connection failed
+          sockfd = connectSvr(con_info->session->sIP, con_info->session->sPort);
 
+          if (sockfd >= 0) {
+            sendPacket(sockfd, con_info->poststring, resStr, 0);
+            sprintf(errStr, "[S: %03d][%s] Sent %ld byte packet to socket: %d",
+                            con_info->session->shortID, resStr,
+                            strlen(con_info->poststring), sockfd);
+
+            writeLog(LOG_INFO, errStr, 0);
+            snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", resStr);
+
+          } else {
+            sprintf(errStr, "[S: %03d] Can't open socket to send packet",
+                            con_info->session->shortID);
+            handleError(LOG_ERR, errStr, 1, 0, 1);
+            snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "CX"); // Connection failed
+          }
         }
 
         free(con_info->poststring);

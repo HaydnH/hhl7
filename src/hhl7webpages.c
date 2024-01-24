@@ -1355,6 +1355,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
                   res.style.backgroundColor = \"#ff9191\";\n\
                   res.innerHTML = xhr.responseText;\n\
 \n\
+                // TODO this shouldn't be a code 200...\n\
                 } else if (xhr.responseText == \"CX\") {\n\
                   errHandler(\"ERROR: Failed to connect to server.\");\n\
 \n\
@@ -1369,6 +1370,12 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
 \n\
             } else if (xhr.status === 413) {\n\
               errHandler(\"ERROR: Message is too large (>15kb).\");\n\
+\n\
+            } else if (xhr.status === 418) {\n\
+              hl7Msg = document.getElementById(\"hl7Message\");\n\
+              hl7Msg.innerText = \"I refuse to brew coffee because I am, permanently, a teapot.\";\n\
+              res.style.backgroundColor = \"#d1a95a\";\n\
+              res.innerHTML = \"TP\";\n\
 \n\
             } else {\n\
               errHandler(\"ERROR: The hhl7 backend is not running.\");\n\
