@@ -226,12 +226,11 @@ int getHL7Field(char *hl7msg, char *seg, int field, char *res) {
 }
 
 
-// Get number of \n's in a string
-int numLines(char *buf) {
+// Get number of \n or \r's in a string
+long unsigned int numLines(const char *buf) {
   int c = 0;
   for (int i = 0; i < strlen(buf); i++) {
-    if (buf[c] == '\n')
-      c++;
+    if (buf[c] == '\n' || buf[c] == '\r') c++;
   }
   return c;
 }

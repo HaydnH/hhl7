@@ -17,6 +17,10 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
     <link rel=\"icon\" type=\"image/x-icon\" href=\"/images/favicon.ico\">\n\
     <style>\n\
       html {\n\
+        zoom: 0.8;\n\
+        font-family: Verdana, Helvetica, sans-serif;\n\
+        font-size: 15px;\n\
+        color: #000;\n\
       }\n\
       body {\n\
         margin: 0px;\n\
@@ -25,11 +29,11 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         text-decoration: none;\n\
         color: #fff;\n\
       }\n\
-      .black {\n\
-        color: #000;\n\
-      }\n\
       a:hover {\n\
         color: #eeb11e;\n\
+      }\n\
+      a.black {\n\
+        color: #000;\n\
       }\n\
       .boldRed {\n\
         color: #be1313;\n\
@@ -39,7 +43,6 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         color: #ffb81e;\n\
         font-weight: bold;\n\
       }\n\
-      /* PostForm Needed for height pass through */\n\
       #postForm {\n\
         height: 100%;\n\
       }\n\
@@ -79,8 +82,6 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         text-align: left;\n\
       }\n\
       .menuOption {\n\
-        font-family: Verdana, Helvetica, sans-serif;\n\
-        font-size: 14px;\n\
         font-weight: bold;\n\
         color: #fff;\n\
         padding: 0px 15px;\n\
@@ -97,10 +98,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         background-color: #d4dcf1;\n\
         text-align: left;\n\
         padding: 0px 15px;\n\
-        font-family: Verdana, Helvetica, sans-serif;\n\
-        font-size: 14px;\n\
         font-weight: bold;\n\
-        color: #000;\n\
       }\n\
       #sendButton:hover {\n\
         content: url(\"/images/send_hl.png\");\n\
@@ -158,25 +156,20 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
       #tempForm {\n\
         display: flex;\n\
         flex-wrap: wrap;\n\
-        font-family: Verdana, Helvetica, sans-serif;\n\
-        font-size: 14px;\n\
         display: none;\n\
         background-color: #eeeff3;\n\
       }\n\
       .tempFormField {\n\
         flex: 0 33%;\n\
         height: 36px;\n\
-        line-height: 36px;\n\
+        line-height: 34px;\n\
       }\n\
       .tempFormKey {\n\
         width: 36%;\n\
         float: left;\n\
         text-align: right;\n\
-        font-family: Verdana, Helvetica, sans-serif;\n\
-        font-size: 13px;\n\
-        line-height: 36px;\n\
-        font-weight: bolder;\n\
-        padding: 0px 10px 0px 0px;\n\
+        font-weight: 600;\n\
+        padding: 0px 20px 0px 0px;\n\
         background-color: #eeeff3;\n\
       }\n\
       .tempFormValue {\n\
@@ -184,13 +177,10 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         height: 36px;\n\
         width: 60%;\n\
         background-color: #eeeff3;\n\
-        font-family: Verdana, Helvetica, sans-serif;\n\
-        font-size: 13px;\n\
-        font-weight: bolder;\n\
       }\n\
       .tempFormInput {\n\
-        font-family: Verdana, Helvetica, sans-serif;\n\
-        font-size: 14px;\n\
+        font-family: inherit;\n\
+        font-size: inherit;\n\
         background-color: #fff;\n\
         border: 0px;\n\
         height: 26px;\n\
@@ -199,8 +189,8 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         outline: none;\n\
       }\n\
       .tempFormSelect {\n\
-        font-family: Verdana, Helvetica, sans-serif;\n\
-        font-size: 14px;\n\
+        font-family: inherit;\n\
+        font-size: inherit;\n\
         background-color: #fff;\n\
         border: 0px;\n\
         height: 26px;\n\
@@ -213,8 +203,6 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         flex-wrap: wrap;\n\
       }\n\
       .respFormItem {\n\
-        font-family: Verdana, Helvetica, sans-serif;\n\
-        font-size: 14px;\n\
         margin: 3px 3px 4px 3px;\n\
         height: 30px;\n\
         line-height: 30px;\n\
@@ -224,13 +212,12 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         padding: 0px 15px 0px 20px;\n\
       }\n\
       .respFormClose {\n\
-        font-family: Verdana, Helvetica, sans-serif;\n\
         font-size: 18px;\n\
         padding-left: 10px;\n\
       }\n\
       select {\n\
-        font-family: Verdana, Helvetica, sans-serif;\n\
-        font-size: 14px;\n\
+        font-family: inherit;\n\
+        font-size: inherit;\n\
         background-color: #d4dcf1;\n\
         border-width: 0px;\n\
         padding: 0px 5px 0px 5px;\n\
@@ -241,11 +228,11 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         overflow-y: scroll;\n\
       }\n\
       .hl7Message {\n\
-        height: 100%;\n\
+        height: 95%;\n\
         font-family: \"Courier New\", Courier, monospace;\n\
-        font-size: 16px;\n\
-        padding: 10px 14px 10px 14px;\n\
-        overflow-y: scroll;\n\
+        font-size: 17px;\n\
+        font-weight: 500;\n\
+        padding: 14px 14px;\n\
         outline: none;\n\
       }\n\
       #hl7Log {\n\
@@ -262,9 +249,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         color: #fff;\n\
         text-align: right;\n\
         padding: 0px 20px;\n\
-        font-family: Verdana, Helvetica, sans-serif;\n\
-        font-size: 12px;\n\
-        font-weight: normal;\n\
+        font-size: 14px;\n\
       }\n\
       .popDim {\n\
         display: none;\n\
@@ -306,8 +291,6 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         outline: 1px solid #fff;\n\
       }\n\
       .popTitle {\n\
-        font-family: Verdana, Helvetica, sans-serif;\n\
-        font-size: 14px;\n\
         font-weight: bold;\n\
         background-color: #142248;\n\
         color: #fff;\n\
@@ -335,11 +318,10 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
       }\n\
       #loginImg {\n\
         background-image: url(/images/person_hl.png);\n\
+        padding: 0px 0px 0px 20px;\n\
       }\n\
       .popTxt {\n\
         flex: 1;\n\
-        font-family: Verdana, Helvetica, sans-serif;\n\
-        font-size: 14px;\n\
         padding: 0px 25px 0px 15px;\n\
         text-align: justify;\n\
         text-justify: inter-word;\n\
@@ -368,8 +350,6 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         box-sizing: border-box;\n\
         display: inline-block;\n\
         width: 100%;\n\
-        font-family: Verdana, Helvetica, sans-serif;\n\
-        font-size: 14px;\n\
         font-weight: bold;\n\
         background-color: #8a93ae;\n\
         color: #fff;\n\
@@ -389,12 +369,12 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         box-sizing: border-box;\n\
         display: inline-block;\n\
         width: 100%;\n\
-        font-family: Verdana, Helvetica, sans-serif;\n\
-        font-size: 14px;\n\
-        font-weight: bold;\n\
+        font-weight: 600;\n\
+        font-family: inherit;\n\
+        font-size: inherit;\n\
         color: #fff;\n\
         height: 36px;\n\
-        line-height: 32px;\n\
+        line-height: 28px;\n\
         text-align: center;\n\
         border-width: 3px;\n\
         border-style: double;\n\
@@ -439,11 +419,10 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
       .menuSubHeader {\n\
         display: inline-block;\n\
         width: 26%;\n\
-        font-family: Verdana, Helvetica, sans-serif;\n\
-        font-size: 13px;\n\
+        font-family: inherit;\n\
+        font-size: inherit;\n\
         font-weight: bold;\n\
         background-color: #d4dcf1;\n\
-        color: #000;\n\
         height: 36px;\n\
         line-height: 36px;\n\
         padding: 0px 15px;\n\
@@ -451,18 +430,17 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
       .menuDataItem {\n\
         display: inline-block;\n\
         flex-grow: 4;\n\
-        font-family: Verdana, Helvetica, sans-serif;\n\
-        font-size: 13px;\n\
+        font-family: inherit;\n\
+        font-size: inherit;\n\
         font-weight: bolder;\n\
         background-color: #fff;\n\
-        color: #000;\n\
         height: 36px;\n\
         line-height: 36px;\n\
       }\n\
       .menuInput {\n\
         box-sizing: border-box;\n\
-        font-family: Verdana, Helvetica, sans-serif;\n\
-        font-size: 13px;\n\
+        font-family: inherit;\n\
+        font-size: inherit;\n\
         height: 100%;\n\
         width: 100%;\n\
         padding: 0px 15px;\n\
@@ -471,8 +449,8 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
       }\n\
       .menuSelect {\n\
         box-sizing: border-box;\n\
-        font-family: Verdana, Helvetica, sans-serif;\n\
-        font-size: 13px;\n\
+        font-family: inherit;\n\
+        font-size: inherit;\n\
         height: 100%;\n\
         width: 100%;\n\
         padding: 0px 12px;\n\
@@ -487,11 +465,11 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         background-color: #f2c7c7 !important;\n\
       }\n\
       .loginInfo {\n\
-        padding: 0px 0px 2px 0px;\n\
-        font-family: Verdana, Helvetica, sans-serif;\n\
-        font-size: 13px;\n\
+        padding: 3px 0px 3px 0px;\n\
       }\n\
       .loginInput {\n\
+        font-family: inherit;\n\
+        font-size: inherit;\n\
         width: 65%;\n\
       }\n\
       #confPwordD {\n\
@@ -500,11 +478,9 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
       .loginQ {\n\
         float: left;\n\
         height: 20px;\n\
-        line-height: 28px;\n\
+        line-height: 26px;\n\
         width: 30%;\n\
-        font-family: Verdana, Helvetica, sans-serif;\n\
-        font-size: 12px;\n\
-        font-weight: bolder;\n\
+        font-weight: bold;\n\
       }\n\
       .logFrm {\n\
         float: left;\n\
@@ -513,8 +489,6 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
       .button {\n\
         position: absolute;\n\
         text-align: center;\n\
-        font-family: Verdana, Helvetica, sans-serif;\n\
-        font-size: 12px;\n\
         font-weight: bold;\n\
         color: #fff;\n\
         border-width: 3px;\n\
@@ -563,26 +537,20 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
       }\n\
       #respQTable, #respQBody {\n\
         font-family: Verdana, Helvetica, sans-serif;\n\
-        font-size: 14px;\n\
+        font-size: 15px;\n\
+        font-weight: 500;\n\
         width: 100%;\n\
         border-spacing: 1px;\n\
+        font-size: 14px;\n\
       }\n\
       #rCount {\n\
         position: absolute;\n\
         right: 0px;\n\
-        padding: 0px 0px 0px 4px;\n\
-        font-size: 24px;\n\
-        height: 36px;\n\
-        line-height: 36px;\n\
         width: 100px;\n\
         display: inline-block;\n\
         text-align: right;\n\
-        line-height: 38px;\n\
         padding: 0px 15px;\n\
-        font-family: Verdana, Helvetica, sans-serif;\n\
-        font-size: 14px;\n\
         font-weight: bold;\n\
-        color: #000;\n\
       }\n\
       thead, tr, tfoot {\n\
         height: 36px;\n\
@@ -1391,6 +1359,13 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
 \n\
                 }\n\
               }\n\
+\n\
+            } else if (xhr.status === 406) {\n\
+              errHandler(\"ERROR: Message contains no data to send.\");\n\
+\n\
+            } else if (xhr.status === 413) {\n\
+              errHandler(\"ERROR: Message is too large (>15kb).\");\n\
+\n\
             } else {\n\
               errHandler(\"ERROR: The hhl7 backend is not running.\");\n\
             }\n\

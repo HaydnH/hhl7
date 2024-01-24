@@ -42,7 +42,7 @@ You should have received a copy of the GNU General Public License along with hhl
 #define COOKIE_NAME      "hhl7Session"
 #define GET             0
 #define POST            1
-#define MAXNAMESIZE     1024
+#define MAXNAMESIZE     15360
 #define MAXANSWERSIZE   3
 #define POSTBUFFERSIZE  65536
 
@@ -1022,6 +1022,9 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
     con_info->session = getSession(con_info->connection);
   }
 
+  // Discard messages only containing new line characters
+  if (size -numLines(data) == 0) size = 0;
+
   con_info->answerstring[0] = '\0';
 
   if ((size > 0) && (size <= MAXNAMESIZE)) {
@@ -1235,6 +1238,16 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
       }
     }
 
+  // TODO - Currently max post size is 15kb. Beyond 15kb we receive chunks and send
+  // TODO   ... each chunk as a message. Need to combine chunks before sending.
+  } else if (size > MAXNAMESIZE) {
+    snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "DM");
+    sprintf(errStr, "[S: %03d] Post received exceeded max name size, uid: %s",
+                    con_info->session->shortID, con_info->session->userid);
+    writeLog(LOG_WARNING, errStr, 0);
+
+    return MHD_NO;
+
   } else {
     // No post data was received, reply with code "D0" (no data)
     snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "D0");
@@ -1266,24 +1279,34 @@ static enum MHD_Result sendPage(struct Session *session, struct MHD_Connection *
 
   if (strcmp(page, "L0") == 0 || strcmp(page, "LR") == 0 || strcmp(page, "LD") == 0) {
     ret = MHD_queue_response(connection, MHD_HTTP_UNAUTHORIZED, response);
-    sprintf(errStr, "[S: %03d][401] GET: %s", session->shortID, url);
+    sprintf(errStr, "[S: %03d][401] %s: %s", session->shortID, connectiontype, url);
     writeLog(LOG_INFO, errStr, 0);
 
 
   } else if (strcmp(page, "DP") == 0) {
     ret = MHD_queue_response(connection, MHD_HTTP_BAD_REQUEST, response);
-    sprintf(errStr, "[S: %03d][400] GET: %s", session->shortID, url);
+    sprintf(errStr, "[S: %03d][400] %s: %s", session->shortID, connectiontype, url);
+    writeLog(LOG_INFO, errStr, 0);
+
+  } else if (strcmp(page, "D0") == 0) {
+    ret = MHD_queue_response(connection, MHD_HTTP_NOT_ACCEPTABLE, response);
+    sprintf(errStr, "[S: %03d][406] %s: %s", session->shortID, connectiontype, url);
     writeLog(LOG_INFO, errStr, 0);
 
   } else if (strcmp(page, "RX") == 0) {
     ret = MHD_queue_response(connection, MHD_HTTP_CONFLICT, response);
-    sprintf(errStr, "[S: %03d][409] GET: %s", session->shortID, url);
+    sprintf(errStr, "[S: %03d][409] %s: %s", session->shortID, connectiontype, url);
+    writeLog(LOG_INFO, errStr, 0);
+
+  } else if (strcmp(page, "DM") == 0) {
+    ret = MHD_queue_response(connection, MHD_HTTP_CONTENT_TOO_LARGE, response);
+    sprintf(errStr, "[S: %03d][413] %s: %s", session->shortID, connectiontype, url);
     writeLog(LOG_INFO, errStr, 0);
 
   } else {
     //addCookie(session, response);
     ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
-    sprintf(errStr, "[S: %03d][200] GET: %s", session->shortID, url);
+    sprintf(errStr, "[S: %03d][200] %s: %s", session->shortID, connectiontype, url);
     writeLog(LOG_INFO, errStr, 0);
 
   }
