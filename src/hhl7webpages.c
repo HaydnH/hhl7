@@ -1382,7 +1382,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
 \n\
         var HL7Text = document.getElementById(\"hl7Message\").innerText;\n\
         var formData = new FormData();\n\
-        formData.append(\"hl7MessageText\", HL7Text);\n\
+        formData.append(\"hl7MessageText\", HL7Text.replace(/\\n{2,}/g, \"\\n\"));\n\
         xhr.send(formData);\n\
       }\n\
 \n\

@@ -42,7 +42,6 @@ You should have received a copy of the GNU General Public License along with hhl
 #define COOKIE_NAME      "hhl7Session"
 #define GET             0
 #define POST            1
-#define MAXNAMESIZE     15360
 #define MAXANSWERSIZE   3
 #define POSTBUFFERSIZE  65536
 
@@ -56,6 +55,7 @@ struct connection_info_struct {
   struct MHD_Connection *connection;
   int connectiontype;
   char answerstring[MAXANSWERSIZE];
+  char *poststring;
   struct MHD_PostProcessor *postprocessor;
   struct Session *session;
 };
@@ -1012,9 +1012,7 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
   (void) off;                /* Unused. Silent compiler warning. */
 
   struct json_object *rootObj= NULL, *postObj = NULL;
-  int sockfd;
   char errStr[90] = "";
-  char resStr[3] = "";
   int aStatus = -1, nStatus = -1, rc = -1;
 
   // A new connection should have already found it's sesssion, but check to be safe
@@ -1027,7 +1025,7 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
 
   con_info->answerstring[0] = '\0';
 
-  if ((size > 0) && (size <= MAXNAMESIZE)) {
+  if (size > 0) {
     // Security check, only these post items are allowed without already being authed
     if (con_info->session->aStatus < 1) {
       if (strcmp(key, "pcaction") == 0 || strcmp(key, "uname") == 0 ||
@@ -1064,6 +1062,32 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
     }
 
     if (strcmp (key, "hl7MessageText") == 0 ) {
+      if (con_info->poststring == NULL) {
+        con_info->poststring = malloc(strlen(data) + 5);
+        con_info->poststring[0] = '\0';
+
+      } else {
+        int msgLen = strlen(con_info->poststring) + strlen(data) + 5;
+        char *tmpPtr = NULL;
+        tmpPtr = realloc(con_info->poststring, msgLen);
+
+        if (tmpPtr == NULL) {
+          handleError(LOG_ERR, "Failed to allocate memory - server OOM??", 1, 0, 1);
+          free(con_info->poststring);
+          con_info->poststring = NULL;
+          return MHD_NO;
+
+        } else {
+          con_info->poststring = tmpPtr;
+
+        }
+      }
+
+      strcat(con_info->poststring, data);
+      snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "DP"); // Partial data
+      return MHD_YES;
+
+/*
       char newData[strlen(data) + 5];
       strcpy(newData, data);
 
@@ -1084,6 +1108,7 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
         return MHD_YES;
 
       }  
+*/
 
     } else if (strcmp(key, "pcaction") == 0 ) {
       con_info->session->pcaction = atoi(data);
@@ -1238,16 +1263,6 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
       }
     }
 
-  // TODO - Currently max post size is 15kb. Beyond 15kb we receive chunks and send
-  // TODO   ... each chunk as a message. Need to combine chunks before sending.
-  } else if (size > MAXNAMESIZE) {
-    snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "DM");
-    sprintf(errStr, "[S: %03d] Post received exceeded max name size, uid: %s",
-                    con_info->session->shortID, con_info->session->userid);
-    writeLog(LOG_WARNING, errStr, 0);
-
-    return MHD_NO;
-
   } else {
     // No post data was received, reply with code "D0" (no data)
     snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "D0");
@@ -1359,8 +1374,9 @@ static enum MHD_Result answer_to_connection(void *cls, struct MHD_Connection *co
 
   struct connection_info_struct *con_info = *con_cls;
   struct Session *session;
-  char retCode[3] = "";
-  int rc = 0;
+  char retCode[3] = "", resStr[3] = "", errStr[90] = "";
+  int rc = 0, sockfd = -1;
+
   // Debug - print connection values, e.g user-agent
   //MHD_get_connection_values(connection, MHD_HEADER_KIND, print_out_key, NULL);
 
@@ -1370,6 +1386,7 @@ static enum MHD_Result answer_to_connection(void *cls, struct MHD_Connection *co
     con_info->connection = connection;
     con_info->session = getSession(connection);
     con_info->answerstring[0] = '\0';
+    con_info->poststring = NULL;
     con_info->postprocessor = NULL;
 
     if (strcmp(method, "POST") == 0) {
@@ -1469,8 +1486,32 @@ static enum MHD_Result answer_to_connection(void *cls, struct MHD_Connection *co
       *upload_data_size = 0;
       return MHD_YES;
 
-    //} else if (con_info->answerstring != NULL) {
     } else if (strlen(con_info->answerstring) > 0) {
+      // If we have a hl7 message to send, send it and clear memory
+      if (con_info->poststring != NULL) {
+        sockfd = connectSvr(con_info->session->sIP, con_info->session->sPort);
+
+        if (sockfd >= 0) {
+          sendPacket(sockfd, con_info->poststring, resStr, 0);
+          sprintf(errStr, "[S: %03d][%s] Sent %ld byte packet to socket: %d",
+                          con_info->session->shortID, resStr,
+                          strlen(con_info->poststring), sockfd);
+
+          writeLog(LOG_INFO, errStr, 0);
+          snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", resStr);
+
+        } else {
+          sprintf(errStr, "[S: %03d] Can't open socket to send packet",
+                          con_info->session->shortID);
+          handleError(LOG_ERR, errStr, 1, 0, 1);
+          snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "CX"); // Connection failed
+
+        }
+
+        free(con_info->poststring);
+        con_info->poststring = NULL;
+      }
+
       return sendPage(session, connection, method, con_info->answerstring, url);
 
     }
