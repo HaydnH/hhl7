@@ -1087,28 +1087,6 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
       snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "DP"); // Partial data
       return MHD_YES;
 
-/*
-      char newData[strlen(data) + 5];
-      strcpy(newData, data);
-
-      sockfd = connectSvr(con_info->session->sIP, con_info->session->sPort);
- 
-      if (sockfd >= 0) {
-        sendPacket(sockfd, newData, resStr, 0);
-        sprintf(errStr, "[S: %03d][%s] Sent %ld byte packet to socket: %d",
-                        con_info->session->shortID, resStr, strlen(newData), sockfd);
-        writeLog(LOG_INFO, errStr, 0);
-        snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", resStr);
-
-      } else {
-        sprintf(errStr, "[S: %03d] Can't open socket to send packet",
-                        con_info->session->shortID);
-        handleError(LOG_ERR, errStr, 1, 0, 1);
-        snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "CX"); // Connection failed
-        return MHD_YES;
-
-      }  
-*/
 
     } else if (strcmp(key, "pcaction") == 0 ) {
       con_info->session->pcaction = atoi(data);
