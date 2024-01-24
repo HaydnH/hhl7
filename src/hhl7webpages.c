@@ -16,8 +16,12 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
     <title>HHL7</title>\n\
     <link rel=\"icon\" type=\"image/x-icon\" href=\"/images/favicon.ico\">\n\
     <style>\n\
+      @media (min-resolution: 101dpi) {\n\
+        html {\n\
+          zoom: 0.8;\n\
+        }\n\
+      }\n\
       html {\n\
-        zoom: 0.8;\n\
         font-family: Verdana, Helvetica, sans-serif;\n\
         font-size: 15px;\n\
         color: #000;\n\
