@@ -145,7 +145,7 @@ static int parseVals(char ***hl7Msg, int *hl7MsgS, char *vStr, char *nStr, char 
   char *dStr = NULL;
   char rndStr[32];
   int varLen = strlen(vStr), varNum = 0, reqS = 0;
-  char varNumBuf[varLen];
+  char varNumBuf[varLen + 1];
   char dtNow[26] = "";
   char dtVar[26] = "";
   int aMins = 0, incNum = -1;

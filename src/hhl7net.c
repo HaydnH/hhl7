@@ -290,7 +290,7 @@ int connectSvr(char *ip, char *port) {
 
 // Listen for ACK from server
 int listenACK(int sockfd, char *res) {
-  char ackBuf[512] = "", app[12] = "", code[7] = "", aCode[3] = "", errStr[46] = "";
+  char ackBuf[512] = "", app[12] = "", code[7] = "", aCode[3] = "", errStr[256] = "";
   int ackErr = 0, recvL = 0;
 
   // TODO Add timeout to config file
@@ -309,7 +309,6 @@ int listenACK(int sockfd, char *res) {
     return -1;
 
   } else {
-    //close(sockfd);
     stripMLLP(ackBuf);
     ackBuf[strlen(ackBuf) - 1] = '\0';
 
@@ -346,9 +345,8 @@ int listenACK(int sockfd, char *res) {
       writeLog(LOG_INFO, errStr, 1);
 
       if (res) {
-        aCode[3] = '\0';
+        aCode[2] = '\0';
         strcpy(res, aCode);
-        res[3] = '\0';
       }
     }
   }
@@ -729,7 +727,6 @@ static struct Response *handleMsg(int sessfd, int fd, char *sIP, char *sPort,
       }
     }
 
-    rcvBuf[rcvSize - 1] = '\0';
     rcvBuf[0] = '\0';
 
   }

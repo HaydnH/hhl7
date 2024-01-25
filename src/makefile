@@ -1,11 +1,14 @@
 CC      = gcc
-CFLAGS  = -O1 -Wall -Wextra -pedantic -fcommon -g
+CFLAGS  = -O3 -Wall   # Live
+#CFLAGS  = -O3 -Wall -Wextra -pedantic -g   # Devel & Debug
+#CFLAGS  = -O3 -Wall -Wextra -pedantic -fcommon -fsanitize=undefined,address -g   # UBSan
 INCDIR  = -I/usr/include/json-c -I/usr/include/microhttpd -I/usr/include/openssl -I/usr/include/systemd/sd-daemon
 DESTDIR = /usr/local/hhl7
 BINDIR  = /usr/local/bin
 MANDIR  = /usr/share/man/man1
 LIBDIR  = 
 LIBS    = -lm -ljson-c -lmicrohttpd -lssl -lcrypto -lsystemd
+#LIBS    = -lasan -lm -ljson-c -lmicrohttpd -lssl -lcrypto -lsystemd -lubsan   # UBSan
 OBJS    = hhl7webpages.o hhl7web.o hhl7auth.o hhl7net.o hhl7utils.o hhl7json.o hhl7.o
 BIN     = hhl7
 MAN     = hhl7.1

@@ -172,12 +172,14 @@ void stripMLLP(char *hl7msg) {
 // Add MLLP wrapper to packet
 // NOTE: No need to realloc hl7msg, the +4b is handled in dblBuf()'s +10b safety
 void wrapMLLP(char *hl7msg) {
-  char tmpBuf[strlen(hl7msg) + 4];
+  if (hl7msg != NULL) {
+    char tmpBuf[strlen(hl7msg) + 4];
 
-  // Wrap hl7msg in an ASCII 11 (SOB) & 28 (EOB) and null terminate
-  sprintf(tmpBuf, "%c%s%c%c%c", 11, hl7msg, 28, 13, '\0');
+    // Wrap hl7msg in an ASCII 11 (SOB) & 28 (EOB) and null terminate
+    sprintf(tmpBuf, "%c%s%c%c", 11, hl7msg, 28, 13);
 
-  strcpy(hl7msg, tmpBuf);
+    strcpy(hl7msg, tmpBuf);
+  }
 }
 
 

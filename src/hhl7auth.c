@@ -121,9 +121,9 @@ int regNewUser(char *uid, char *passwd) {
   int uExists = 0;
   int maxPassL = 32;
   size_t saltedL = 3 * maxPassL;
-  char salt[maxPassL + 1];
+  char salt[saltedL];
   char saltPasswd[saltedL];
-  char pwdHash[4* maxPassL];
+  char pwdHash[4 * maxPassL];
   saltPasswd[0] = '\0';
   pwdHash[0] = '\0';
   char errStr[68] = "";
@@ -408,9 +408,9 @@ int updatePasswd(char *uid, const char *password) {
   int uExists = 0, u = 0, uCount = 0;
   int maxPassL = 32;
   size_t saltedL = 3 * maxPassL;
-  char salt[maxPassL + 1];
+  char salt[saltedL];
   char saltPasswd[saltedL];
-  char pwdHash[4* maxPassL];
+  char pwdHash[4 * maxPassL];
   saltPasswd[0] = '\0';
   pwdHash[0] = '\0';
   char errStr[78] = "";
