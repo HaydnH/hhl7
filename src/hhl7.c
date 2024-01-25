@@ -91,7 +91,7 @@ int main(int argc, char *argv[]) {
   FILE *fp;
 
   // TODO move bind port (sIP) to config file
-  int maxNameL = 255;
+  long unsigned int maxNameL = 255;
   char sIP[256] = "127.0.0.1";
   char lIP[256] = "127.0.0.1";
   char sPort[6] = "11011";
@@ -237,10 +237,13 @@ int main(int argc, char *argv[]) {
       case ':':
         sprintf(errStr, "Option -%c requires a value", optopt);
         handleError(LOG_ERR, errStr, 1, 1, 1);
+        break;
 
       case '?':
         sprintf(errStr, "Unknown option: -%c", optopt);
         handleError(LOG_ERR, errStr, 1, 1, 1);
+        break;
+
     } 
   } 
 
@@ -260,9 +263,13 @@ int main(int argc, char *argv[]) {
   }
 
 
+  // Check we've got at least one action flag
+  if (fSend + fListen + fRespond + fSendTemplate + fWeb == 0)
+    handleError(LOG_ERR, "One functional flag is required (-f, -F, -t, -T, -l, -r or -w)", 1, 1, 1);
+
   // Check we're only using 1 of listen, send, template or web option
-  if (fSend + fListen + fSendTemplate + fWeb > 1)
-    handleError(LOG_ERR, "Only one of -f, -l, -s, -t or -w may be used at a time", 1, 1, 1);
+  if (fSend + fListen + fRespond + fSendTemplate + fWeb > 1)
+    handleError(LOG_ERR, "Only one functional flag may be used at a time (-f, -F, -t, -T, -l, -r or -w)", 1, 1, 1);
 
   if (fSend == 1) {
     // Connect to the server

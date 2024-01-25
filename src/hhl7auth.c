@@ -36,7 +36,7 @@ static void genPwdSalt(char *salt, int saltL) {
 
 // Convert a password to a hash, based on ref:
 // https://wiki.openssl.org/index.php/EVP_Message_Digests
-static void genPwdHash(const char* pwd, size_t pwdS, char *pwdHash) {
+static void genPwdHash(const char* pwd, unsigned long int pwdS, char *pwdHash) {
   char algo[7] = "SHA256";
   unsigned char binHash[129] = "";
   unsigned int md_len = -1;
@@ -54,7 +54,7 @@ static void genPwdHash(const char* pwd, size_t pwdS, char *pwdHash) {
     EVP_MD_CTX_free(mdctx);
   }
 
-  if (isErr == 0 && md_len >= ((int) pwdS / 2)) { 
+  if (isErr == 0 && md_len >= (pwdS / 2)) { 
     EVP_EncodeBlock((unsigned char *) pwdHash, binHash, pwdS);
 
   } else {
@@ -305,7 +305,7 @@ int checkAuth(char *uid, const char *passwd) {
   int uCount = 0, u = 0, uExists = 0, attempts = 0;
   // TODO - move maxAttempts to config file
   int maxAttempts = 3;
-  int maxPassL = 32;
+  unsigned long int maxPassL = 32;
   size_t saltedL = 3 * maxPassL;
   char saltPasswd[saltedL];
   char pwdHash[4* maxPassL];

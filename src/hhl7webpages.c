@@ -1373,7 +1373,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
 \n\
             } else if (xhr.status === 418) {\n\
               hl7Msg = document.getElementById(\"hl7Message\");\n\
-              hl7Msg.innerText = \"I refuse to brew coffee because I am, permanently, a teapot.\";\n\
+              hl7Msg.innerText = \"[418] I refuse to brew coffee because I am, permanently, a teapot.\";\n\
               res.style.backgroundColor = \"#d1a95a\";\n\
               res.innerHTML = \"TP\";\n\
 \n\

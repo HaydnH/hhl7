@@ -24,11 +24,13 @@ You should have received a copy of the GNU General Public License along with hhl
 
 
 // DEBUG function to show ascii character codes in a buffer, useful for seeing hidden chars
+/*
 void printChars(char *buf) {
-  for (int c =0; c < strlen(buf); c++) {
+  for (long unsigned int c =0; c < strlen(buf); c++) {
     printf("%d\n", (int) buf[c]);
   }
 }
+*/
 
 
 // Open log file for reading, wrapper for syslog openlog()
@@ -228,8 +230,9 @@ int getHL7Field(char *hl7msg, char *seg, int field, char *res) {
 
 // Get number of \n or \r's in a string
 long unsigned int numLines(const char *buf) {
-  int c = 0;
-  for (int i = 0; i < strlen(buf); i++) {
+  long unsigned int i = 0, c = 0;
+
+  for (i = 0; i < strlen(buf); i++) {
     if (buf[c] == '\n' || buf[c] == '\r') c++;
   }
   return c;
@@ -238,7 +241,7 @@ long unsigned int numLines(const char *buf) {
 
 // Convert a HL7 message to a unix format (i.e: /r -> /n)
 void hl72unix(char *msg, int onlyPrint) {
-  int c, ignore = 0;
+  long unsigned int c, ignore = 0;
   char msgUnix[strlen(msg) + 1];
   for (c = 0; c < strlen(msg); c++) {
     if (msg[c] == 13) {
@@ -261,8 +264,8 @@ void hl72unix(char *msg, int onlyPrint) {
 
 // Convert a unix HL7 message to a hl7 format (i.e: /n -> /r)
 void unix2hl7(char *msg) {
-  int c, ignore = 0;
-  char msgUnix[strlen(msg)+1];
+  long unsigned int c, ignore = 0;
+  char msgUnix[strlen(msg) + 1];
   for (c = 0; c < strlen(msg); c++) {
     if (msg[c] == 10) {
       msgUnix[c - ignore] = '\r';
@@ -274,7 +277,6 @@ void unix2hl7(char *msg) {
   }
   msgUnix[c - ignore] = '\0';
   strcpy(msg, msgUnix);
-  //printf("%s", msgUnix);
 }
 
 
@@ -282,7 +284,7 @@ void unix2hl7(char *msg) {
 // NOTE: sendHL72Web() handles additional memory allocation for the added <br />'s
 void hl72web(char *msg, int maxSize) {
   char res[maxSize];
-  int i, strLen = 0;
+  long unsigned int i, strLen = 0;
   res[0] = '\0';
 
   for (i = 0; i < strlen(msg); i++) {
@@ -389,7 +391,7 @@ char *str2base64(const char *message) {
 
 // Escape slashes in a buffer
 void escapeSlash(char *dest, char *src) {
-  int s, d = 0;
+  long unsigned int s, d = 0;
   for (s = 0; s < strlen(src); s++) {
     if (src[s] == '\0') {
       break;
@@ -434,12 +436,14 @@ char *dblBuf(char *buf, int *bufS, int reqS) {
 
 
 // Check if a string is valid vanilla ascii and correct length
-int validStr(char *buf, int minL, int maxL, int aCheck) {
+int validStr(char *buf, long unsigned int minL, long unsigned int maxL, int aCheck) {
+  long unsigned int i;
+
   if (strlen(buf) < minL || strlen(buf) > maxL) {
     return(1);
 
   } else if (aCheck == 1) {
-    for (int i = 0; i < strlen(buf); i++) {
+    for (i = 0; i < strlen(buf); i++) {
       if (buf[i] < 32 || buf[i] > 126) return(2);
     }
   }

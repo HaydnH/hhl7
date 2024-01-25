@@ -326,6 +326,9 @@ static enum MHD_Result getServers(struct Session *session,
                                   struct MHD_Connection *connection,
                                   struct connection_info_struct *con_info,
                                   const char *url) {
+
+  (void) con_info;      /* Unused. Silence compiler warning. */
+
   enum MHD_Result ret;
   struct MHD_Response *response;
   struct json_object *svrsObj = NULL, *svrObj = NULL;
@@ -382,6 +385,9 @@ static enum MHD_Result getSettings(struct Session *session,
                                    struct MHD_Connection *connection,
                                    struct connection_info_struct *con_info,
                                    const char *url) {
+
+  (void) con_info;      /* Unused. Silence compiler warning. */
+
   enum MHD_Result ret;
   struct MHD_Response *response;
 
@@ -644,6 +650,9 @@ static enum MHD_Result getTempForm(struct Session *session,
 static enum MHD_Result sendHL72Web(struct Session *session,
                                    struct MHD_Connection *connection, int fd,
                                    const char *url, char *retCode) {
+
+  (void) url;           /* Unused. Silence compiler warning. */
+
   enum MHD_Result ret;
   struct MHD_Response *response;
   int fBufS = 2048, rBufS = 512, mBufS = 0;
@@ -786,6 +795,8 @@ void cleanAllSessions() {
 // Get a list of responses via a fifo
 static enum MHD_Result getRespQueue(struct Session *session,
                                     struct MHD_Connection *connection, const char *url) {
+
+  (void) url;           /* Unused. Silence compiler warning. */
 
   enum MHD_Result ret;
   struct MHD_Response *response;
@@ -1351,7 +1362,8 @@ static enum MHD_Result answer_to_connection(void *cls, struct MHD_Connection *co
                                             const char *version, const char *upload_data,
                                             size_t *upload_data_size, void **con_cls) {
 
-  (void) version;           /* Unused. Silence compiler warning. */
+  (void) cls;           /* Unused. Silence compiler warning. */
+  (void) version;       /* Unused. Silence compiler warning. */
 
   struct connection_info_struct *con_info = *con_cls;
   struct Session *session;

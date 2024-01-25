@@ -66,7 +66,8 @@ static void addVar2WebForm(char **webForm, int *webFormS, struct json_object *fi
   struct json_object *nameObj = NULL, *optsObj = NULL, *optObj = NULL, *oObj = NULL;
   struct json_object *defObj = NULL;
   char *oStr = NULL, *nStr = NULL, *dStr = NULL;
-  int o = 0, reqS = 0;
+  long unsigned int o = 0;
+  int reqS = 0;
 
   // HTML strings to keep the code below tidy
   const char wStr1[]  = "<div class='tempFormField'><div class='tempFormKey'>";
@@ -136,9 +137,8 @@ static void addVar2WebForm(char **webForm, int *webFormS, struct json_object *fi
 
 // Function turn json variables in to a value
 static int parseVals(char ***hl7Msg, int *hl7MsgS, char *vStr, char *nStr, char fieldTok,
-                     char *argv[], int lastField, int isWeb, char **webForm,
-                     struct json_object *fieldObj, int *incArray,
-                     int msgCount, char *post) {
+                     char *argv[], int lastField, int isWeb, struct json_object *fieldObj,
+                     int *incArray, int msgCount, char *post) {
 
   struct json_object *defObj = NULL, *min = NULL, *max = NULL, *dp = NULL;
   struct json_object *start = NULL, *iMax = NULL, *iType = NULL;
@@ -291,7 +291,7 @@ static int parseVals(char ***hl7Msg, int *hl7MsgS, char *vStr, char *nStr, char 
 // Parse the JSON field
 static int parseJSONField(struct json_object *fieldObj, int *lastFid, int lastField, 
                           char **hl7Msg, int *hl7MsgS, char *argv[], char fieldTok,
-                          int isWeb, char **webForm, int incArray[], int msgCount) {
+                          int isWeb, int incArray[], int msgCount) {
 
   struct json_object *valObj = NULL, *idObj = NULL;
   char *vStr = NULL, *nStr = NULL, *pre = NULL, *post = NULL;
@@ -352,7 +352,7 @@ static int parseJSONField(struct json_object *fieldObj, int *lastFid, int lastFi
 
     // Parse JSON values
     retVal = parseVals(&hl7Msg, hl7MsgS, vStr, nameStr, fieldTok, argv, lastField, 
-                       isWeb, webForm, fieldObj, incArray, msgCount, post);
+                       isWeb, fieldObj, incArray, msgCount, post);
 
   }
 
@@ -494,7 +494,7 @@ int parseJSONTemp(char *jsonMsg, char **hl7Msg, int *hl7MsgS, char **webForm,
         if (isWeb == 1) addVar2WebForm(webForm, webFormS, fieldObj);
 
         retVal = parseJSONField(fieldObj, &lastFid, fieldCount - f, hl7Msg, hl7MsgS, argv,
-                                fieldTok, isWeb, webForm, incArray, msgCount);
+                                fieldTok, isWeb, incArray, msgCount);
         if (retVal > 0) {
           json_object_put(rootObj);
           return(1);
@@ -508,7 +508,7 @@ int parseJSONTemp(char *jsonMsg, char **hl7Msg, int *hl7MsgS, char **webForm,
             fieldObj = json_object_array_get_idx(subFObj, sf);
             if (isWeb == 1) addVar2WebForm(webForm, webFormS, fieldObj);
             retVal = parseJSONField(fieldObj, &lastFid, subFCount - sf, hl7Msg, hl7MsgS,
-                                    argv, sfTok, isWeb, webForm, incArray, msgCount);
+                                    argv, sfTok, isWeb, incArray, msgCount);
             if (retVal > 0) {
               json_object_put(rootObj);
               return(1);
