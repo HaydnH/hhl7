@@ -31,6 +31,43 @@ int readJSONFile(FILE *fp, long int fileSize, char *jsonMsg) {
 }
 
 
+// Get the guide info (arguments or description) for a template
+// gType: 0 = cmdhelp (description), 1 = description
+int hhgttg(char *tName, int gType) {
+  struct json_object *tmpObj = NULL, *valObj = NULL;
+  char fileName[256] = "", funcStr[15] = "", errStr[289] = "";
+
+  findTemplate(fileName, tName, 0);
+  sprintf(errStr, "Using template file: %s", fileName);
+  writeLog(LOG_INFO, errStr, 1);
+
+  tmpObj = json_object_from_file(fileName);
+  if (tmpObj == NULL) {
+    handleError(LOG_ERR, "Failed to read template file", 1, 0, 1);
+    json_object_put(tmpObj);
+    return 1;
+  }
+
+  if (gType == 1) {
+    json_object_object_get_ex(tmpObj, "description", &valObj);
+    sprintf(funcStr, "%s", "Description:\n");
+  } else {
+    json_object_object_get_ex(tmpObj, "cmdhelp", &valObj);
+    sprintf(funcStr, "%s", "Usage: ");
+  }
+
+  if (valObj == NULL) {
+    handleError(LOG_INFO, "Failed to read guide info from template", 1, 0, 1);
+    json_object_put(tmpObj);
+    return 1;
+  } 
+
+  printf("%s%s\n\n", funcStr, json_object_get_string(valObj));
+  json_object_put(tmpObj);
+  return 0;
+}
+
+
 // int type determines data type - only strings and bools for now:
 //    1 = boolean
 //    2 = string

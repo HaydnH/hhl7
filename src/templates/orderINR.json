@@ -3,7 +3,8 @@
   "author":"Haydn Haines",
   "version":"1.0",
   "argcount":2,
-  "cmdhelp":"hhl7 -t admit <hospnum> <FT|SC> <Result Value>",
+  "cmdhelp":"hhl7 -t admit <Hospital Number> <Result Value>",
+  "description":"Sends an order message (OMG^O19) requesting an INR lab test",
   "segments": [
     { "name":"MSH",
       "fields": [

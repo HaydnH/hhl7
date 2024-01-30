@@ -40,7 +40,7 @@ static void showVersion() {
 static void showHelp(int exCode) {
   printf("Usage:\n");
   printf("  hhl7 [-s <IP>] [-L <IP] [-p <port>] [-P <port>] [-o]\n");
-  printf("       {-D|-f|-F|-t|-T|-l|-r|-n|-N} [options] [argument ...]\n\n");
+  printf("       {-D|-f|-F|-t|-T|-g|-G|-l|-r|-n|-N} [options] [argument ...]\n\n");
   printf("Help Options:\n");
   printf("  -h, --help               Show help page and exit\n");
   printf("  -v, --version            Show version information and exit\n\n");
@@ -54,6 +54,8 @@ static void showHelp(int exCode) {
   printf("  -F                       Send ./file.txt (shorthand for \"-f ./file.txt\")\n");
   printf("  -t <temp> [args ...]     Generate a message from a JSON template and send it\n");
   printf("  -T <temp> [<arg ...]     Same as -t, but also print message to STDOUT\n");
+  printf("  -g <temp>                Display the expected arguments for a template\n");
+  printf("  -G <temp>                Display a templates guide description\n");
   printf("  -o                       Suppress sending message, use with -T for STDOUT only\n");
   printf("  -l                       Listen for incoming messages\n");
   printf("  -r <temps ...>           Respond to incoming messages if they match template\n");
@@ -87,7 +89,7 @@ int main(int argc, char *argv[]) {
 
   int daemonSock = 0, sockfd, opt, option_index = 0;
   int fSend = 0, fListen = 0, fRespond = 0, fSendTemplate = 0, fShowTemplate = 0;
-  int noSend = 0, fWeb = 0, sc = 0, sCount = 1, sSleep = 500;
+  int noSend = 0, fWeb = 0, sc = 0, sCount = 1, sSleep = 500, rv = -1;
   FILE *fp;
 
   // TODO move bind port (sIP) to config file
@@ -119,7 +121,7 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-  while((opt = getopt_long(argc, argv, ":0vhD:f:Flrt:T:n:N:owWs:L:p:P:", long_options, &option_index)) != -1) {
+  while((opt = getopt_long(argc, argv, ":0vhD:f:Flrt:T:g:G:n:N:owWs:L:p:P:", long_options, &option_index)) != -1) {
     switch(opt) {
       case 0:
         exit(1);
@@ -181,6 +183,24 @@ int main(int argc, char *argv[]) {
         fShowTemplate = 1;
         if (optarg) strcpy(tName, optarg);
         break;
+
+      case 'g':
+        if (*argv[optind - 1] == '-')
+          handleError(LOG_ERR, "Option -g requires a value", 1, 1, 1);
+        if (validStr(optarg, 1, 50, 1) > 0)
+          handleError(LOG_ERR, "Invalid value for -g flag (1-50 chars, ASCII only)", 1, 1, 1);
+
+        rv = hhgttg(optarg, 0);
+        exit(rv);
+
+      case 'G':
+        if (*argv[optind - 1] == '-')
+          handleError(LOG_ERR, "Option -G requires a value", 1, 1, 1);
+        if (validStr(optarg, 1, 50, 1) > 0)
+          handleError(LOG_ERR, "Invalid value for -G flag (1-50 chars, ASCII only)", 1, 1, 1);
+
+        rv = hhgttg(optarg, 1);
+        exit(rv);
 
       case 'n':
         if (*argv[optind - 1] == '-')

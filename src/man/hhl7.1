@@ -91,6 +91,16 @@ Construct a HL7 message based on the provided template name and arguments and se
 The same as \-t, however the constructed HL7 message will also be printed to stdout when sending.
 .RE
 .sp
+\fB\-g\fP <template>
+.RS 4
+Show the command line arguments expected for a given template and exit immediately. Prints the \(aqcmdhelp\(aq attribute if present in the template.
+.RE
+.sp
+\fB\-G\fP <template>
+.RS 4
+Show the descriptional guide for a given template and exits immediately. Prints the \(aqdescription\(aq attribute if present in the template.
+.RE
+.sp
 \fB\-o\fP
 .RS 4
 Suppress sending the HL7 message, only print the message to stdout. Used in conjunction with \-T to generate HL7 messages or test hhl7 templates.
