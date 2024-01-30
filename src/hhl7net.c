@@ -290,7 +290,7 @@ int connectSvr(char *ip, char *port) {
 
 // Listen for ACK from server
 int listenACK(int sockfd, char *res) {
-  char ackBuf[512] = "", app[12] = "", code[7] = "", aCode[3] = "", errStr[256] = "";
+  char ackBuf[512] = "", app[12] = "", code[7] = "", aCode[3] = "", errStr[46] = "";
   int ackErr = 0, recvL = 0;
 
   // TODO Add timeout to config file

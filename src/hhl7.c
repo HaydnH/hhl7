@@ -264,12 +264,12 @@ int main(int argc, char *argv[]) {
 
 
   // Check we've got at least one action flag
-  if (fSend + fListen + fRespond + fSendTemplate + fWeb == 0)
-    handleError(LOG_ERR, "One functional flag is required (-f, -F, -t, -T, -l, -r or -w)", 1, 1, 1);
+  if (fSend + fListen + fRespond + fSendTemplate + fWeb + isDaemon == 0)
+    handleError(LOG_ERR, "One functional flag is required (-f, -F, -t, -T, -l, -r, -D or -w)", 1, 1, 1);
 
   // Check we're only using 1 of listen, send, template or web option
-  if (fSend + fListen + fRespond + fSendTemplate + fWeb > 1)
-    handleError(LOG_ERR, "Only one functional flag may be used at a time (-f, -F, -t, -T, -l, -r or -w)", 1, 1, 1);
+  if (fSend + fListen + fRespond + fSendTemplate + fWeb + isDaemon > 1)
+    handleError(LOG_ERR, "Only one functional flag may be used at a time (-f, -F, -t, -T, -l, -r, -D or -w)", 1, 1, 1);
 
   if (fSend == 1) {
     // Connect to the server
@@ -320,4 +320,6 @@ int main(int argc, char *argv[]) {
     writeLog(LOG_INFO, "Local web process starting...", 1);
     listenWeb(daemonSock);
   }
+
+  return(0);
 }
