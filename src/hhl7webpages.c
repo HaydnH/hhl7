@@ -1148,6 +1148,10 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
                   errHandler(\"ERROR: The backend failed to save your settings, please try again.\");\n\
                 }\n\
               }\n\
+\n\
+            } else if (xhr.status == 401) {\n\
+              showLogin();\n\
+\n\
             } else {\n\
               errHandler(\"ERROR: The hhl7 backend is not running.\");\n\
             }\n\
@@ -1194,6 +1198,10 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
                   errHandler(\"ERROR: The backend failed to save your settings, please try again.\");\n\
                 }\n\
               }\n\
+\n\
+            } else if (xhr.status == 401) {\n\
+              showLogin();\n\
+\n\
             } else {\n\
               errHandler(\"ERROR: The hhl7 backend is not running.\");\n\
             }\n\
@@ -1233,6 +1241,10 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
                   errHandler(\"ERROR: The backend failed to save your password, please try again.\");\n\
                 }\n\
               }\n\
+\n\
+            } else if (xhr.status == 401) {\n\
+              showLogin();\n\
+\n\
             } else {\n\
               errHandler(\"ERROR: The hhl7 backend is not running.\");\n\
             }\n\
@@ -1356,10 +1368,13 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
                   res.innerHTML = xhr.responseText;\n\
 \n\
                 } else {\n\
-                  errHandler(\"ERROR: An unknown backend error occured.\");\n\
+                  errHandler(\"ERROR: An unhandled backend server error occured.\");\n\
 \n\
                 }\n\
               }\n\
+\n\
+            } else if (xhr.status == 401) {\n\
+              showLogin();\n\
 \n\
             } else if (xhr.status === 406) {\n\
               errHandler(\"ERROR: Message contains no data to send.\");\n\
