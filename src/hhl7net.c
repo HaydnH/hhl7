@@ -293,10 +293,10 @@ int listenACK(int sockfd, char *res) {
   char ackBuf[512] = "", app[12] = "", code[7] = "", aCode[3] = "", errStr[46] = "";
   int ackErr = 0, recvL = 0;
 
-  // TODO Add timeout to config file
+  // TODO Add timeout to config file - NOTE: javascript would need timeout change as well
   // Set ListenACK timeout
   struct timeval tv, *tvp;
-  tv.tv_sec = 5;
+  tv.tv_sec = 3;
   tv.tv_usec = 0;
   tvp = &tv;
   setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, tvp, sizeof tv);

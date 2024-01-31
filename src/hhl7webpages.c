@@ -104,7 +104,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         padding: 0px 15px;\n\
         font-weight: bold;\n\
       }\n\
-      #sendButton:hover {\n\
+      #sendButton.sendActive:hover {\n\
         content: url(\"/images/send_hl.png\");\n\
         cursor: pointer;\n\
       }\n\
@@ -836,6 +836,9 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
           res.innerHTML = \"--\";\n\
           res.style.backgroundColor = \"#d4dcf1\";\n\
         }\n\
+        var btn = document.getElementById(\"sendButton\");\n\
+        btn.addEventListener(\"click\", postHL7);\n\
+        btn.classList.add(\"sendActive\");\n\
       }\n\
 \n\
       function updateHL7(id, val) {\n\
@@ -1349,6 +1352,10 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
 \n\
       function postHL7() {\n\
         event.preventDefault();\n\
+        var btn = document.getElementById(\"sendButton\");\n\
+        btn.classList.remove(\"sendActive\");\n\
+        btn.removeEventListener(\"click\", postHL7);\n\
+\n\
         var res = document.getElementById(\"sendRes\");\n\
         res.innerHTML = \"--\";\n\
         res.style.backgroundColor = \"#d4dcf1\";\n\
@@ -1356,6 +1363,9 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
 \n\
         xhr.onreadystatechange = function() {\n\
           if (xhr.readyState === 4) {\n\
+            btn.addEventListener(\"click\", postHL7);\n\
+            btn.classList.add(\"sendActive\");\n\
+\n\
             if (xhr.status === 200) {\n\
               if (errHandler(xhr.responseText) == 0) {\n\
                 if (xhr.responseText == \"AA\" || xhr.responseText == \"CA\") {\n\
@@ -1413,8 +1423,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         };\n\
 \n\
         xhr.open(\"POST\", \"/postHL7\");\n\
-        xhr.timeout = 1000;\n\
-        // TODO - add an xhr.onTimeOut function\n\
+        xhr.timeout = 3500;\n\
 \n\
         var HL7Text = document.getElementById(\"hl7Message\").innerText;\n\
         var formData = new FormData();\n\
@@ -1650,7 +1659,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         <div id=\"tempForm\"></div>\n\
 \n\
         <div class=\"titleBar\">HL7 Message:\n\
-          <img id=\"sendButton\" src=\"./images/send.png\" title=\"Send HL7\" onClick=\"postHL7();\" />\n\
+          <img id=\"sendButton\" src=\"./images/send.png\" title=\"Send HL7\"/>\n\
           <div id=\"sendRes\">--</div>\n\
         </div>\n\
         <div id=\"hl7Container\">\n\
