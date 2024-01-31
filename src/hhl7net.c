@@ -61,24 +61,24 @@ static struct Response *queueResponse(struct Response *resp) {
 
   this = responses;
   if (this == NULL) {
-    return resp;
+    return(resp);
 
   } else if (resp->sendTime <= this->sendTime) {
     resp->next = this;
-    return resp;
+    return(resp);
     
   } else {
     while (this != NULL) {
       if (this->next == NULL) {
         this->next = resp;
-        return responses;
+        return(responses);
 
       } else {
         next = this->next;
         if (next->sendTime >= resp->sendTime) {
           resp->next = next;
           this->next = resp;
-          return responses;
+          return(responses);
 
         } else {
           this = this->next;
@@ -86,7 +86,7 @@ static struct Response *queueResponse(struct Response *resp) {
         }
       }
     }
-    return responses;
+    return(responses);
   }
 }
 
@@ -132,7 +132,7 @@ static int processResponses(int fd) {
   char errStr[256] = "";
 
   resp = responses;
-  if (resp == NULL) return nextResp;
+  if (resp == NULL) return(nextResp);
 
   char newResp[strlen(resp->rName) + strlen(resp->tName) +
                strlen(resp->sIP) + strlen(resp->sPort) + 293];
@@ -235,13 +235,13 @@ int validPort(char *port) {
   int portNum = atoi(port);
 
   if (portLen < 4 || portLen > 5) {
-    return 1;
+    return(1);
 
   } else if (portNum < 1024 || portNum > 65535) {
-    return 2;
+    return(2);
 
   }
-  return 0;
+  return(0);
 }
 
 
@@ -306,7 +306,7 @@ int listenACK(int sockfd, char *res) {
   // Receive the response from the server and strip MLLP wrapper
   if ((recvL = recv(sockfd, ackBuf, 512, 0)) == -1) {
     handleError(LOG_ERR, "Timeout listening for ACK response", 1, 0, 1);
-    return -2;
+    return(-2);
 
   } else {
     stripMLLP(ackBuf);
@@ -338,7 +338,7 @@ int listenACK(int sockfd, char *res) {
     if (ackErr > 0) {
       handleError(LOG_ERR, "Could not understand ACK response", 1, 0, 1);
       if (res != NULL) sprintf(res, "%s", "EE");
-      return -3;
+      return(-3);
 
     } else {
       sprintf(errStr, "Server ACK response: %s %s (%s)", app, code, aCode);
@@ -350,7 +350,7 @@ int listenACK(int sockfd, char *res) {
       }
     }
   }
-  return recvL;
+  return(recvL);
 }
 
 
@@ -412,7 +412,7 @@ int sendPacket(int sockfd, char *hl7msg, char *resStr, int fShowTemplate) {
     if(send(sockfd, tokMsg, strlen(tokMsg), 0) == -1) {
       if (resStr != NULL) sprintf(resStr, "%s", "EE");
       handleError(LOG_ERR, "Could not send data packet to server", -1, 0, 1);
-      return -1;
+      return(-1);
 
     } else {
       retVal = listenACK(sockfd, resStr);
@@ -497,14 +497,14 @@ int sendAck(int sessfd, char *hl7msg) {
   if ((writeL = write(sessfd, ackBuf, strlen(ackBuf))) == -1) {
     close(sessfd);
     handleError(LOG_ERR, "Failed to send ACK response to server", -1, 0, 1);
-    return -1;
+    return(-1);
 
   } else {
     sprintf(errStr, "Message with control ID %s received OK and ACK sent", cid);
     writeLog(LOG_INFO, errStr, 1);
   }
 
-  return writeL;
+  return(writeL);
 }
 
 
@@ -568,13 +568,13 @@ static struct Response *checkResponse(char *msg, char *sIP, char *sPort, char *t
       sprintf(errStr, "Comparing %s against %s... exclusion, no match",
               json_object_get_string(valStr), fldStr);
       writeLog(LOG_INFO, errStr, 1);
-      return responses;
+      return(responses);
 
     } else {
       sprintf(errStr, "Comparing %s against %s... no match",
               json_object_get_string(valStr), fldStr);
       writeLog(LOG_INFO, errStr, 1);
-      return responses;
+      return(responses);
     }
   }
 
@@ -595,7 +595,7 @@ static struct Response *checkResponse(char *msg, char *sIP, char *sPort, char *t
 
   if (mCount > 25) {
     handleError(LOG_WARNING, "A responder template created too many arguments (>25)", 1, 0, 1);
-    return respHead;
+    return(respHead);
   }
 
   struct Response *resp;
@@ -639,7 +639,7 @@ static struct Response *checkResponse(char *msg, char *sIP, char *sPort, char *t
   writeLog(LOG_INFO, errStr, 1);
 
   json_object_put(resObj);
-  return respHead;
+  return(respHead);
 }
 
 
@@ -733,7 +733,7 @@ static struct Response *handleMsg(int sessfd, int fd, char *sIP, char *sPort,
 
   free(msgBuf);
   close(sessfd);
-  return responses;
+  return(responses);
 }
 
 
@@ -751,7 +751,7 @@ static int createSession(char *ip, const char *port) {
   if ((rv = getaddrinfo(ip, port, &hints, &res)) != 0) {
     freeaddrinfo(res);
     handleError(LOG_ERR, "Can't obtain address info when creating session", 1, 0, 1);
-    return -1;
+    return(-1);
   }
 
   svrfd = socket(res->ai_family,res->ai_socktype,res->ai_protocol);
@@ -759,30 +759,30 @@ static int createSession(char *ip, const char *port) {
   if (svrfd == -1) {
     freeaddrinfo(res);
     handleError(LOG_ERR, "Can't obtain socket address info", 1, 0, 1);
-    return -1;
+    return(-1);
   }
 
   int reuseaddr = 1;
   if (setsockopt(svrfd, SOL_SOCKET, SO_REUSEADDR, &reuseaddr, sizeof(reuseaddr)) == -1) {
     freeaddrinfo(res);
     handleError(LOG_ERR, "Can't set socket options", 1, 0, 1);
-    return -1;
+    return(-1);
   }
 
   if (bind(svrfd, res->ai_addr, res->ai_addrlen) == -1) {
     freeaddrinfo(res);
     handleError(LOG_ERR, "Can't bind address", 1, 0, 1);
-    return -1;
+    return(-1);
   }
 
   if (listen(svrfd, SOMAXCONN)) {
     freeaddrinfo(res);
     handleError(LOG_ERR, "Can't listen for connections", 1, 0, 1);
-    return -1;
+    return(-1);
   }
 
   freeaddrinfo(res);
-  return svrfd;
+  return(svrfd);
 }
 
 
@@ -815,8 +815,8 @@ static int readRespTemps(int respFD, char respTemps[20][256], char *respTempsPtr
     }
   }
 
-  if (updated == 1) return dataInt;
-  return 0;
+  if (updated == 1) return(dataInt);
+  return(0);
 }
 
 
@@ -913,7 +913,7 @@ int startMsgListener(char *lIP, const char *lPort, char *sIP, char *sPort,
       if (sessfd == -1) {
         close(svrfd);
         handleError(LOG_ERR, "Can't accept connections", 1, 0, 1);
-        return -1;
+        return(-1);
       }
 
       if (respUpdated == 0) {
@@ -934,5 +934,5 @@ int startMsgListener(char *lIP, const char *lPort, char *sIP, char *sPort,
   }
 
   close(svrfd);
-  return 0;
+  return(0);
 }

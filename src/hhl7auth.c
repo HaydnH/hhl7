@@ -73,7 +73,7 @@ static int createPWFile(char *fileName) {
     if (fp == NULL) {
       fclose(fp);
       handleError(LOG_ERR, "ERROR: Could not create new password file", 1, 1, 1);
-      return 1;
+      return(1);
 
     } else {
       fprintf(fp, "%s", fileData);
@@ -81,11 +81,11 @@ static int createPWFile(char *fileName) {
       fsync(fileno(fp));
       fclose(fp);
       writeLog(LOG_INFO, "New password file created", 0);
-      return 0;
+      return(0);
     }
   }
   handleError(LOG_ERR, "ERROR: Could not create new password file", 1, 1, 1);
-  return 1;
+  return(1);
 }
  
 
@@ -103,12 +103,12 @@ static int userExists(struct json_object *userArray, char *uid) {
     enabled = json_object_get_boolean(enabledStr);    
 
     if (strcmp(json_object_get_string(uidStr), uid) == 0) {
-      if (enabled == 0) return 2;
-      return 0;
+      if (enabled == 0) return(2);
+      return(0);
     }
   }
 
-  return 1;
+  return(1);
 }
 
 
@@ -155,7 +155,7 @@ int regNewUser(char *uid, char *passwd) {
     handleError(LOG_ERR, "Failed to read password file", 1, 0, 0);
     PWLOCK = 0;
     json_object_put(pwObj);
-    return 1;
+    return(1);
   }
 
   json_object_object_get_ex(pwObj, "users", &userArray);
@@ -187,7 +187,7 @@ int regNewUser(char *uid, char *passwd) {
       handleError(LOG_ERR, errStr, 1, 0, 0);
       PWLOCK = 0;
       json_object_put(pwObj);
-      return 1;
+      return(1);
     }
 
   } else {
@@ -199,7 +199,7 @@ int regNewUser(char *uid, char *passwd) {
   json_object_put(pwObj);
   sprintf(errStr, "New user registered succesfully (%s)", uid);
   writeLog(LOG_INFO, errStr, 0);
-  return 0;
+  return(0);
 }
 
 
@@ -225,7 +225,7 @@ int updatePasswdFile(char *uid, const char *key, const char *val, int iVal) {
 
     sprintf(errStr, "Unexpected attempt to update user (%s) credentials, exiting", uid);
     handleError(LOG_CRIT, errStr, 1, 1, 0);
-    return 1;
+    return(1);
   }
 
   // If lock is true, sleep until lock is cleared
@@ -241,7 +241,7 @@ int updatePasswdFile(char *uid, const char *key, const char *val, int iVal) {
     handleError(LOG_ERR, "Failed to read password file", 1, 0, 0);
     PWLOCK = 0;
     json_object_put(pwObj);
-    return 1;
+    return(1);
   }
 
   json_object_object_get_ex(pwObj, "users", &userArray);
@@ -250,7 +250,7 @@ int updatePasswdFile(char *uid, const char *key, const char *val, int iVal) {
   if (uExists == 1) {
     PWLOCK = 0;
     json_object_put(pwObj);
-    return 1;
+    return(1);
 
   } else {
     uCount = json_object_array_length(userArray);
@@ -271,7 +271,7 @@ int updatePasswdFile(char *uid, const char *key, const char *val, int iVal) {
           handleError(LOG_ERR, "Attempt to update password file with no values supplied", 1, 0, 0);
           PWLOCK = 0;
           json_object_put(pwObj);
-          return 1;
+          return(1);
         }
         break;
       }
@@ -284,13 +284,13 @@ int updatePasswdFile(char *uid, const char *key, const char *val, int iVal) {
       handleError(LOG_ERR, errStr, 1, 0, 0);
       PWLOCK = 0;
       json_object_put(pwObj);
-      return 1;
+      return(1);
     }
   }
 
   PWLOCK = 0;
   json_object_put(pwObj);
-  return 0;
+  return(0);
 }
 
 
@@ -331,20 +331,20 @@ int checkAuth(char *uid, const char *passwd) {
   if (pwObj == NULL) {
     handleError(LOG_ERR, "Failed to read password file", 1, 0, 0);
     json_object_put(pwObj);
-    return 1;
+    return(1);
   }
 
   json_object_object_get_ex(pwObj, "users", &userArray);
   if (userArray == NULL) {
     handleError(LOG_ERR, "Failed to get user object, passwd file corrupt?", 1, 0, 0);
     json_object_put(pwObj);
-    return 1;
+    return(1);
   }
 
   uExists = userExists(userArray, uid);
   if (uExists == 1) {
     json_object_put(pwObj);
-    return 3;
+    return(3);
 
   } else {
     uCount = json_object_array_length(userArray);
@@ -359,7 +359,7 @@ int checkAuth(char *uid, const char *passwd) {
         // Return if the max failed login attempts breached 
         if (attempts >= maxAttempts && maxAttempts > 0) {
           json_object_put(pwObj);
-          return 1;
+          return(1);
         }
 
         saltStr = json_object_object_get(userObj, "salt");
@@ -371,7 +371,7 @@ int checkAuth(char *uid, const char *passwd) {
           sprintf(errStr, "Invalid password in password file (%s)", uid);
           handleError(LOG_WARNING, errStr, 1, 0, 0);
           json_object_put(pwObj);
-          return 1;
+          return(1);
 
         } else {
           sprintf(saltPasswd, "%s%s", json_object_get_string(saltStr), passwd);
@@ -380,13 +380,13 @@ int checkAuth(char *uid, const char *passwd) {
           if (strncmp(json_object_get_string(pwdStr), pwdHash, maxPassL) == 0) {
             // Return 1 if the user exists, the password is correct, but account disabled
             json_object_put(pwObj);
-            if (uExists == 2) return 1;
-            return 0;
+            if (uExists == 2) return(1);
+            return(0);
 
           } else {
             if (maxAttempts > 0) updatePasswdFile(uid, "attempts", NULL, attempts + 1); 
             json_object_put(pwObj);
-            return 2;
+            return(2);
           }
         }
       }
@@ -394,7 +394,7 @@ int checkAuth(char *uid, const char *passwd) {
   }
   json_object_put(pwObj);
   // We shouldn't get here, but return a denial as a safety net
-  return 2;
+  return(2);
 }
 
 
@@ -437,7 +437,7 @@ int updatePasswd(char *uid, const char *password) {
     handleError(LOG_ERR, "Failed to read password file", 1, 0, 0);
     PWLOCK = 0;
     json_object_put(pwObj);
-    return 1;
+    return(1);
   }
 
   json_object_object_get_ex(pwObj, "users", &userArray);
@@ -445,7 +445,7 @@ int updatePasswd(char *uid, const char *password) {
 
   if (uExists == 1) {
     PWLOCK = 0;
-    return 1;
+    return(1);
 
   } else {
     // Generate salt and password hash
@@ -474,13 +474,13 @@ int updatePasswd(char *uid, const char *password) {
       handleError(LOG_ERR, errStr, 1, 0, 0);
       PWLOCK = 0;
       json_object_put(pwObj);
-      return 1;
+      return(1);
     }
   }
 
   PWLOCK = 0;
   json_object_put(pwObj);
-  return 0;
+  return(0);
 }
 
 
@@ -504,7 +504,7 @@ int lPortUsed(char *uid, const char *lPort) {
     handleError(LOG_ERR, "Failed to read password file", 1, 0, 0);
     PWLOCK = 0;
     json_object_put(pwObj);
-    return 1;
+    return(1);
   }
 
   json_object_object_get_ex(pwObj, "users", &userArray);
@@ -519,9 +519,9 @@ int lPortUsed(char *uid, const char *lPort) {
         strcmp(json_object_get_string(uidStr), uid) != 0) {
 
       json_object_put(pwObj);
-      return 1;
+      return(1);
     }
   }
   json_object_put(pwObj);
-  return 0;
+  return(0);
 }

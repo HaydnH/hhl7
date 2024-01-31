@@ -120,7 +120,7 @@ static struct Session *getSession(struct MHD_Connection *connection) {
                         ret->shortID, ret->sessID);
         writeLog(LOG_DEBUG, errStr, 0);
         ret->rc++;
-        return ret;
+        return(ret);
       }
     }
 
@@ -132,7 +132,7 @@ static struct Session *getSession(struct MHD_Connection *connection) {
   ret = calloc(1, sizeof (struct Session));
   if (ret == NULL) {
     handleError(LOG_ERR, "Could not allocate memory to create session ID, out of memory?", -1, 0, 0);
-    return NULL;
+    return(NULL);
   }
 
   // TODO - create a better ID generation method?
@@ -160,7 +160,7 @@ static struct Session *getSession(struct MHD_Connection *connection) {
                   ret->shortID, ret->oldSessID, ret->sessID);
   writeLog(LOG_INFO, errStr, 0);
 
-  return ret;
+  return(ret);
 }
 
 
@@ -213,14 +213,14 @@ static enum MHD_Result requestLogin(struct Session *session,
   response = MHD_create_response_from_buffer(0, NULL, MHD_RESPMEM_PERSISTENT);
 
   if (! response)
-    return MHD_NO;
+    return(MHD_NO);
 
   ret = MHD_queue_response(connection, MHD_HTTP_UNAUTHORIZED, response);
   sprintf(errStr, "[S: %03d][401] GET: %s", session->shortID, url);
   writeLog(LOG_INFO, errStr, 0);
 
   MHD_destroy_response(response);
-  return ret;
+  return(ret);
 }
 
 
@@ -234,7 +234,7 @@ static enum MHD_Result main_page(struct Session *session,
   response = MHD_create_response_from_buffer(strlen(page), (void *) page,
              MHD_RESPMEM_PERSISTENT);
 
-  if (! response) return MHD_NO;
+  if (! response) return(MHD_NO);
 
   addCookie(session, response);
   ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
@@ -242,7 +242,7 @@ static enum MHD_Result main_page(struct Session *session,
   writeLog(LOG_INFO, errStr, 0);
 
   MHD_destroy_response(response);
-  return ret;
+  return(ret);
 }
 
 
@@ -279,10 +279,10 @@ static enum MHD_Result getImage(struct Session *session,
       writeLog(LOG_WARNING, errStr, 0);
 
       MHD_destroy_response(response);
-      return MHD_YES;
+      return(MHD_YES);
 
     } else {
-      return MHD_NO;
+      return(MHD_NO);
     }
 
     if (!ret) {
@@ -299,11 +299,11 @@ static enum MHD_Result getImage(struct Session *session,
 
         MHD_destroy_response(response);
         fclose(fp);
-        return MHD_YES;    
+        return(MHD_YES);    
 
       } else {
         fclose(fp);
-        return MHD_NO;
+        return(MHD_NO);
       }
     }
   }
@@ -317,7 +317,7 @@ static enum MHD_Result getImage(struct Session *session,
   writeLog(LOG_INFO, errStr, 0);
 
   MHD_destroy_response(response);
-  return ret;
+  return(ret);
 }
 
 
@@ -362,7 +362,7 @@ static enum MHD_Result getServers(struct Session *session,
 
   if (!response) {
     json_object_put(svrsObj);
-    return MHD_NO;
+    return(MHD_NO);
   }
 
   MHD_add_response_header(response, "Content-Type", "text/plain");
@@ -376,7 +376,7 @@ static enum MHD_Result getServers(struct Session *session,
   MHD_destroy_response(response);
 
   json_object_put(svrsObj);
-  return ret;
+  return(ret);
 }
 
 
@@ -449,7 +449,7 @@ static enum MHD_Result getSettings(struct Session *session,
 
   if (!response) {
     json_object_put(pwObj);
-    return MHD_NO;
+    return(MHD_NO);
   }
 
   MHD_add_response_header(response, "Content-Type", "text/plain");
@@ -462,7 +462,7 @@ static enum MHD_Result getSettings(struct Session *session,
 
   MHD_destroy_response(response);
   json_object_put(pwObj);
-  return ret;
+  return(ret);
 }
 
 
@@ -556,7 +556,7 @@ static enum MHD_Result getTemplateList(struct Session *session,
   closedir(dp);
   free(tempOpts);
 
-  if (! response) return MHD_NO;
+  if (!response) return(MHD_NO);
 
   //addCookie(session, response);
   ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
@@ -564,7 +564,7 @@ static enum MHD_Result getTemplateList(struct Session *session,
   writeLog(LOG_INFO, errStr, 0);
 
   MHD_destroy_response(response);
-  return ret;
+  return(ret);
 }
 
 
@@ -635,14 +635,14 @@ static enum MHD_Result getTempForm(struct Session *session,
   free(jsonMsg);
   free(jsonReply);
 
-  if (! response) return MHD_NO;
+  if (!response) return(MHD_NO);
   //addCookie(session, response);
   ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
   sprintf(errStr, "[S: %03d][200] GET: %s", session->shortID, url);
   writeLog(LOG_INFO, errStr, 0);
 
   MHD_destroy_response(response);
-  return ret;
+  return(ret);
 }
 
 
@@ -726,7 +726,7 @@ static enum MHD_Result sendHL72Web(struct Session *session,
   response = MHD_create_response_from_buffer(strlen(fBuf), (void *) fBuf,
              MHD_RESPMEM_MUST_COPY);
 
-  if (!response) return MHD_NO;
+  if (!response) return(MHD_NO);
 
   MHD_add_response_header(response, "Content-Type", "text/event-stream");
   MHD_add_response_header(response, "Cache-Control", "no-cache");
@@ -748,7 +748,7 @@ static enum MHD_Result sendHL72Web(struct Session *session,
   free(fBuf);
   free(rBuf);
 
-  return ret;
+  return(ret);
 }
 
 
@@ -838,7 +838,7 @@ static enum MHD_Result getRespQueue(struct Session *session,
   response = MHD_create_response_from_buffer(strlen(rBuf), (void *) rBuf,
              MHD_RESPMEM_MUST_COPY);
 
-  if (!response) return MHD_NO;
+  if (!response) return(MHD_NO);
 
   MHD_add_response_header(response, "Content-Type", "text/plain");
   MHD_add_response_header(response, "Cache-Control", "no-cache");
@@ -851,7 +851,7 @@ static enum MHD_Result getRespQueue(struct Session *session,
 
   // Free memory from buffers
   free(rBuf);
-  return ret;
+  return(ret);
 }
 
 
@@ -868,7 +868,7 @@ static enum MHD_Result stopListenWeb(struct Session *session,
 
   response = MHD_create_response_from_buffer(2, "OK", MHD_RESPMEM_PERSISTENT);
 
-  if (!response) return MHD_NO;
+  if (!response) return(MHD_NO);
 
   MHD_add_response_header(response, "Content-Type", "text/plain");
   MHD_add_response_header(response, "Cache-Control", "no-cache");
@@ -879,7 +879,7 @@ static enum MHD_Result stopListenWeb(struct Session *session,
   writeLog(LOG_INFO, errStr, 0);
 
   MHD_destroy_response(response);
-  return ret;
+  return(ret);
 }
 
 
@@ -1044,7 +1044,7 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
 
       } else {
         snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "L0");  // Require login
-        return MHD_YES;
+        return(MHD_YES);
       }
     }
 
@@ -1086,7 +1086,7 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
           handleError(LOG_ERR, "Failed to allocate memory - server OOM??", 1, 0, 1);
           free(con_info->poststring);
           con_info->poststring = NULL;
-          return MHD_NO;
+          return(MHD_NO);
 
         } else {
           con_info->poststring = tmpPtr;
@@ -1096,7 +1096,7 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
 
       strcat(con_info->poststring, data);
       snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "DP"); // Partial data
-      return MHD_YES;
+      return(MHD_YES);
 
 
     } else if (strcmp(key, "pcaction") == 0 ) {
@@ -1259,10 +1259,10 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
                     con_info->session->shortID, con_info->session->userid);
     writeLog(LOG_WARNING, errStr, 0);
 
-    return MHD_NO;
+    return(MHD_NO);
 
   }
-  return MHD_YES;
+  return(MHD_YES);
 }
 
 
@@ -1276,7 +1276,7 @@ static enum MHD_Result sendPage(struct Session *session, struct MHD_Connection *
   response = MHD_create_response_from_buffer(strlen(page), (void *) page,
                                              MHD_RESPMEM_PERSISTENT);
 
-  if (! response) return MHD_NO;
+  if (!response) return(MHD_NO);
 
   MHD_add_response_header(response, "Content-Type", "text/plain");
   MHD_add_response_header(response, "Cache-Control", "no-cache");
@@ -1326,7 +1326,7 @@ static enum MHD_Result sendPage(struct Session *session, struct MHD_Connection *
   }
 
   MHD_destroy_response(response);
-  return ret;
+  return(ret);
 }
 
 
@@ -1340,7 +1340,7 @@ static enum MHD_Result logout(struct Session *session, struct MHD_Connection *co
 
   response = MHD_create_response_from_buffer(2, "LO", MHD_RESPMEM_PERSISTENT);
 
-  if (! response) return MHD_NO;
+  if (!response) return(MHD_NO);
 
   MHD_add_response_header(response, "Content-Type", "text/plain");
   ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
@@ -1351,7 +1351,7 @@ static enum MHD_Result logout(struct Session *session, struct MHD_Connection *co
 
 
   MHD_destroy_response(response);
-  return ret;
+  return(ret);
 }
 
 
@@ -1359,7 +1359,7 @@ static enum MHD_Result logout(struct Session *session, struct MHD_Connection *co
 //static int print_out_key (void *cls, enum MHD_ValueKind kind, const char *key,
 //               const char *value) {
 //  printf ("%s: %s\n", key, value);
-//  return MHD_YES;
+//  return(MHD_YES);
 //}
 
 
@@ -1382,7 +1382,7 @@ static enum MHD_Result answer_to_connection(void *cls, struct MHD_Connection *co
 
   if (*con_cls == NULL) {
     con_info = malloc(sizeof(struct connection_info_struct));
-    if (con_info == NULL) return MHD_NO;
+    if (con_info == NULL) return(MHD_NO);
     con_info->connection = connection;
     con_info->session = getSession(connection);
     con_info->answerstring[0] = '\0';
@@ -1395,7 +1395,7 @@ static enum MHD_Result answer_to_connection(void *cls, struct MHD_Connection *co
 
       if (con_info->postprocessor == NULL) {
         free(con_info);
-        return MHD_NO;
+        return(MHD_NO);
       }
 
       con_info->connectiontype = POST;
@@ -1405,7 +1405,7 @@ static enum MHD_Result answer_to_connection(void *cls, struct MHD_Connection *co
     }
 
     *con_cls = (void *) con_info;
-    return MHD_YES;
+    return(MHD_YES);
   }
 
   if (con_info->session == NULL) {
@@ -1413,7 +1413,7 @@ static enum MHD_Result answer_to_connection(void *cls, struct MHD_Connection *co
 
     if (con_info->session == NULL) {
       fprintf (stderr, "Failed to setup session for %s\n", url);
-      return MHD_NO;
+      return(MHD_NO);
     }
   }
   session = con_info->session;
@@ -1421,46 +1421,46 @@ static enum MHD_Result answer_to_connection(void *cls, struct MHD_Connection *co
 
   if (strcmp(method, "GET") == 0) {
     if (strstr(url, "/images/")) {
-      return getImage(session, connection, url);
+      return(getImage(session, connection, url));
 
     } else if (strstr(url, "/templates/")) {
-      return getTempForm(session, connection, url);
+      return(getTempForm(session, connection, url));
 
     } else if (strcmp(url, "/getTemplateList") == 0) {
       // Request login if not logged in
-      if (session->aStatus != 1) return requestLogin(session, connection, url);
-      return getTemplateList(session, connection, url, 0);
+      if (session->aStatus != 1) return(requestLogin(session, connection, url));
+      return(getTemplateList(session, connection, url, 0));
 
     } else if (strcmp(url, "/getRespondList") == 0) {
       // Request login if not logged in
-      if (session->aStatus != 1) return requestLogin(session, connection, url);
-      return getTemplateList(session, connection, url, 1);
+      if (session->aStatus != 1) return(requestLogin(session, connection, url));
+      return(getTemplateList(session, connection, url, 1));
 
     } else if (strcmp(url, "/getRespQueue") == 0) {
       // Request login if not logged in
-      if (session->aStatus != 1) return requestLogin(session, connection, url);
-      return getRespQueue(session, connection, url);
+      if (session->aStatus != 1) return(requestLogin(session, connection, url));
+      return(getRespQueue(session, connection, url));
 
     } else if (strcmp(url, "/getServers") == 0) {
       // Request login if not logged in
-      if (session->aStatus != 1) return requestLogin(session, connection, url);
-      return getServers(session, connection, con_info, url);
+      if (session->aStatus != 1) return(requestLogin(session, connection, url));
+      return(getServers(session, connection, con_info, url));
 
     } else if (strcmp(url, "/getSettings") == 0) {
       // Request login if not logged in
-      if (session->aStatus != 1) return requestLogin(session, connection, url);
-      return getSettings(session, connection, con_info, url);
+      if (session->aStatus != 1) return(requestLogin(session, connection, url));
+      return(getSettings(session, connection, con_info, url));
 
     } else if (strcmp(url, "/stopListenHL7") == 0) {
-      if (session->aStatus != 1) return requestLogin(session, connection, url);
-      return stopListenWeb(session, connection, url);
+      if (session->aStatus != 1) return(requestLogin(session, connection, url));
+      return(stopListenWeb(session, connection, url));
 
     } else if (strcmp(url, "/logout") == 0) {
-      if (session->aStatus != 1) return requestLogin(session, connection, url);
-      return logout(session, connection, url);
+      if (session->aStatus != 1) return(requestLogin(session, connection, url));
+      return(logout(session, connection, url));
 
     } else if (strcmp(url, "/listenHL7") == 0) {
-      if (session->aStatus != 1) return requestLogin(session, connection, url);
+      if (session->aStatus != 1) return(requestLogin(session, connection, url));
 
       if (session->isListening == 0) {
         rc = startListenWeb(con_info->session, con_info->connection, url, -1, NULL);
@@ -1468,15 +1468,15 @@ static enum MHD_Result answer_to_connection(void *cls, struct MHD_Connection *co
 
       if (session->isListening == 1) {
         if (rc != 0) sprintf(retCode, "%s", "FX");
-        return sendHL72Web(session, connection, session->readFD, url, retCode);
+        return(sendHL72Web(session, connection, session->readFD, url, retCode));
 
       } else {
         session->isListening = 1;
-        return MHD_YES;
+        return(MHD_YES);
       }
 
     } else {
-      return main_page(session, connection, url);
+      return(main_page(session, connection, url));
     }
   }
 
@@ -1484,7 +1484,7 @@ static enum MHD_Result answer_to_connection(void *cls, struct MHD_Connection *co
     if (*upload_data_size != 0) {
       MHD_post_process(con_info->postprocessor, upload_data, *upload_data_size);
       *upload_data_size = 0;
-      return MHD_YES;
+      return(MHD_YES);
 
     } else if (strlen(con_info->answerstring) > 0) {
       // If we have a hl7 message to send, send it and clear memory
@@ -1546,13 +1546,13 @@ static enum MHD_Result answer_to_connection(void *cls, struct MHD_Connection *co
         con_info->poststring = NULL;
       }
 
-      return sendPage(session, connection, method, con_info->answerstring, url);
+      return(sendPage(session, connection, method, con_info->answerstring, url));
 
     }
   }
 
   // We should never get here, but left as a catch all
-  return sendPage(session, connection, method, errorPage, url);
+  return(sendPage(session, connection, method, errorPage, url));
 }
 
 
@@ -1615,7 +1615,7 @@ static int expireSessions(struct MHD_Daemon *daemon, int expireAfter) {
     exit(0);
   }
 
-  return maxExpire;
+  return(maxExpire);
 }
 
 
@@ -1753,5 +1753,5 @@ int listenWeb(int daemonSock) {
   }
 
   MHD_stop_daemon(daemon);
-  return 0;
+  return(0);
 }

@@ -74,9 +74,9 @@ void handleError(int logLvl, char *logStr, int exitCode, int exitWeb, int stdErr
 // or exectuable (X_OK=1)
 int checkFile(char *fileName, int perms) {
   if (access(fileName, perms) == 0) {
-    return 0;
+    return(0);
   } else {
-    return 1;
+    return(1);
   }
 }
 
@@ -89,7 +89,7 @@ FILE *openFile(char *fileName, char *mode) {
     fprintf(stderr, "ERROR: Cannot open file: %s\n", fileName);
     exit(1);
   }
-  return fp;
+  return(fp);
 }
 
 
@@ -97,7 +97,7 @@ FILE *openFile(char *fileName, char *mode) {
 long int getFileSize(char *fileName) {
   struct stat st;
   stat(fileName, &st);
-  return st.st_size;
+  return(st.st_size);
 }
 
 
@@ -216,7 +216,7 @@ int getHL7Field(char *hl7msg, char *seg, int field, char *res) {
         fFound = 1;
       } else if (fFound == 1) {
         res[f] = '\0';
-        return 0;
+        return(0);
 
       }
     } else if (fFound == 1) {
@@ -228,7 +228,7 @@ int getHL7Field(char *hl7msg, char *seg, int field, char *res) {
 
   sprintf(errStr, "Failed to find field %d in segment %s", field, seg);
   handleError(LOG_WARNING, errStr, -1, 0, 1);
-  return 1;
+  return(1);
 }
 
 
@@ -239,7 +239,7 @@ long unsigned int numLines(const char *buf) {
   for (i = 0; i < strlen(buf); i++) {
     if (buf[c] == '\n' || buf[c] == '\r') c++;
   }
-  return c;
+  return(c);
 }
 
 
@@ -324,7 +324,7 @@ FILE *findTemplate(char *fileName, char *tName, int isRespond) {
     sprintf(fileName, "%s%s%s%s", tPaths[2], tPath, tName, ".json");
     fp = fopen(fileName, "r");
     if (fp != NULL) {
-      return fp;
+      return(fp);
     }
 
   } else {
@@ -339,7 +339,7 @@ FILE *findTemplate(char *fileName, char *tName, int isRespond) {
       // If we can open the file for reading, return the file pointer
       fp = fopen(fileName, "r");
       if (fp != NULL) {
-        return fp;
+        return(fp);
       }
     }
   }
@@ -351,7 +351,7 @@ FILE *findTemplate(char *fileName, char *tName, int isRespond) {
   }
 
   // We should never get here, but it's included to avoid compiler warnings
-  return fp;
+  return(fp);
 
 }
 
@@ -366,7 +366,7 @@ char *str2base64(const char *message) {
 
   tmp = malloc(length * 2 + 1);
   if (NULL == tmp)
-    return NULL;
+    return(NULL);
   j = 0;
   for (i = 0; i < length; i += 3) {
     l = (((unsigned long) message[i]) << 16)
@@ -389,7 +389,7 @@ char *str2base64(const char *message) {
 
   tmp [j] = 0;
 
-  return tmp;
+  return(tmp);
 }
 
 
@@ -435,7 +435,7 @@ char *dblBuf(char *buf, int *bufS, int reqS) {
   } else {
     buf = tmpPtr;
   }
-  return buf;
+  return(buf);
 }
 
 

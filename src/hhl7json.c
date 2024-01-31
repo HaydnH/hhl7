@@ -24,10 +24,10 @@ You should have received a copy of the GNU General Public License along with hhl
 int readJSONFile(FILE *fp, long int fileSize, char *jsonMsg) {
   if (!fread(jsonMsg, fileSize, 1, fp)) {
     fprintf(stderr, "ERROR: Could not read contents of json template\n");
-    return 1;
+    return(1);
   }
   jsonMsg[fileSize] = '\0';
-  return 0;
+  return(0);
 }
 
 
@@ -45,7 +45,7 @@ int hhgttg(char *tName, int gType) {
   if (tmpObj == NULL) {
     handleError(LOG_ERR, "Failed to read template file", 1, 0, 1);
     json_object_put(tmpObj);
-    return 1;
+    return(1);
   }
 
   if (gType == 1) {
@@ -59,12 +59,12 @@ int hhgttg(char *tName, int gType) {
   if (valObj == NULL) {
     handleError(LOG_INFO, "Failed to read guide info from template", 1, 0, 1);
     json_object_put(tmpObj);
-    return 1;
+    return(1);
   } 
 
   printf("%s%s\n\n", funcStr, json_object_get_string(valObj));
   json_object_put(tmpObj);
-  return 0;
+  return(0);
 }
 
 
@@ -94,7 +94,7 @@ int getJSONValue(char *jsonMsg, int type, char *key, char *resVal) {
     }
   }
   json_object_put(rootObj);
-  return retVal;
+  return(retVal);
 }
 
 
