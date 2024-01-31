@@ -1355,10 +1355,6 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
                   res.style.backgroundColor = \"#ff9191\";\n\
                   res.innerHTML = xhr.responseText;\n\
 \n\
-                // TODO this shouldn't be a code 200...\n\
-                } else if (xhr.responseText == \"CX\") {\n\
-                  errHandler(\"ERROR: Failed to connect to server.\");\n\
-\n\
                 } else {\n\
                   errHandler(\"ERROR: An unknown backend error occured.\");\n\
 \n\
@@ -1368,6 +1364,21 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
             } else if (xhr.status === 406) {\n\
               errHandler(\"ERROR: Message contains no data to send.\");\n\
 \n\
+            } else if (xhr.status === 409) {\n\
+                if (xhr.responseText == \"CX\") {\n\
+                  errHandler(\"ERROR: Backend server failed to connect to target server.\");\n\
+\n\
+                } else if (xhr.responseText == \"PX\") {\n\
+                  errHandler(\"ERROR: Failed to send message from backend server to target server.\");\n\
+\n\
+                } else if (xhr.responseText == \"PT\") {\n\
+                  errHandler(\"ERROR: Timeout awaiting ACK response from target server.\");\n\
+\n\
+                } else if (xhr.responseText == \"PU\") {\n\
+                  errHandler(\"ERROR: Could not understand ACK response code from target server.\");\n\
+\n\
+                }\n\
+\n\
             } else if (xhr.status === 413) {\n\
               errHandler(\"ERROR: Message is too large (>15kb).\");\n\
 \n\
@@ -1376,6 +1387,9 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
               hl7Msg.innerText = \"[418] I refuse to brew coffee because I am, permanently, a teapot.\";\n\
               res.style.backgroundColor = \"#d1a95a\";\n\
               res.innerHTML = \"TP\";\n\
+\n\
+            } else if (xhr.status === 500) {\n\
+              errHandler(\"ERROR: An unhandled backend server error occured.\");\n\
 \n\
             } else {\n\
               errHandler(\"ERROR: The hhl7 backend is not running.\");\n\

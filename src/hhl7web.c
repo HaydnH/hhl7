@@ -1297,7 +1297,9 @@ static enum MHD_Result sendPage(struct Session *session, struct MHD_Connection *
     sprintf(errStr, "[S: %03d][406] %s: %s", session->shortID, connectiontype, url);
     writeLog(LOG_INFO, errStr, 0);
 
-  } else if (strcmp(page, "RX") == 0) {
+  } else if (strcmp(page, "RX") == 0 || strcmp(page, "CX") == 0 ||
+             strcmp(page, "PX") == 0 || strcmp(page, "PT") == 0 ||
+             strcmp(page, "PU") == 0) {
     ret = MHD_queue_response(connection, MHD_HTTP_CONFLICT, response);
     sprintf(errStr, "[S: %03d][409] %s: %s", session->shortID, connectiontype, url);
     writeLog(LOG_INFO, errStr, 0);
@@ -1305,6 +1307,11 @@ static enum MHD_Result sendPage(struct Session *session, struct MHD_Connection *
   } else if (strcmp(page, "DM") == 0) {
     ret = MHD_queue_response(connection, MHD_HTTP_CONTENT_TOO_LARGE, response);
     sprintf(errStr, "[S: %03d][413] %s: %s", session->shortID, connectiontype, url);
+    writeLog(LOG_INFO, errStr, 0);
+
+  } else if (strcmp(page, "PZ") == 0) {
+    ret = MHD_queue_response(connection, MHD_HTTP_INTERNAL_SERVER_ERROR, response);
+    sprintf(errStr, "[S: %03d][500] %s: %s", session->shortID, connectiontype, url);
     writeLog(LOG_INFO, errStr, 0);
 
   } else if (strcmp(page, "TP") == 0) {
@@ -1489,13 +1496,43 @@ static enum MHD_Result answer_to_connection(void *cls, struct MHD_Connection *co
           sockfd = connectSvr(con_info->session->sIP, con_info->session->sPort);
 
           if (sockfd >= 0) {
-            sendPacket(sockfd, con_info->poststring, resStr, 0);
-            sprintf(errStr, "[S: %03d][%s] Sent %ld byte packet to socket: %d",
-                            con_info->session->shortID, resStr,
-                            strlen(con_info->poststring), sockfd);
+            rc = sendPacket(sockfd, con_info->poststring, resStr, 0);
+            if (rc >= 0) {
+              sprintf(errStr, "[S: %03d][%s] Sent %ld byte packet to socket: %d",
+                              con_info->session->shortID, resStr,
+                              strlen(con_info->poststring), sockfd);
 
-            writeLog(LOG_INFO, errStr, 0);
-            snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", resStr);
+              writeLog(LOG_INFO, errStr, 0);
+              snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", resStr);
+
+            } else if (rc == -1) {
+              sprintf(errStr, "[S: %03d][%s] Failed to send packet to socket: %d",
+                              con_info->session->shortID, resStr, sockfd);
+
+              writeLog(LOG_WARNING, errStr, 0);
+              snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "PX");
+
+            } else if (rc == -2) {
+              sprintf(errStr, "[S: %03d][%s] Timeout listening for ACK response",
+                              con_info->session->shortID, resStr);
+
+              writeLog(LOG_WARNING, errStr, 0);
+              snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "PT");
+
+            } else if (rc == -3) {
+              sprintf(errStr, "[S: %03d][%s] Failed to understand ACK response",
+                              con_info->session->shortID, resStr);
+
+              writeLog(LOG_WARNING, errStr, 0);
+              snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "PU");
+
+            } else {
+              sprintf(errStr, "[S: %03d][%s] Unknown error while sending message",
+                              con_info->session->shortID, resStr);
+
+              writeLog(LOG_ERR, errStr, 0);
+              snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "PZ");
+            }
 
           } else {
             sprintf(errStr, "[S: %03d] Can't open socket to send packet",

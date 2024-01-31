@@ -296,7 +296,7 @@ int listenACK(int sockfd, char *res) {
   // TODO Add timeout to config file
   // Set ListenACK timeout
   struct timeval tv, *tvp;
-  tv.tv_sec = 3;
+  tv.tv_sec = 5;
   tv.tv_usec = 0;
   tvp = &tv;
   setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, tvp, sizeof tv);
@@ -306,7 +306,7 @@ int listenACK(int sockfd, char *res) {
   // Receive the response from the server and strip MLLP wrapper
   if ((recvL = recv(sockfd, ackBuf, 512, 0)) == -1) {
     handleError(LOG_ERR, "Timeout listening for ACK response", 1, 0, 1);
-    return -1;
+    return -2;
 
   } else {
     stripMLLP(ackBuf);
@@ -338,7 +338,7 @@ int listenACK(int sockfd, char *res) {
     if (ackErr > 0) {
       handleError(LOG_ERR, "Could not understand ACK response", 1, 0, 1);
       if (res != NULL) sprintf(res, "%s", "EE");
-      return -1;
+      return -3;
 
     } else {
       sprintf(errStr, "Server ACK response: %s %s (%s)", app, code, aCode);
