@@ -56,8 +56,6 @@ void writeLog(int logLvl, char *logStr, int stdErr) {
     syslog(logLvl, "%s%s", logLevels[logLvl], logStr);
   } else if (stdErr == 1) {
     fprintf(stderr, "%s%s\n", logLevels[logLvl], logStr);
-  } else {
-    fprintf(stdout, "%s%s\n", logLevels[logLvl], logStr);
   }
 }
 

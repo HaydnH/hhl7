@@ -44,8 +44,7 @@ struct Response {
   char sPort[6];
   char *rName;
   char *tName;
-  // TODO - Consider malloc to allow more than 25 args
-  char *sArgs[25];
+  char **sendArgs;
   int sent;
   char resCode[3];
   int argc;
@@ -150,12 +149,13 @@ static int processResponses(int fd) {
       free(resp->rName);
 
       // Free all template send arguments
-      sArg = resp->sArgs[0];
+      sArg = resp->sendArgs[0];
       while (sArg != NULL) {
-        free(resp->sArgs[argCount]);
+        free(resp->sendArgs[argCount]);
         argCount++;
-        sArg = resp->sArgs[argCount];
+        sArg = resp->sendArgs[argCount];
       }
+      free(resp->sendArgs);
 
       argCount = 0;
       free(resp);
@@ -167,7 +167,7 @@ static int processResponses(int fd) {
       // Send the response to the server
       writeLog(LOG_DEBUG, "Response queue processing, response sent", 0);
       sendTemp(resp->sIP, resp->sPort, resp->tName, 0, 0, 0, resp->argc,
-               resp->sArgs, resStr);
+               resp->sendArgs, resStr);
 
       resp->sent = 1;
       sprintf(resp->resCode, "%s", resStr);
@@ -593,13 +593,12 @@ static struct Response *checkResponse(char *msg, char *sIP, char *sPort, char *t
 
   mCount = json_object_array_length(jArray);
 
-  if (mCount > 25) {
-    handleError(LOG_WARNING, "A responder template created too many arguments (>25)", 1, 0, 1);
-    return(respHead);
-  }
-
   struct Response *resp;
   resp = calloc(1, sizeof(struct Response));
+  resp->sendArgs = malloc(mCount * sizeof(char *));
+  if (resp->sendArgs == NULL) {
+    handleError(LOG_WARNING, "Could not allocate memory to create a response", 1, 0, 1);
+  }
 
   for (m = 0; m < mCount; m++) {
     matchObj = json_object_array_get_idx(jArray, m);
@@ -608,7 +607,7 @@ static struct Response *checkResponse(char *msg, char *sIP, char *sPort, char *t
     fldInt = json_object_get_int(fldObj);
     getHL7Field(msg, (char *) json_object_get_string(segStr), fldInt, fldStr);
     tmpPtr = strdup(fldStr);
-    resp->sArgs[m] = tmpPtr;
+    resp->sendArgs[m] = tmpPtr;
   }
 
   // Get a random value between the min and max times
@@ -627,7 +626,7 @@ static struct Response *checkResponse(char *msg, char *sIP, char *sPort, char *t
   // If min and max times are 0, send immediately
   if (minT == 0 && maxT == 0) {
     sendTemp(sIP, sPort, (char *) json_object_get_string(sendT), 0, 0, 0,
-             mCount, resp->sArgs, resStr);
+             mCount, resp->sendArgs, resStr);
     resp->sent = 1;
     sprintf(resp->resCode, "%s", resStr);
 
