@@ -598,6 +598,9 @@ static struct Response *checkResponse(char *msg, char *sIP, char *sPort, char *t
   resp->sendArgs = malloc(mCount * sizeof(char *));
   if (resp->sendArgs == NULL) {
     handleError(LOG_WARNING, "Could not allocate memory to create a response", 1, 0, 1);
+    free(resp->sendArgs);
+    free(resp);
+    return(NULL);
   }
 
   for (m = 0; m < mCount; m++) {
