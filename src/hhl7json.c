@@ -322,12 +322,6 @@ static int parseVals(char ***hl7Msg, int *hl7MsgS, char *vStr, char *nStr, char 
     rHide = json_object_object_get(fieldObj, "hidden");
     rHideInt = json_object_get_boolean(rHide);    
 
-//    if (rHideInt == 0) {
-//      reqS = strlen(**hl7Msg) + strlen(rndStr); 
-//      if (reqS > *hl7MsgS) **hl7Msg = dblBuf(**hl7Msg, hl7MsgS, reqS);
-//      strcat(**hl7Msg, rndStr);
-//    }
-
     // Store the random number if requested
     json_object_object_get_ex(fieldObj, "store", &str);
     if (str != NULL) {
