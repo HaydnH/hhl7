@@ -558,18 +558,18 @@ static void endJSONSeg(char **hl7Msg, int *hl7MsgS, int isWeb) {
 int parseJSONTemp(char *jsonMsg, char **hl7Msg, int *hl7MsgS, char **webForm,
                   int *webFormS, int argc, char *argv[], int isWeb) {
 
-  struct json_object *rootObj= NULL, *valObj = NULL, *segsObj = NULL, *segObj = NULL;
+  struct json_object *rootObj= NULL, *msgsObj = NULL, *msgObj = NULL;
+  struct json_object *segsObj = NULL, *segObj = NULL, *valObj = NULL;
   struct json_object *fieldsObj = NULL, *fieldObj = NULL, *subFObj = NULL;
 
   // TODO - make these variable based on MSH segment for CLI (maybe not web?)
   char fieldTok = '|', sfTok = '^', *vStr = NULL;
-  int argcount = 0, segCount = 0, s = 0, fieldCount = 0, f = 0, lastFid = 0;
-  int msgCount = 0, subFCount = 0, sf = 0, retVal = 0;
+  int argcount = 0, msgsCount = 0, segCount = 0, s = 0, fieldCount = 0, f = 0, lastFid = 0;
+  int mCount = 0, msgCount = 0, subFCount = 0, sf = 0, retVal = 0;
   // TODO - increment & store has a max of 10? Consider malloc/realloc...
   int incArr[10] = {-1};
   float strArr[10] = {-1.0};
   char errStr[112] = "";
-  time_t rStart = time(NULL), rEnd = rStart + 1, step = rStart;
   int inc = 2, rCount = 0;
 
   rootObj = json_tokener_parse(jsonMsg);
@@ -589,103 +589,134 @@ int parseJSONTemp(char *jsonMsg, char **hl7Msg, int *hl7MsgS, char **webForm,
 
   }
 
-  // Get this segment section from the json template and parse it
-  json_object_object_get_ex(rootObj, "segments", &segsObj);
-  segCount = json_object_array_length(segsObj);
+  // Get 1st segment section from the json template, could be in messages array for >1 msg
+  json_object_object_get_ex(rootObj, "messages", &msgsObj);
+  if (msgsObj == NULL) {
+    json_object_object_get_ex(rootObj, "segments", &segsObj);
+    msgsCount = 1;
 
-  while (step <= rEnd) {
-    if (segCount > 0) {
-      // For each individual segment
-      for (s = 0; s < segCount; s++) {
-        // Get individual segment as json
-        segObj = json_object_array_get_idx(segsObj, s);
+  } else {
+    msgObj = json_object_array_get_idx(msgsObj, 0);
+    json_object_object_get_ex(msgObj, "segments", &segsObj);
+  }
 
-        // Get the name of this segment
-        json_object_object_get_ex(segObj, "name", &valObj);
-        vStr = (char *) json_object_get_string(valObj);
+  if (segsObj == NULL) {
+    handleError(LOG_ERR, "Could not find any segment sections in the template", 1, 0, 1);
+    json_object_put(rootObj);
+    return(1);
 
-        if (json_object_get_type(valObj) != json_type_string) {
-          handleError(LOG_ERR, "Could not read string name for segment from json template", 1, 0, 1);
-          json_object_put(rootObj);
-          return(1);
+  } else if (msgsCount == 0) {
+    msgsCount = json_object_array_length(msgsObj);
 
-        }
+  }
 
-        // Check if we repeat msgs, if this is a 2nd or more MSH segment, add a blank line
-        if (strcmp(vStr, "MSH") == 0) {
-          if (timeRange(segObj, &rStart, &rEnd, &inc) != 0) {
-            handleError(LOG_ERR, "Failed to parse MSH repeat in JSON template", 1, 0, 1);
+
+  // Loop through each message in the messages section
+  for (mCount = 0; mCount < msgsCount; mCount++) {
+    time_t rStart = time(NULL), rEnd = rStart + 1, step = rStart;
+
+    if (mCount > 0) {
+      msgObj = json_object_array_get_idx(msgsObj, mCount);
+      json_object_object_get_ex(msgObj, "segments", &segsObj);
+    }
+
+    segCount = json_object_array_length(segsObj);
+
+    // Iterate over the time scale in steps, or once due to init values if no MSH repeat
+    while (step <= rEnd) {
+      if (segCount > 0) {
+        // For each individual segment
+        for (s = 0; s < segCount; s++) {
+          // Get individual segment as json
+          segObj = json_object_array_get_idx(segsObj, s);
+
+          // Get the name of this segment
+          json_object_object_get_ex(segObj, "name", &valObj);
+          vStr = (char *) json_object_get_string(valObj);
+
+          if (json_object_get_type(valObj) != json_type_string) {
+            handleError(LOG_ERR, "Could not read string name for segment from json template", 1, 0, 1);
             json_object_put(rootObj);
             return(1);
 
-          } else {
-            step = rStart + (rCount * inc);
-
           }
 
-          if (msgCount > 0) {
-            endJSONSeg(hl7Msg, hl7MsgS, isWeb);
-          }
-          msgCount++;
-        }
+          // Check if we repeat msgs, if this is >= 2nd MSH segment, add a blank line
+          if (strcmp(vStr, "MSH") == 0) {
+            if (timeRange(segObj, &rStart, &rEnd, &inc) != 0) {
+              handleError(LOG_ERR, "Failed to parse MSH repeat in JSON template", 1, 0, 1);
+              json_object_put(rootObj);
+              return(1);
 
-        retVal = parseJSONSegs(segObj, hl7Msg, hl7MsgS, fieldTok);
-        if (retVal > 0) {
-          json_object_put(rootObj);
-          return(1);
-        }
+            } else {
+              step = rStart + (rCount * inc);
 
+            }
 
-        // Loop through all fields
-        json_object_object_get_ex(segObj, "fields", &fieldsObj);
-        if (fieldsObj == NULL) {
-          handleError(LOG_ERR, "Segment in JSON template missing fields array", 1, 0, 1);
-          return(1);
-        }
-
-        fieldCount = json_object_array_length(fieldsObj);
-        lastFid = 0;
-
-        for (f = 0; f < fieldCount; f++) {
-          // Get field and add it to the HL7 message and web form if appropriate
-          fieldObj = json_object_array_get_idx(fieldsObj, f);
-          if (fieldObj == NULL) {
-            handleError(LOG_ERR, "Field array in JSON template missing field object", 1, 0, 1);
-            return(1);
+            if (msgCount > 0) {
+              endJSONSeg(hl7Msg, hl7MsgS, isWeb);
+            }
+            msgCount++;
           }
 
-          if (isWeb == 1) addVar2WebForm(webForm, webFormS, fieldObj);
-
-          retVal = parseJSONField(fieldObj, &lastFid, fieldCount - f, hl7Msg, hl7MsgS,
-                                  argv, fieldTok, isWeb, incArr, strArr, msgCount, step);
+          retVal = parseJSONSegs(segObj, hl7Msg, hl7MsgS, fieldTok);
           if (retVal > 0) {
             json_object_put(rootObj);
             return(1);
           }
 
-          json_object_object_get_ex(fieldObj, "subfields", &subFObj);
-          if (subFObj) {
-            subFCount = json_object_array_length(subFObj);
 
-            for (sf = 0; sf < subFCount; sf++) {
-              fieldObj = json_object_array_get_idx(subFObj, sf);
-              if (isWeb == 1) addVar2WebForm(webForm, webFormS, fieldObj);
-              retVal = parseJSONField(fieldObj, &lastFid, subFCount - sf, hl7Msg, hl7MsgS,
-                                      argv, sfTok, isWeb, incArr, strArr, msgCount, step);
-              if (retVal > 0) {
-                json_object_put(rootObj);
-                return(1);
+          // Loop through all fields
+          json_object_object_get_ex(segObj, "fields", &fieldsObj);
+          if (fieldsObj == NULL) {
+            handleError(LOG_ERR, "Segment in JSON template missing fields array", 1, 0, 1);
+            return(1);
+          }
+
+          fieldCount = json_object_array_length(fieldsObj);
+          lastFid = 0;
+
+          for (f = 0; f < fieldCount; f++) {
+            // Get field and add it to the HL7 message and web form if appropriate
+            fieldObj = json_object_array_get_idx(fieldsObj, f);
+            if (fieldObj == NULL) {
+              handleError(LOG_ERR, "Field array in JSON template missing field object", 1, 0, 1);
+              return(1);
+            }
+
+            if (isWeb == 1) addVar2WebForm(webForm, webFormS, fieldObj);
+
+            retVal = parseJSONField(fieldObj, &lastFid, fieldCount - f, hl7Msg, hl7MsgS,
+                                    argv, fieldTok, isWeb, incArr, strArr, msgCount, step);
+            if (retVal > 0) {
+              json_object_put(rootObj);
+              return(1);
+            }
+
+            json_object_object_get_ex(fieldObj, "subfields", &subFObj);
+            if (subFObj) {
+              subFCount = json_object_array_length(subFObj);
+
+              for (sf = 0; sf < subFCount; sf++) {
+                fieldObj = json_object_array_get_idx(subFObj, sf);
+                if (isWeb == 1) addVar2WebForm(webForm, webFormS, fieldObj);
+                retVal = parseJSONField(fieldObj, &lastFid, subFCount - sf, hl7Msg, hl7MsgS,
+                                        argv, sfTok, isWeb, incArr, strArr, msgCount, step);
+                if (retVal > 0) {
+                  json_object_put(rootObj);
+                  return(1);
+                }
               }
             }
           }
+
+          // Add terminator to segment
+          if (retVal == 0) endJSONSeg(hl7Msg, hl7MsgS, isWeb);
         }
+        rCount++;
+        step = rStart + (rCount * inc);
 
-        // Add terminator to segment
-        if (retVal == 0) endJSONSeg(hl7Msg, hl7MsgS, isWeb);
       }
-      rCount++;
-      step = rStart + (rCount * inc);
-
     }
   }
 
