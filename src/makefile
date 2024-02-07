@@ -1,7 +1,7 @@
 CC      = gcc
 CFLAGS  = -O3 -Wall   # Live
-#CFLAGS  = -O3 -Wall -Wextra -Wno-overlength-strings -pedantic -g3   # Devel & Debug
-#CFLAGS  = -O3 -Wall -Wextra -pedantic -fsanitize=undefined,address -g   # UBSan
+#CFLAGS  = -O3 -Wall -Wextra -Wno-overlength-strings -g3   # Devel & Debug
+#CFLAGS  = -O3 -Wall -Wextra -fsanitize=undefined,address -g   # UBSan
 INCDIR  = -I/usr/include/json-c -I/usr/include/microhttpd -I/usr/include/openssl -I/usr/include/systemd/sd-daemon
 DESTDIR = /usr/local/hhl7
 BINDIR  = /usr/local/bin

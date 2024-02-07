@@ -41,7 +41,7 @@ void openLog() {
 }
 
 
-// Close syslog log files, wrapper for syslog closelog()
+// Close syslog log files, wrapper for syslog closelog() in case we want to add close code
 void closeLog() {
   closelog();
 }
@@ -115,28 +115,27 @@ void file2buf(char *buf, FILE *fp, long int fsize) {
 
 
 // Return a random number between 2 values to the same number of decimal places as input
-void getRand(int lower, int upper, int dp, char *res, int *resInt) {
-  float resF;
-  struct timeval tv;
-  
-  // Get time in ms, needed to use time as a random seed quickly
-  gettimeofday(&tv, NULL);
-  long long msTime = (tv.tv_sec * 1000) + (tv.tv_usec / 1000);
+void getRand(int lower, int upper, int dp, char *res, int *resInt, float *resF) {
+  float tmpF;
   
   // Add 0s to the upper/lower values to allow decimal places
   lower = lower * pow(10, dp);
   upper = upper * pow(10, dp);
 
   // Create the random number and remove 0s to add decimal places
-  srand((unsigned) msTime);
-  resF = (float) (rand() % (upper - lower) + lower);
-  resF = resF / pow(10, dp);
+  tmpF = (float) (rand() % (upper - lower) + lower);
+  tmpF = tmpF / pow(10, dp);
 
   // Return the final result to the correct DPs
   if (*resInt >= 0) {
-    *resInt = (int) resF;
+    *resInt = (int) tmpF;
+
+  } else if (*resF >= 0) {
+    sprintf(res, "%.*f", dp, tmpF);
+    *resF = tmpF;
+
   } else {
-    sprintf(res, "%.*f", dp, resF);
+    sprintf(res, "%.*f", dp, tmpF);
   }
 }
 

@@ -615,7 +615,7 @@ static struct Response *checkResponse(char *msg, char *sIP, char *sPort, char *t
 
   // Get a random value between the min and max times
   int rndNum = 0;
-  if (minT != maxT) getRand(minT, maxT, 0, NULL, &rndNum);
+  if (minT != maxT) getRand(minT, maxT, 0, NULL, &rndNum, NULL);
 
   // Create a response struct for this response
   resp->sendTime = time(NULL) + rndNum;
