@@ -102,7 +102,6 @@ static int timeRange(struct json_object *segObj, time_t *start, time_t *stop, in
     }
   }
 
-  // TODO - validate values
   if (tmpStart > tmpEnd || tmpInc <= 0) {
     handleError(LOG_WARNING, "Template with MSH repeat has invalid start, end & inc options", 1, 0, 1);
     return(1);
@@ -228,10 +227,10 @@ static int parseVals(char ***hl7Msg, int *hl7MsgS, char *vStr, char *nStr, char 
                      time_t rangeVal) {
 
   struct json_object *defObj = NULL, *min = NULL, *max = NULL, *dp = NULL, *str = NULL;
-  struct json_object *start = NULL, *iMax = NULL, *iType = NULL;
+  struct json_object *start = NULL, *iMax = NULL, *iType = NULL, *rHide = NULL;
   char *dStr = NULL;
   char rndStr[32];
-  int varLen = strlen(vStr), varNum = 0, reqS = 0;
+  int varLen = strlen(vStr), varNum = 0, reqS = 0, rHideInt = 0;
   char varNumBuf[varLen + 1];
   char dtNow[26] = "";
   char dtVar[26] = "";
@@ -318,11 +317,16 @@ static int parseVals(char ***hl7Msg, int *hl7MsgS, char *vStr, char *nStr, char 
     const char *d = json_object_get_string(dp);
 
     int negOne = -1;
-
     getRand(atoi(l), atoi(u), atoi(d), rndStr, &negOne, &resF);
-    reqS = strlen(**hl7Msg) + strlen(rndStr); 
-    if (reqS > *hl7MsgS) **hl7Msg = dblBuf(**hl7Msg, hl7MsgS, reqS);
-    strcat(**hl7Msg, rndStr);
+
+    rHide = json_object_object_get(fieldObj, "hidden");
+    rHideInt = json_object_get_boolean(rHide);    
+
+//    if (rHideInt == 0) {
+//      reqS = strlen(**hl7Msg) + strlen(rndStr); 
+//      if (reqS > *hl7MsgS) **hl7Msg = dblBuf(**hl7Msg, hl7MsgS, reqS);
+//      strcat(**hl7Msg, rndStr);
+//    }
 
     // Store the random number if requested
     json_object_object_get_ex(fieldObj, "store", &str);
@@ -337,6 +341,13 @@ static int parseVals(char ***hl7Msg, int *hl7MsgS, char *vStr, char *nStr, char 
 
       }
     }
+
+    if (rHideInt == 1) return(-1);
+
+    reqS = strlen(**hl7Msg) + strlen(rndStr);
+    if (reqS > *hl7MsgS) **hl7Msg = dblBuf(**hl7Msg, hl7MsgS, reqS);
+    strcat(**hl7Msg, rndStr);
+
 
   // Retrieve a value from the random number store
   } else if (strncmp(vStr, "$STR", 4) == 0) {
@@ -354,14 +365,12 @@ static int parseVals(char ***hl7Msg, int *hl7MsgS, char *vStr, char *nStr, char 
       return(1);
     }
 
-    // TODO - WORKING - get store ranges and add correct string for random value
     json_object_object_get_ex(fieldObj, "ranges", &defObj);
     if (defObj == NULL) {
       handleError(LOG_ERR, "No ranges array found after $STR in JSON template", 1, 0, 1);
       return(1);
     }
 
-    // TODO - compiler warning from lib foreach macro
     json_object_object_foreach(defObj, rKey, rVal) {
       if (strArr[varNum] <= json_object_get_double(rVal)) {
         reqS = strlen(**hl7Msg) + strlen(rKey) + 1;
@@ -678,7 +687,7 @@ int parseJSONTemp(char *jsonMsg, char **hl7Msg, int *hl7MsgS, char **webForm,
         }
 
         // Add terminator to segment
-        endJSONSeg(hl7Msg, hl7MsgS, isWeb);
+        if (retVal == 0) endJSONSeg(hl7Msg, hl7MsgS, isWeb);
       }
       rCount++;
       step = rStart + (rCount * inc);
