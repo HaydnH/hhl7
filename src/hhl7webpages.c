@@ -240,6 +240,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         outline: none;\n\
       }\n\
       #hl7Log {\n\
+        overflow-y: scroll;\n\
         white-space: pre;\n\
       }\n\
       #footer {\n\

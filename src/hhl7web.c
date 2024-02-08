@@ -620,8 +620,7 @@ static enum MHD_Result getTempForm(struct Session *session,
       return(MHD_NO);
     }
 
-    sprintf(jsonReply, "%s%s%s%s%s", "{ \"form\":\"", webForm,
-                       "\",\n\"hl7\":\"", tmpBuf, "\" }");
+    sprintf(jsonReply, "{ \"form\":\"%s\",\n\"hl7\":\"%s\" }", webForm, tmpBuf);
 
   }
 

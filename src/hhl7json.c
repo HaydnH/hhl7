@@ -431,6 +431,7 @@ static int parseVals(char ***hl7Msg, int *hl7MsgS, char *vStr, char *nStr, char 
     // No need to add mem with dblBuf, the above +N values handle it
     sprintf(**hl7Msg + strlen(**hl7Msg), "%c", fieldTok);
   }
+
   return(0);
 }
 
