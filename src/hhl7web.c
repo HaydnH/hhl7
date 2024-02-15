@@ -515,7 +515,6 @@ static enum MHD_Result getTemplateList(struct Session *session,
   if (respond == 0) {
     sprintf(tPath, "%s", "/usr/local/hhl7/templates/");
     if (strlen(url) > 16) sprintf(tPath, "%s%s", tPath, url + 17);
-printf("TP: %s\n", tPath);
     sprintf(fExt, "%s", ".json");
     strcpy(dirOpts, nOpt);
 
@@ -1504,8 +1503,7 @@ static enum MHD_Result answer_to_connection(void *cls, struct MHD_Connection *co
 
     } else if (strstr(url, "/getTemplateList")) {
       // Request login if not logged in
-// TODO WORKING uncomment auth check!!
-      //if (session->aStatus != 1) return(requestLogin(session, connection, url));
+      if (session->aStatus != 1) return(requestLogin(session, connection, url));
       return(getTemplateList(session, connection, url, 0));
 
     } else if (strcmp(url, "/getRespondList") == 0) {
