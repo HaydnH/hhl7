@@ -92,7 +92,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
       }\n\
       .titleBar {\n\
         display: block;\n\
-        height: 36px;\n\
+        min-height: 36px;\n\
         width: 100%;\n\
         line-height: 38px;\n\
         border-width: 2px 0px 2px 0px;\n\
@@ -103,6 +103,27 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         text-align: left;\n\
         padding: 0px 15px;\n\
         font-weight: bold;\n\
+      }\n\
+      #tempTitleBar {\n\
+        display: inline-block;\n\
+      }\n\
+      #tempSelLabel {\n\
+        float: left;\n\
+        width: 5%;\n\
+        min-width: 80px;\n\
+      }\n\
+      #tempSelDiv {\n\
+        float: left;\n\
+        width: 90%;\n\
+      }\n\
+      #tempSelHelp {\n\
+        position: absolute;\n\
+        right: 0px;\n\
+        width: 1%;\n\
+        font-size: 20px;\n\
+        font-weight: bold;\n\
+        color: #8a93ae;\n\
+        padding: 0px 14px;\n\
       }\n\
       #sendButton.sendActive:hover {\n\
         content: url(\"/images/send_hl.png\");\n\
@@ -124,11 +145,16 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         right: 0px;\n\
         padding: 0px 0px 0px 4px;\n\
         font-size: 24px;\n\
-        height: 36px;\n\
-        line-height: 36px;\n\
+        height: 39px;\n\
+        line-height: 37px;\n\
         width: 50px;\n\
         display: inline-block;\n\
         text-align: center;\n\
+      }\n\
+      @supports (-moz-appearance:none) {\n\
+        #sendRes {\n\
+          line-height: 43px;\n\
+        }\n\
       }\n\
       #sendPane {\n\
         position: fixed;\n\
@@ -222,10 +248,13 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
       select {\n\
         font-family: inherit;\n\
         font-size: inherit;\n\
-        background-color: #d4dcf1;\n\
-        border-width: 0px;\n\
-        padding: 0px 5px 0px 5px;\n\
+        background-color: #e4ecf1;\n\
+        border: 1px solid #c4ccd1;\n\
+        margin: 0px 0px 0px 10px;\n\
+        padding: 0px 5px;\n\
         outline: none;\n\
+        width: 15%;\n\
+        height: 26px;\n\
       }\n\
       #hl7Container {\n\
         flex: 1;\n\
@@ -810,16 +839,57 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         }\n\
       }\n\
 \n\
-      function showTempForm() {\n\
+      function showTempForm(thisSel, hide) {\n\
         clrRes();\n\
-        var sel = document.getElementById(\"tempSelect\");\n\
         var tForm = document.getElementById(\"tempForm\");\n\
-        if (sel.value == \"None\") {\n\
+        if (thisSel.value == \"None\" || hide == true) {\n\
           tForm.style.display = \"none\";\n\
         } else {\n\
-          popTempForm();\n\
+          popTempForm(thisSel);\n\
           tForm.style.display = \"flex\";\n\
         }\n\
+      }\n\
+\n\
+      function updateTemps(thisSel) {\n\
+        var parent = thisSel.parentNode;\n\
+        var children = parent.childNodes;\n\
+        var myID = Number(thisSel.id.slice(10));\n\
+\n\
+        for (var c = children.length - 1; c > 0; c--) {\n\
+          if (children[c].id) {\n\
+            if (children[c].id == thisSel.id) break;\n\
+            parent.removeChild(children[c]);\n\
+          }\n\
+        }\n\
+\n\
+        var tBar = document.getElementById(\"tempSelDiv\");\n\
+        var thisOpt = thisSel.options[thisSel.selectedIndex];\n\
+        if (thisOpt.value != \"None\" && thisOpt.dataset.dir) {\n\
+          var newSel = document.createElement(\"select\");\n\
+          var nextID = Number(thisSel.id.slice(10)) + 1;\v\
+          newSel.id = \"tempSelect\" + nextID;\n\
+          newSel.addEventListener(\"change\", function() { updateTemps(this) });\n\
+          tBar.appendChild(newSel);\n\
+          popTemplates(0);\n\
+          showTempForm(newSel, true);\n\
+\n\
+        } else {\n\
+          showTempForm(thisSel);\n\
+\n\
+        }\n\
+      }\n\
+\n\
+      function getTempURL() {\n\
+        var tBar = document.getElementById(\"tempSelDiv\");\n\
+        var children = tBar.children;\n\
+        var url = \"\";\n\
+\n\
+        for (var c = 0; c <= children.length - 2; c++) {\n\
+          if (children[c].id) {\n\
+            url = url.concat(children[c].value, \"/\");\n\
+          }\n\
+        }\n\
+        return url;\n\
       }\n\
 \n\
       function showRespForm(respCount) {\n\
@@ -1269,7 +1339,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
 \n\
       async function checkAuth() {\n\
         try {\n\
-          const response = await fetch(\"/getTemplateList\");\n\
+          const response = await fetch(\"/getRespondList\");\n\
           const htmlData = await response.text();\n\
 \n\
           if (response.status == 401) {\n\
@@ -1410,7 +1480,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
 \n\
             } else if (xhr.status === 418) {\n\
               hl7Msg = document.getElementById(\"hl7Message\");\n\
-              hl7Msg.innerText = \"[418] I refuse to brew coffee because I am, permanently, a teapot.\";\n\
+              hl7Msg.innerText = \"[418] Coffee is impossible, or at least, infinitely improbable, for I am a teapot.\";\n\
               res.style.backgroundColor = \"#d1a95a\";\n\
               res.innerHTML = \"TP\";\n\
 \n\
@@ -1434,7 +1504,10 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
 \n\
       async function popTemplates(temptype) {\n\
         try {\n\
-          if (temptype == 0) tempPath = \"/getTemplateList\";\n\
+          if (temptype == 0) {\n\
+            var turl = getTempURL();\n\
+            tempPath = \"/getTemplateList\" + turl;\n\
+          }\n\
           if (temptype == 1) tempPath = \"/getRespondList\";\n\
           const response = await fetch(tempPath);\n\
           const htmlData = await response.text();\n\
@@ -1446,7 +1519,11 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
             // TODO internal server error\n\
 \n\
           } else if (response.ok) {\n\
-            if (temptype == 0) var sel = document.getElementById(\"tempSelect\");\n\
+            if (temptype == 0) {\n\
+              var sel = document.getElementById(\"tempSelect1\");\n\
+              var parent = document.getElementById(\"tempSelDiv\")\n\
+              if (parent.childNodes.length > 3) var sel = parent.lastChild;\n\
+            }\n\
             if (temptype == 1) var sel = document.getElementById(\"respSelect\");\n\
             sel.innerHTML = htmlData;\n\
           }\n\
@@ -1540,11 +1617,12 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         }\n\
       }\n\
 \n\
-      async function popTempForm() {\n\
-        var sel = document.getElementById(\"tempSelect\");\n\
-        var tName = sel.value;\n\
+      async function popTempForm(thisSel) {\n\
+        var turl = getTempURL();\n\
+        var sel = document.getElementById(\"tempSelect1\");\n\
+        var tName = turl + thisSel.value;\n\
 \n\
-        if (tName != \"None\") {\n\
+        if (thisSel.value != \"None\") {\n\
           try {\n\
             const response = await fetch(\"/templates/\" + tName);\n\
             const htmlData = await response.text();\n\
@@ -1652,9 +1730,12 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
 \n\
     <form id=\"postForm\" action=\"/postHL7\" method=\"post\" enctype=\"text/plain\" onSubmit=\"return false;\">\n\
       <div id=\"sendPane\">\n\
-        <div class=\"titleBar\">Template:\n\
-          <select name=\"tempSelect\" id=\"tempSelect\" onChange=\"showTempForm();\">\n\
-          </select>\n\
+        <div class=\"titleBar\">\n\
+          <div id=\"tempSelLabel\">Template:</div>\n\
+          <div id=\"tempSelDiv\">\n\
+            <select id=\"tempSelect1\" onChange=\"updateTemps(this);\"></select>\n\
+          </div>\n\
+          <div id=\"tempSelHelp\">&quest;</div>\n\
         </div>\n\
 \n\
         <div id=\"tempForm\"></div>\n\

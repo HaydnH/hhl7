@@ -24,7 +24,6 @@ You should have received a copy of the GNU General Public License along with hhl
 // Read a json file from file pointer
 int readJSONFile(FILE *fp, long int fileSize, char *jsonMsg) {
   if (!fread(jsonMsg, fileSize, 1, fp)) {
-    fprintf(stderr, "ERROR: Could not read contents of json template\n");
     return(1);
   }
   jsonMsg[fileSize] = '\0';

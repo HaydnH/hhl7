@@ -28,6 +28,7 @@ You should have received a copy of the GNU General Public License along with hhl
 #include <netinet/in.h>
 #include <microhttpd.h>
 #include <json.h>
+#include <dirent.h>
 #include "hhl7extern.h"
 #include "hhl7net.h"
 #include "hhl7utils.h"
@@ -466,6 +467,22 @@ static enum MHD_Result getSettings(struct Session *session,
 }
 
 
+// TODO - consider moving next 2 functions to hhl7utils
+// Free a file list created with scandir
+void freeFileList(struct dirent **fileList, int fCount) {
+  while (fCount--) {
+    free(fileList[fCount]);
+  }
+  free(fileList);
+}
+
+
+// Reverses an alphasort to descending order, for use with scandir
+int descAlphasort(const struct dirent **a, const struct dirent **b) {
+  return alphasort(b, a);
+}
+
+
 // Get a list of template files and return them as a set of <select> <option>s
 static enum MHD_Result getTemplateList(struct Session *session,
                                        struct MHD_Connection *connection,
@@ -473,44 +490,83 @@ static enum MHD_Result getTemplateList(struct Session *session,
 
   enum MHD_Result ret;
   struct MHD_Response *response;
-  DIR *dp;
   FILE *fp = 0;
-  struct dirent *file;
-  char tPath[29] = "/usr/local/hhl7/responders/";
+  struct dirent **fileList, *file;
+  char tPath[strlen(url) + 13];
   char fExt[6] = "";
   const char *nOpt = "<option value=\"None\">None</option>\n";
-  char fName[128] = "", tName[128] = "", fullName[128+strlen(tPath)], *ext;
+  // TODO - do these need increasing? Trye large number pf paths etc
+  char fName[128] = "", tName[128] = "", fullName[141 + strlen(url)], *ext;
   char *newPtr = NULL;
   char errStr[300] = "";
+  int fCount = 0;
 
-  char *tempOpts = malloc(38);
-  if (tempOpts == NULL) {
+  char *dirOpts = malloc(38);
+  char *tempOpts = malloc(1);
+  if (dirOpts == NULL || tempOpts == NULL) {
     sprintf(errStr, "[S: %03d] Cannot cannot allocate memory for template list",
                     session->shortID);
     handleError(LOG_ERR, errStr, 1, 0, 1);
+    return(MHD_NO);
   }
+  dirOpts[0] = '\0';
   tempOpts[0] = '\0';
 
   if (respond == 0) {
     sprintf(tPath, "%s", "/usr/local/hhl7/templates/");
+    if (strlen(url) > 16) sprintf(tPath, "%s%s", tPath, url + 17);
+printf("TP: %s\n", tPath);
     sprintf(fExt, "%s", ".json");
-    strcpy(tempOpts, nOpt);
+    strcpy(dirOpts, nOpt);
+
+  } else {
+    sprintf(tPath, "%s", "/usr/local/hhl7/responders/");
+
   }
 
-  dp = opendir(tPath); 
-  if (dp == NULL) {
-    sprintf(errStr, "[S: %03d] Cannot open path: %s", session->shortID, tPath);
+  fCount = scandir(tPath, &fileList, NULL, descAlphasort);
+  if (fCount < 0) {
+    free(dirOpts);
+    free(tempOpts);
+    sprintf(errStr, "[S: %03d] Error reading template directory",
+                    session->shortID);
     handleError(LOG_ERR, errStr, 1, 0, 1);
+    return(MHD_NO);
   }
 
-  while ((file = readdir(dp)) != NULL) {
+  while (fCount--) {
+    file = fileList[fCount];
     ext = 0; 
-    if (file->d_type == DT_REG) {
+    if (file->d_type == DT_DIR) {
+      if (strcmp(file->d_name, ".") != 0 && strcmp(file->d_name, "..") != 0) {
+        // Increase memory for tempOpts to allow file name etc
+        newPtr = realloc(dirOpts, (2*strlen(file->d_name)) + strlen(dirOpts) + 50);
+        if (newPtr == NULL) {
+          freeFileList(fileList, fCount);
+          free(dirOpts);
+          free(tempOpts);
+          sprintf(errStr, "[S: %03d] Can't realloc memory for template list (dirOpts)",
+                          session->shortID);
+          handleError(LOG_ERR, errStr, 1, 0, 1);
+          return(MHD_NO);
+
+        } else {
+          dirOpts = newPtr;
+        }
+
+        sprintf(dirOpts + strlen(dirOpts), "%s%s%s%s%s", "<option data-dir=\"true\" value=\"",
+                                           file->d_name, "\">&raquo; ",
+                                           file->d_name, "</option>\n");
+
+      }
+
+    } if (file->d_type == DT_REG) {
       ext = strrchr(file->d_name, '.');
       if (strcmp(ext, ".json") == 0) {
         // Create a template name and full path to file from filename
         memcpy(fName, file->d_name, strlen(file->d_name) - strlen(ext));
         fName[strlen(file->d_name) - strlen(ext)] = '\0';
+
         strcpy(fullName, tPath);
         strcat(fullName, file->d_name);
 
@@ -530,9 +586,13 @@ static enum MHD_Result getTemplateList(struct Session *session,
           // Increase memory for tempOpts to allow file name etc
           newPtr = realloc(tempOpts, (2*strlen(fName)) + strlen(tempOpts) + 38);
           if (newPtr == NULL) {
+            freeFileList(fileList, fCount);
+            free(dirOpts);
+            free(tempOpts);
             sprintf(errStr, "[S: %03d] Can't realloc memory for template list (tempopts)",
                             session->shortID);
             handleError(LOG_ERR, errStr, 1, 0, 1);
+            return(MHD_NO);
 
           } else {
             tempOpts = newPtr;
@@ -547,18 +607,35 @@ static enum MHD_Result getTemplateList(struct Session *session,
         free(jsonMsg);
       }
     }
+    free(fileList[fCount]);
   }
+  free(fileList);
+
+  // Create a full template list of dirs + files
+  newPtr = realloc(dirOpts, strlen(dirOpts) + strlen(tempOpts) + 1);
+  if (newPtr == NULL) {
+    freeFileList(fileList, fCount);
+    free(dirOpts);
+    free(tempOpts);
+    sprintf(errStr, "[S: %03d] Can't realloc memory for template list (dirOpts)",
+                    session->shortID); 
+    handleError(LOG_ERR, errStr, 1, 0, 1);
+    return(MHD_NO);
+
+  } else {
+    dirOpts = newPtr;
+  }
+  sprintf(dirOpts + strlen(dirOpts), "%s", tempOpts);
 
   // Succesful template list response
-  response = MHD_create_response_from_buffer(strlen(tempOpts), (void *) tempOpts,
+  response = MHD_create_response_from_buffer(strlen(dirOpts), (void *) dirOpts,
              MHD_RESPMEM_MUST_COPY);
 
-  closedir(dp);
+  free(dirOpts);
   free(tempOpts);
 
   if (!response) return(MHD_NO);
 
-  //addCookie(session, response);
   ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
   sprintf(errStr, "[S: %03d][200] GET: %s", session->shortID, url);
   writeLog(LOG_INFO, errStr, 0);
@@ -1425,9 +1502,10 @@ static enum MHD_Result answer_to_connection(void *cls, struct MHD_Connection *co
     } else if (strstr(url, "/templates/")) {
       return(getTempForm(session, connection, url));
 
-    } else if (strcmp(url, "/getTemplateList") == 0) {
+    } else if (strstr(url, "/getTemplateList")) {
       // Request login if not logged in
-      if (session->aStatus != 1) return(requestLogin(session, connection, url));
+// TODO WORKING uncomment auth check!!
+      //if (session->aStatus != 1) return(requestLogin(session, connection, url));
       return(getTemplateList(session, connection, url, 0));
 
     } else if (strcmp(url, "/getRespondList") == 0) {

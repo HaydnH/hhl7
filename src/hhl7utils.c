@@ -20,6 +20,7 @@ You should have received a copy of the GNU General Public License along with hhl
 #include <sys/time.h>
 #include <syslog.h>
 #include <math.h>
+#include <dirent.h>
 #include "hhl7extern.h"
 
 
