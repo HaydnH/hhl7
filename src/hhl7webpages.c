@@ -250,6 +250,8 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         font-size: inherit;\n\
         background-color: #e4ecf1;\n\
         border: 1px solid #c4ccd1;\n\
+      }\n\
+      .tempSelect {\n\
         margin: 0px 0px 0px 10px;\n\
         padding: 0px 5px;\n\
         outline: none;\n\
@@ -868,6 +870,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
           var newSel = document.createElement(\"select\");\n\
           var nextID = Number(thisSel.id.slice(10)) + 1;\v\
           newSel.id = \"tempSelect\" + nextID;\n\
+          newSel.classList.add(\"tempSelect\");\n\
           newSel.addEventListener(\"change\", function() { updateTemps(this) });\n\
           tBar.appendChild(newSel);\n\
           popTemplates(0);\n\
@@ -886,10 +889,10 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
 \n\
         for (var c = 0; c <= children.length - 2; c++) {\n\
           if (children[c].id) {\n\
-            url = url.concat(children[c].value, \"/\");\n\
+            url = url.concat(\"/\", children[c].value);\n\
           }\n\
         }\n\
-        return url;\n\
+        return url + \"/\";\n\
       }\n\
 \n\
       function showRespForm(respCount) {\n\
@@ -1733,7 +1736,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         <div class=\"titleBar\">\n\
           <div id=\"tempSelLabel\">Template:</div>\n\
           <div id=\"tempSelDiv\">\n\
-            <select id=\"tempSelect1\" onChange=\"updateTemps(this);\"></select>\n\
+            <select id=\"tempSelect1\" class=\"tempSelect\" onChange=\"updateTemps(this);\"></select>\n\
           </div>\n\
           <div id=\"tempSelHelp\">&quest;</div>\n\
         </div>\n\

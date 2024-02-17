@@ -501,6 +501,8 @@ static enum MHD_Result getTemplateList(struct Session *session,
   char errStr[300] = "";
   int fCount = 0;
 
+printf("U: %s\n", url);
+
   char *dirOpts = malloc(38);
   char *tempOpts = malloc(1);
   if (dirOpts == NULL || tempOpts == NULL) {
