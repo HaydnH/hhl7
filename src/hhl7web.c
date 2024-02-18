@@ -649,7 +649,8 @@ static enum MHD_Result getTempForm(struct Session *session,
   enum MHD_Result ret;
   struct MHD_Response *response;
   FILE *fp;
-  int retVal = 0;
+  int retVal = 0, descSize = 1;
+  struct json_object *rootObj = NULL, *descObj = NULL;
   char errStr[300] = "";
 
   int webFormS = 1024;
@@ -672,6 +673,14 @@ static enum MHD_Result getTempForm(struct Session *session,
   // Read the json template to jsonMsg
   readJSONFile(fp, fSize, jsonMsg);
 
+  // Get the description string if it exists
+  rootObj = json_tokener_parse(jsonMsg);
+  json_object_object_get_ex(rootObj, "description", &descObj);
+  if (descObj != NULL) descSize = strlen(json_object_get_string(descObj)) + 1;
+  char descStr[descSize];
+  descStr[0] = '\0';
+  if (descObj != NULL) sprintf(descStr, "%s", json_object_get_string(descObj));
+
   // Generate HL7 based on the json template
   retVal = parseJSONTemp(jsonMsg, &webHL7, &webHL7S, &webForm, &webFormS, 0, NULL, 1);
 
@@ -685,7 +694,7 @@ static enum MHD_Result getTempForm(struct Session *session,
     tmpBuf[strlen(tmpBuf)] = '\0';
 
     // Construct the JSON reply
-    jsonReply = realloc(jsonReply, strlen(webForm) + strlen(webHL7) + 53);
+    jsonReply = realloc(jsonReply, strlen(webForm) + strlen(webHL7) + strlen(descStr) + 65);
     if (jsonReply == NULL) {
       handleError(LOG_ERR, "Failed to allocate memory when creating temp form", 1, 0, 1);
       fclose(fp);
@@ -696,7 +705,8 @@ static enum MHD_Result getTempForm(struct Session *session,
       return(MHD_NO);
     }
 
-    sprintf(jsonReply, "{ \"form\":\"%s\",\n\"hl7\":\"%s\" }", webForm, tmpBuf);
+    sprintf(jsonReply, "{ \"form\":\"%s\",\n\"hl7\":\"%s\",\n\"desc\":\"%s\" }",
+                       webForm, tmpBuf, descStr);
 
   }
 

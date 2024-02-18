@@ -33,11 +33,11 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         text-decoration: none;\n\
         color: #fff;\n\
       }\n\
-      a:hover {\n\
-        color: #eeb11e;\n\
-      }\n\
       a.black {\n\
         color: #000;\n\
+      }\n\
+      a:hover {\n\
+        color: #eeb11e;\n\
       }\n\
       .boldRed {\n\
         color: #be1313;\n\
@@ -228,6 +228,15 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         padding: 0px 10px 0px 10px;\n\
         outline: none;\n\
       }\n\
+      #respPlus {\n\
+        display: inline-block;\n\
+        font-size: 28px;\n\
+        font-weight: bold;\n\
+        height: 36px;\n\
+        line-height: 32px;\n\
+        vertical-align: bottom;\n\
+        margin: 0px 5px;\n\
+      }\n\
       #respForm {\n\
         display: flex;\n\
         flex-wrap: wrap;\n\
@@ -248,7 +257,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
       select {\n\
         font-family: inherit;\n\
         font-size: inherit;\n\
-        background-color: #e4ecf1;\n\
+        background-color: #eaeffe;\n\
         border: 1px solid #c4ccd1;\n\
       }\n\
       .tempSelect {\n\
@@ -273,6 +282,19 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
       #hl7Log {\n\
         overflow-y: scroll;\n\
         white-space: pre;\n\
+      }\n\
+      #tempDesc {\n\
+        display: none;\n\
+        box-sizing: border-box;\n\
+        min-height: 36px;\n\
+        line-height: 20px;\n\
+        width: 100%;\n\
+        padding: 10px 15px;\n\
+        background-color: #eaeffe;\n\
+        border-width: 2px 0px 2px 0px;\n\
+        margin-top: -2px;\n\
+        border-style: solid;\n\
+        border-color: #8a93ae;\n\
       }\n\
       #footer {\n\
         position: fixed;\n\
@@ -834,6 +856,15 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         pane.style.display = \"flex\";\n\
       }\n\
 \n\
+      function showDesc() {\n\
+        var pane = document.getElementById(\"tempDesc\");\n\
+        if (pane.style.display == \"none\" || pane.style.display == \"\") {\n\
+          pane.style.display = \"block\";\n\
+        } else {\n\
+          pane.style.display = \"none\";\n\
+        }\n\
+      }\n\
+\n\
       function clrHl7Help() {\n\
         var txt = document.getElementById(\"hl7Message\");\n\
         if (txt.innerText == \"Paste/type HL7 message here or use a template above.\") {\n\
@@ -853,6 +884,8 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
       }\n\
 \n\
       function updateTemps(thisSel) {\n\
+        var tempDesc = document.getElementById(\"tempDesc\");\n\
+        tempDesc.innerHTML = \"\";\n\
         var parent = thisSel.parentNode;\n\
         var children = parent.childNodes;\n\
         var myID = Number(thisSel.id.slice(10));\n\
@@ -1642,6 +1675,9 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
                 formHTML = jsonData[\"hl7\"];\n\
                 var sel = document.getElementById(\"hl7Message\");\n\
                 sel.innerHTML = formHTML;\n\
+                formHTML = jsonData[\"desc\"];\n\
+                var sel = document.getElementById(\"tempDesc\");\n\
+                sel.innerHTML = formHTML;\n\
               }\n\
             }\n\
 \n\
@@ -1738,9 +1774,10 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
           <div id=\"tempSelDiv\">\n\
             <select id=\"tempSelect1\" class=\"tempSelect\" onChange=\"updateTemps(this);\"></select>\n\
           </div>\n\
-          <div id=\"tempSelHelp\">&quest;</div>\n\
+          <div id=\"tempSelHelp\"><a href=\"\" class=\"black\" onClick=\"showDesc(); return false;\">&quest;</a></div>\n\
         </div>\n\
 \n\
+        <div id=\"tempDesc\"></div>\n\
         <div id=\"tempForm\"></div>\n\
 \n\
         <div class=\"titleBar\">HL7 Message:\n\
@@ -1750,6 +1787,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         <div id=\"hl7Container\">\n\
           <div id=\"hl7Message\" class=\"hl7Message\" contenteditable=\"true\" onFocus=\"clrHl7Help();\" onInput=\"clrRes();\">Paste/type HL7 message here or use a template above.</div>\n\
         </div>\n\
+        <div id=\"tempDesc\"></div>\n\
       </div>\n\
     </form>\n\
 \n\
@@ -1760,9 +1798,10 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
 \n\
     <div id=\"respPane\">\n\
       <div class=\"titleBar\">Active responders:\n\
-        <select name=\"respSelect\" id=\"respSelect\">\n\
-        </select>\n\
-        <a href=\"\" onClick=\"addResponder(); return false;\">&nbsp;&#10133;</a>\n\
+        <select name=\"respSelect\" id=\"respSelect\" class=\"tempSelect\"></select>\n\
+        <div id=\"respPlus\">\n\
+          <a class=\"black\" href=\"\" onClick=\"addResponder(); return false;\">&#43;</a>\n\
+        </div>\n\
       </div>\n\
       <div id=\"respForm\"></div>\n\
       <div class=\"titleBar\">Response queue:<div id=\"rCount\"></div></div>\n\
