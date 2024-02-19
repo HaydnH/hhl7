@@ -53,7 +53,7 @@ static void showHelp(int exCode) {
   printf("  -f <fileName>            Send contents of a file\n");
   printf("  -F                       Send ./file.txt (shorthand for \"-f ./file.txt\")\n");
   printf("  -t <temp> [args ...]     Generate a message from a JSON template and send it\n");
-  printf("  -T <temp> [<arg ...]     Same as -t, but also print message to STDOUT\n");
+  printf("  -T <temp> [args ...]     Same as -t, but also print message to STDOUT\n");
   printf("  -g <temp>                Display the expected arguments for a template\n");
   printf("  -G <temp>                Display a templates guide description\n");
   printf("  -o                       Suppress sending message, use with -T for STDOUT only\n");

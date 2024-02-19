@@ -499,7 +499,7 @@ static enum MHD_Result getTemplateList(struct Session *session,
   char fName[128] = "", tName[128] = "", fullName[141 + strlen(url)], *ext;
   char *newPtr = NULL;
   char errStr[300] = "";
-  int fCount = 0;
+  int fCount = 0, tmpErr = 0;
 
   char *dirOpts = malloc(38);
   char *tempOpts = malloc(1);
@@ -573,32 +573,38 @@ static enum MHD_Result getTemplateList(struct Session *session,
         int fSize = getFileSize(fullName);
         char *jsonMsg = malloc(fSize + 1);
         fp = openFile(fullName, "r");
-        readJSONFile(fp, fSize, jsonMsg);
+        tmpErr = readJSONFile(fp, fSize, jsonMsg);
 
-        // If not hidden, add it to the option list
-        if (getJSONValue(jsonMsg, 1, "hidden", NULL) != 1) {
-          // Get the name of the template, otherwise use filename
-          if (getJSONValue(jsonMsg, 2, "name", tName) == -1) {
-            strcpy(tName, fName);
+        if (tmpErr > 0) {
+          sprintf(errStr, "Could not read JSON template: %s", fullName);
+          writeLog(LOG_WARNING, errStr, 0);
+
+        } else {
+          // If not hidden, add it to the option list
+          if (getJSONValue(jsonMsg, 1, "hidden", NULL) != 1) {
+            // Get the name of the template, otherwise use filename
+            if (getJSONValue(jsonMsg, 2, "name", tName) == -1) {
+              strcpy(tName, fName);
+            }
+
+            // Increase memory for tempOpts to allow file name etc
+            newPtr = realloc(tempOpts, (2*strlen(fName)) + strlen(tempOpts) + 38);
+            if (newPtr == NULL) {
+              freeFileList(fileList, fCount);
+              free(dirOpts);
+              free(tempOpts);
+              sprintf(errStr, "[S: %03d] Can't realloc memory for template list (tempopts)",
+                              session->shortID);
+              handleError(LOG_ERR, errStr, 1, 0, 1);
+              return(MHD_NO);
+
+            } else {
+              tempOpts = newPtr;
+            }
+
+            sprintf(tempOpts + strlen(tempOpts), "%s%s%s%s%s%s", "<option value=\"",
+                                                 fName, fExt, "\">", tName, "</option>\n");
           }
-
-          // Increase memory for tempOpts to allow file name etc
-          newPtr = realloc(tempOpts, (2*strlen(fName)) + strlen(tempOpts) + 38);
-          if (newPtr == NULL) {
-            freeFileList(fileList, fCount);
-            free(dirOpts);
-            free(tempOpts);
-            sprintf(errStr, "[S: %03d] Can't realloc memory for template list (tempopts)",
-                            session->shortID);
-            handleError(LOG_ERR, errStr, 1, 0, 1);
-            return(MHD_NO);
-
-          } else {
-            tempOpts = newPtr;
-          }
-
-          sprintf(tempOpts + strlen(tempOpts), "%s%s%s%s%s%s", "<option value=\"",
-                                               fName, fExt, "\">", tName, "</option>\n");
         }
 
         // Free memory
