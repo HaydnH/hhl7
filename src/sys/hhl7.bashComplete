@@ -1,0 +1,49 @@
+#/usr/bin/env bash
+_hhl7() {
+  # Init variables
+  options=();
+  SFSTR="${2##*/}";
+  SPATH="${2%"$SFSTR"}";
+  NPATH="${SPATH//\\ / }";
+  SARG="${3: -1}";
+
+  # Configure paths based on command line options
+  if [[ "$SARG" == "t" || "$SARG" == "T" || "$SARG" == "g" || "$SARG" == "G" ]]; then
+    files=("./templates/$NPATH$SFSTR"*);
+    files+=("$HOME/.config/hhl7/templates/$NPATH$SFSTR"*);
+    files+=("/usr/local/hhl7/templates/$NPATH$SFSTR"*);
+
+  elif [[ "$SARG" == "r" || "$SARG" == "R" ]]; then
+    files=("./responders/$NPATH$SFSTR"*);
+    files+=("$HOME/.config/hhl7/responders/$NPATH$SFSTR"*);
+    files+=("/usr/local/hhl7/responders/$NPATH$SFSTR"*);
+  fi
+
+  # Find files & directories under the given paths above
+  if [[ "$SARG" == "t" || "$SARG" == "T" || "$SARG" == "g" ||
+	"$SARG" == "G" || "$SARG" == "r" || "$SARG" == "R" ]]; then
+
+    for file in "${files[@]}"; do
+      isFile=-1;
+      [[ -f "$file" ]] && isFile=1;
+      [[ -d "$file" ]] && isFile=0;
+      file="${file%.*}";
+      file="${file##*/}";
+      file="${file// /\\ }"
+      [[ $isFile -eq 0 ]] && file="$SPATH${file}/";
+      [[ $isFile -eq 1 ]] && file="$SPATH$file" && compopt +o nospace;
+      [[ $isFile -eq 0 || $isFile -eq 1 ]] && options+=("${file}");
+    done 
+    COMPREPLY=("${options[@]}");
+    return 0;
+  fi
+
+  if [[ "$SARG" == "f" ]]; then
+    compopt -o default;
+    return 0;
+  fi
+
+  return 0;
+}
+
+complete -o nospace -F _hhl7 hhl7

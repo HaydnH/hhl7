@@ -1,6 +1,6 @@
 CC      = gcc
 CFLAGS  = -O3 -Wall   # Live
-#CFLAGS  = -O3 -Wall -Wextra -Wno-overlength-strings -g3   # Devel & Debug
+#CFLAGS  = -O3 -Wall -Wextra -Wno-overlength-strings -Wpedantic -g3   # Devel & Debug
 #CFLAGS  = -O3 -Wall -Wextra -fsanitize=undefined,address -g   # UBSan
 INCDIR  = -I/usr/include/json-c -I/usr/include/microhttpd -I/usr/include/openssl -I/usr/include/systemd/sd-daemon
 DESTDIR = /usr/local/hhl7
@@ -18,6 +18,7 @@ LOGROT  = sys/hhl7.logrotate
 SVRS    = conf/servers.hhl7
 SYSD    = sys/hhl7.s*
 SYSLOG  = sys/76-hhl7.conf
+BASHCP  = sys/hhl7.bashComplete
 RESPS   = responders/*
 TEMPS   = templates/*
 
@@ -50,6 +51,7 @@ install:: hhl7
 	install -c -m 0644 $(SVRS) $(DESTDIR)/$(SVRS).example
 	install -c -m 0644 $(SYSD) /lib/systemd/system
 	install -c -m 0644 $(SYSLOG) /etc/rsyslog.d
+	install -c -m 0644 $(BASHCP) /usr/share/bash-completion/completions/$(BIN)
 	install -c -m 0644 $(RESPS) $(DESTDIR)/responders
 	install -c -m 0644 $(TEMPS) $(DESTDIR)/templates
 	install -c -m 0644 $(MAN) $(MANDIR)
