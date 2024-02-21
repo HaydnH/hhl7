@@ -25,6 +25,7 @@ void stripMLLP(char *hl7msg);
 void wrapMLLP(char *hl7msg);
 int getHL7Field(char *hl7msg, char *seg, int field, char *res);
 long unsigned int numLines(const char *buf);
+void findLine(char *buf, long int dataSize, int lineNum, int *start, int *end);
 void hl72unix(char *msg, int onlyPrint);
 void hl72web(char *msg, int maxSize);
 void unix2hl7(char *msg);

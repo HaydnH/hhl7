@@ -590,6 +590,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         padding: 0px 0px 0px 3px;\n\
       }\n\
       #hl7Queue {\n\
+        overflow-y: scroll;\n\
         padding: 0;\n\
         margin: 0;\n\
       }\n\

@@ -223,10 +223,11 @@ static void addVar2WebForm(char **webForm, int *webFormS, struct json_object *fi
 static int parseVals(char ***hl7Msg, int *hl7MsgS, char *vStr, char *nStr, char fieldTok,
                      char *argv[], int lastField, int isWeb, struct json_object *fieldObj,
                      int *incArr, float *strArr, int msgCount, char *post,
-                     time_t rangeVal) {
+                     time_t rangeVal, int msgRand) {
 
   struct json_object *defObj = NULL, *min = NULL, *max = NULL, *dp = NULL, *str = NULL;
   struct json_object *start = NULL, *iMax = NULL, *iType = NULL, *rHide = NULL;
+  struct json_object *dataFile = NULL, *dataType = NULL;
   char *dStr = NULL;
   char rndStr[32];
   int varLen = strlen(vStr), varNum = 0, reqS = 0, rHideInt = 0;
@@ -342,6 +343,56 @@ static int parseVals(char ***hl7Msg, int *hl7MsgS, char *vStr, char *nStr, char 
     strcat(**hl7Msg, rndStr);
 
 
+  // Read a data file and file the value with a line of it
+  } else if (strncmp(vStr, "$DAT", 4) == 0) {
+    json_object_object_get_ex(fieldObj, "datafile", &dataFile);
+    json_object_object_get_ex(fieldObj, "type", &dataType);
+
+    if (dataFile == NULL || dataType == NULL) {
+      handleError(LOG_WARNING, "$DAT in JSON template missing datafile or type argument", 1, 0, 1);
+      return(1);
+
+    } else {
+      FILE* fp = NULL;
+      char dataFName[strlen(json_object_get_string(dataFile)) + 28];
+      sprintf(dataFName, "/usr/local/hhl7/datafiles/%s", json_object_get_string(dataFile));
+      long int dataSize = getFileSize(dataFName);
+      char fileData[dataSize + 1];
+      long unsigned int dataLines = 0;
+      int getLine = 0, lineStart = 0, lineLen = 0;
+
+      sprintf(dataFName, "/usr/local/hhl7/datafiles/%s", json_object_get_string(dataFile));
+      fp = openFile(dataFName, "r"); 
+
+      if (fp == NULL) { 
+        handleError(LOG_WARNING, "Could not open datafile from JSON template", 1, 0, 1);
+        return(1);
+
+      } else {
+        file2buf(fileData, fp, dataSize);
+        dataLines = numLines(fileData);
+
+        if (strcmp(json_object_get_string(dataType), "rand") == 0) {
+          getRand(0, dataLines, 0, NULL, &getLine, NULL);
+        } else if (strcmp(json_object_get_string(dataType), "msgrand") == 0) {
+          getLine = (dataLines * msgRand) / 100;
+        } else {
+          getLine = msgCount - 1;
+        }
+        findLine(fileData, dataSize, getLine, &lineStart, &lineLen);
+
+        reqS = strlen(**hl7Msg) + lineLen + 1;
+        if (reqS > *hl7MsgS) **hl7Msg = dblBuf(**hl7Msg, hl7MsgS, reqS);
+
+        char dLine[lineLen + 1];
+        strncpy(dLine, fileData + lineStart, lineLen);
+        dLine[lineLen] = '\0';
+        strcat(**hl7Msg, dLine);
+
+      }
+      fclose(fp);
+    }
+
   // Retrieve a value from the random number store
   } else if (strncmp(vStr, "$STR", 4) == 0) {
     if (varLen == 4) {
@@ -439,7 +490,7 @@ static int parseVals(char ***hl7Msg, int *hl7MsgS, char *vStr, char *nStr, char 
 static int parseJSONField(struct json_object *fieldObj, int *lastFid, int lastField, 
                           char **hl7Msg, int *hl7MsgS, char *argv[], char fieldTok,
                           int isWeb, int incArr[], float strArr[], int msgCount,
-                          time_t rangeVal) {
+                          time_t rangeVal, int msgRand) {
 
   struct json_object *valObj = NULL, *idObj = NULL;
   char *vStr = NULL, *nStr = NULL, *pre = NULL, *post = NULL;
@@ -499,8 +550,8 @@ static int parseJSONField(struct json_object *fieldObj, int *lastFid, int lastFi
     }
 
     // Parse JSON values
-    retVal = parseVals(&hl7Msg, hl7MsgS, vStr, nameStr, fieldTok, argv, lastField, 
-                       isWeb, fieldObj, incArr, strArr, msgCount, post, rangeVal);
+    retVal = parseVals(&hl7Msg, hl7MsgS, vStr, nameStr, fieldTok, argv, lastField, isWeb,
+                       fieldObj, incArr, strArr, msgCount, post, rangeVal, msgRand);
 
   }
 
@@ -570,7 +621,7 @@ int parseJSONTemp(char *jsonMsg, char **hl7Msg, int *hl7MsgS, char **webForm,
   int incArr[10] = {-1};
   float strArr[10] = {-1.0};
   char errStr[112] = "";
-  int inc = 2, rCount = 0;
+  int inc = 2, rCount = 0, msgRand = 0;
 
   rootObj = json_tokener_parse(jsonMsg);
   json_object_object_get_ex(rootObj, "argcount", &valObj);
@@ -641,7 +692,7 @@ int parseJSONTemp(char *jsonMsg, char **hl7Msg, int *hl7MsgS, char **webForm,
 
           }
 
-          // Check if we repeat msgs, if this is >= 2nd MSH segment, add a blank line
+          // Check if we repeat msgs using $TRV
           if (strcmp(vStr, "MSH") == 0) {
             if (timeRange(segObj, &rStart, &rEnd, &inc) != 0) {
               handleError(LOG_ERR, "Failed to parse MSH repeat in JSON template", 1, 0, 1);
@@ -653,10 +704,14 @@ int parseJSONTemp(char *jsonMsg, char **hl7Msg, int *hl7MsgS, char **webForm,
 
             }
 
+            // If this is >= 2nd MSH segment, add a blank line
             if (msgCount > 0) {
               endJSONSeg(hl7Msg, hl7MsgS, isWeb);
             }
             msgCount++;
+
+            // Create a random number for this message
+            getRand(0, 100, 0, NULL, &msgRand, NULL);
           }
 
           retVal = parseJSONSegs(segObj, hl7Msg, hl7MsgS, fieldTok);
@@ -687,7 +742,9 @@ int parseJSONTemp(char *jsonMsg, char **hl7Msg, int *hl7MsgS, char **webForm,
             if (isWeb == 1) addVar2WebForm(webForm, webFormS, fieldObj);
 
             retVal = parseJSONField(fieldObj, &lastFid, fieldCount - f, hl7Msg, hl7MsgS,
-                                    argv, fieldTok, isWeb, incArr, strArr, msgCount, step);
+                                    argv, fieldTok, isWeb, incArr, strArr, msgCount,
+                                    step, msgRand);
+
             if (retVal > 0) {
               json_object_put(rootObj);
               return(1);
@@ -700,8 +757,10 @@ int parseJSONTemp(char *jsonMsg, char **hl7Msg, int *hl7MsgS, char **webForm,
               for (sf = 0; sf < subFCount; sf++) {
                 fieldObj = json_object_array_get_idx(subFObj, sf);
                 if (isWeb == 1) addVar2WebForm(webForm, webFormS, fieldObj);
-                retVal = parseJSONField(fieldObj, &lastFid, subFCount - sf, hl7Msg, hl7MsgS,
-                                        argv, sfTok, isWeb, incArr, strArr, msgCount, step);
+                retVal = parseJSONField(fieldObj, &lastFid, subFCount - sf, hl7Msg,
+                                        hl7MsgS, argv, sfTok, isWeb, incArr, strArr,
+                                        msgCount, step, msgRand);
+
                 if (retVal > 0) {
                   json_object_put(rootObj);
                   return(1);

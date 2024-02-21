@@ -1123,7 +1123,7 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
   }
 
   // Discard messages only containing new line characters
-  if (size -numLines(data) == 0) size = 0;
+  if (size - numLines(data) == 0) size = 0;
 
   con_info->answerstring[0] = '\0';
 

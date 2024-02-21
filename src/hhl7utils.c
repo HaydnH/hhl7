@@ -85,6 +85,7 @@ FILE *openFile(char *fileName, char *mode) {
   FILE *fp;
   fp = fopen(fileName, mode);
   if (fp == NULL) {
+    // TODO - change to writeLog
     fprintf(stderr, "ERROR: Cannot open file: %s\n", fileName);
     exit(1);
   }
@@ -235,9 +236,47 @@ long unsigned int numLines(const char *buf) {
   long unsigned int i = 0, c = 0;
 
   for (i = 0; i < strlen(buf); i++) {
-    if (buf[c] == '\n' || buf[c] == '\r') c++;
+    if (buf[i] == '\n' || buf[i] == '\r') c++;
   }
   return(c);
+}
+
+
+// Update a start and end count for a line in a file
+void findLine(char *buf, long int dataSize, int lineNum, int *start, int *lineLen) {
+  int i = 0, curLine = 0, startFound = 0, endFound = 0;
+  //printf("B: %s -> %d\n", buf, lineNum);
+
+  if (lineNum == 0) {
+    *start = 0;
+    startFound = 1;
+  }
+
+  while (startFound + endFound < 2) {
+    //printf("S: %d - E: %d - SF: %d - EF: %d - LN: %d - CL: %d\n", *start, *lineLen, startFound, endFound, lineNum, curLine);
+    if (buf[i] == '\n') {
+      if (startFound == 0 && curLine == (lineNum - 1)) {
+        *start = i + 1;
+        startFound = 1;
+
+      } else if (startFound == 1 && endFound == 0) {
+        *lineLen = i - *start;
+        endFound = 1;
+
+      } else {
+        curLine++;
+
+      }
+    }
+
+    if (i >= dataSize) {
+      startFound = 1;
+      endFound = 1;
+      *lineLen = dataSize - *start;
+    }
+    i++;
+  }
+  //printf("S: %d -> E: %d\n", start, end);
 }
 
 
