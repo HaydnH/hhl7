@@ -490,7 +490,7 @@ static int parseVals(char ***hl7Msg, int *hl7MsgS, char *vStr, char *nStr, char 
 static int parseJSONField(struct json_object *fieldObj, int *lastFid, int lastField, 
                           char **hl7Msg, int *hl7MsgS, char *argv[], char fieldTok,
                           int isWeb, int incArr[], float strArr[], int msgCount,
-                          time_t rangeVal, int msgRand) {
+                          time_t rangeVal, int msgRand, char *segment) {
 
   struct json_object *valObj = NULL, *idObj = NULL;
   char *vStr = NULL, *nStr = NULL, *pre = NULL, *post = NULL;
@@ -500,6 +500,7 @@ static int parseJSONField(struct json_object *fieldObj, int *lastFid, int lastFi
   // Get the ID of the current field value
   json_object_object_get_ex(fieldObj, "id", &idObj);
   fid = (int) json_object_get_int(idObj);
+  if (strcmp(segment, "MSH") == 0) fid = fid - 1;
 
   // Get pre and post values for the field if they exist
   json_object_object_get_ex(fieldObj, "pre", &valObj);
@@ -743,7 +744,7 @@ int parseJSONTemp(char *jsonMsg, char **hl7Msg, int *hl7MsgS, char **webForm,
 
             retVal = parseJSONField(fieldObj, &lastFid, fieldCount - f, hl7Msg, hl7MsgS,
                                     argv, fieldTok, isWeb, incArr, strArr, msgCount,
-                                    step, msgRand);
+                                    step, msgRand, vStr);
 
             if (retVal > 0) {
               json_object_put(rootObj);
@@ -759,7 +760,7 @@ int parseJSONTemp(char *jsonMsg, char **hl7Msg, int *hl7MsgS, char **webForm,
                 if (isWeb == 1) addVar2WebForm(webForm, webFormS, fieldObj);
                 retVal = parseJSONField(fieldObj, &lastFid, subFCount - sf, hl7Msg,
                                         hl7MsgS, argv, sfTok, isWeb, incArr, strArr,
-                                        msgCount, step, msgRand);
+                                        msgCount, step, msgRand, vStr);
 
                 if (retVal > 0) {
                   json_object_put(rootObj);

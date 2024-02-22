@@ -501,7 +501,7 @@ static enum MHD_Result getTemplateList(struct Session *session,
   char errStr[300] = "";
   int fCount = 0, tmpErr = 0;
 
-  char *dirOpts = malloc(38);
+  char *dirOpts = malloc(39);
   char *tempOpts = malloc(1);
   if (dirOpts == NULL || tempOpts == NULL) {
     sprintf(errStr, "[S: %03d] Cannot cannot allocate memory for template list",
@@ -527,6 +527,8 @@ static enum MHD_Result getTemplateList(struct Session *session,
   if (fCount < 0) {
     free(dirOpts);
     free(tempOpts);
+    free(fileList);
+
     sprintf(errStr, "[S: %03d] Error reading template directory",
                     session->shortID);
     handleError(LOG_ERR, errStr, 1, 0, 1);
@@ -538,8 +540,8 @@ static enum MHD_Result getTemplateList(struct Session *session,
     ext = 0; 
     if (file->d_type == DT_DIR) {
       if (strcmp(file->d_name, ".") != 0 && strcmp(file->d_name, "..") != 0) {
-        // Increase memory for tempOpts to allow file name etc
-        newPtr = realloc(dirOpts, (2*strlen(file->d_name)) + strlen(dirOpts) + 50);
+        // Increase memory for dirOpts to allow file name etc
+        newPtr = realloc(dirOpts, (2*strlen(file->d_name)) + strlen(dirOpts) + 52);
         if (newPtr == NULL) {
           freeFileList(fileList, fCount);
           free(dirOpts);
@@ -708,6 +710,8 @@ static enum MHD_Result getTempForm(struct Session *session,
       free(webHL7);
       free(jsonMsg);
       free(jsonReply);
+      json_object_put(rootObj);     
+
       return(MHD_NO);
     }
 
@@ -725,6 +729,7 @@ static enum MHD_Result getTempForm(struct Session *session,
   free(webHL7);
   free(jsonMsg);
   free(jsonReply);
+  json_object_put(rootObj);
 
   if (!response) return(MHD_NO);
   //addCookie(session, response);

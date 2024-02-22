@@ -489,7 +489,7 @@ int sendAck(int sessfd, char *hl7msg) {
 
   // Get current time and control ID of incoming message
   timeNow(dt, 0); 
-  getHL7Field(hl7msg, "MSH", 9, cid);
+  getHL7Field(hl7msg, "MSH", 10, cid);
   if (strlen(cid) == 0) sprintf(cid, "%s", "<UNKNOWN>");
 
   sprintf(ackBuf, "%c%s%s%s%s%s%s%s%c%c", 0x0B, "MSH|^~\\&|||||", dt, "||ACK|", cid,
