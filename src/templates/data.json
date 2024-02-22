@@ -1,0 +1,95 @@
+{
+  "name":"Data",
+  "argcount":0,
+  "cmdhelp":"hhl7 -t data",
+  "segments": [
+    { "name":"MSH",
+      "fieldcount":2,
+      "fields": [
+        { "id":2,  "value":"TestingOne" }
+      ]
+    },
+    { "name":"DAT",
+      "fieldcount":2,
+      "fields": [
+        { "id":1,  "value":"$DAT", "datafile":"PhoneticAlphabet.txt", "type":"msginc" },
+        { "id":2,  "value":"$DAT", "datafile":"PhoneticAlphabet.txt", "type":"rand" },
+        { "id":2,  "value":"$DAT", "datafile":"PhoneticAlphabet.txt", "type":"msgrand" }
+      ]
+    },
+    { "name":"DAT",
+      "fieldcount":2,
+      "fields": [
+        { "id":1,  "value":"$DAT", "datafile":"PhoneticAlphabet.txt", "type":"msginc" },
+        { "id":2,  "value":"$DAT", "datafile":"PhoneticAlphabet.txt", "type":"rand" },
+        { "id":2,  "value":"$DAT", "datafile":"PhoneticAlphabet.txt", "type":"msgrand" }
+      ]
+    },
+    { "name":"MSH",
+      "fieldcount":9,
+      "fields": [
+        { "id":1,  "value":"TestingTwo" }
+      ]
+    },
+    { "name":"DAT",
+      "fieldcount":2,
+      "fields": [
+        { "id":1,  "value":"$DAT", "datafile":"PhoneticAlphabet.txt", "type":"msginc" },
+        { "id":2,  "value":"$DAT", "datafile":"PhoneticAlphabet.txt", "type":"rand" },
+        { "id":2,  "value":"$DAT", "datafile":"PhoneticAlphabet.txt", "type":"msgrand" }
+      ]
+    },
+    { "name":"DAT",
+      "fieldcount":2,
+      "fields": [
+        { "id":1,  "value":"$DAT", "datafile":"PhoneticAlphabet.txt", "type":"msginc" },
+        { "id":2,  "value":"$DAT", "datafile":"PhoneticAlphabet.txt", "type":"rand" },
+        { "id":2,  "value":"$DAT", "datafile":"PhoneticAlphabet.txt", "type":"msgrand" }
+      ]
+    },
+    { "name":"MSH",
+      "fieldcount":1,
+      "fields": [
+        { "id":1,  "value":"TestingThree" }
+      ]
+    },
+    { "name":"DAT",
+      "fieldcount":2,
+      "fields": [
+        { "id":1,  "value":"$DAT", "datafile":"PhoneticAlphabet.txt", "type":"msginc" },
+        { "id":2,  "value":"$DAT", "datafile":"PhoneticAlphabet.txt", "type":"rand" },
+        { "id":2,  "value":"$DAT", "datafile":"PhoneticAlphabet.txt", "type":"msgrand" }
+      ]
+    },
+    { "name":"DAT",
+      "fieldcount":2,
+      "fields": [
+        { "id":1,  "value":"$DAT", "datafile":"PhoneticAlphabet.txt", "type":"msginc" },
+        { "id":2,  "value":"$DAT", "datafile":"PhoneticAlphabet.txt", "type":"rand" },
+        { "id":2,  "value":"$DAT", "datafile":"PhoneticAlphabet.txt", "type":"msgrand" }
+      ]
+    },
+    { "name":"MSH",
+      "fieldcount":9,
+      "fields": [
+        { "id":1,  "value":"TestingFour" }
+      ]
+    },
+    { "name":"DAT",
+      "fieldcount":2,
+      "fields": [
+        { "id":1,  "value":"$DAT", "datafile":"PhoneticAlphabet.txt", "type":"msginc" },
+        { "id":2,  "value":"$DAT", "datafile":"PhoneticAlphabet.txt", "type":"rand" },
+        { "id":2,  "value":"$DAT", "datafile":"PhoneticAlphabet.txt", "type":"msgrand" }
+      ]
+    },
+    { "name":"DAT",
+      "fieldcount":2,
+      "fields": [
+        { "id":1,  "value":"$DAT", "datafile":"PhoneticAlphabet.txt", "type":"msginc" },
+        { "id":2,  "value":"$DAT", "datafile":"PhoneticAlphabet.txt", "type":"rand" },
+        { "id":2,  "value":"$DAT", "datafile":"PhoneticAlphabet.txt", "type":"msgrand" }
+      ]
+    }
+  ]
+}

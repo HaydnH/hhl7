@@ -4,14 +4,14 @@
   "cmdhelp":"hhl7 -t min",
   "segments": [
     { "name":"MSH",
-      "fieldcount":9,
+      "fieldcount":10,
       "fields": [
-        { "id":1,  "value":"$INC0", "start":1, "max":3, "type":"use",
+        { "id":2,   "value":"$INC0", "start":1, "max":3, "type":"use",
           "pre":"test_", "post":"_001" },
-        { "id":2,  "value":"$INC0", "start":1, "max":3, "type":"use" },
-        { "id":5,  "value":"$INC1", "start":2, "max":10, "type":"msg" },
-        { "id":6,  "value":"$INC1", "start":2, "max":10, "type":"msg" },
-        { "id":9,  "value":"1" }
+        { "id":3,   "value":"$INC0", "start":1, "max":3, "type":"use" },
+        { "id":6,   "value":"$INC1", "start":2, "max":10, "type":"msg" },
+        { "id":7,   "value":"$INC1", "start":2, "max":10, "type":"msg" },
+        { "id":10,  "value":"1" }
       ]
     },
     { "name":"MSH",
