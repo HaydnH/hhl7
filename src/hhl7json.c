@@ -500,7 +500,10 @@ static int parseJSONField(struct json_object *fieldObj, int *lastFid, int lastFi
   // Get the ID of the current field value
   json_object_object_get_ex(fieldObj, "id", &idObj);
   fid = (int) json_object_get_int(idObj);
-  if (strcmp(segment, "MSH") == 0) fid = fid - 1;
+  if (strcmp(segment, "MSH") == 0) {
+    if (fid == 1) writeLog(LOG_WARNING, "MSH segment contains a field id=1, MSH segment may be correupt", 1);
+    fid = fid - 1;
+  }
 
   // Get pre and post values for the field if they exist
   json_object_object_get_ex(fieldObj, "pre", &valObj);

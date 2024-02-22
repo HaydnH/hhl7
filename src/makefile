@@ -21,6 +21,7 @@ SYSLOG  = sys/76-hhl7.conf
 BASHCP  = sys/hhl7.bashComplete
 RESPS   = responders/*
 TEMPS   = templates/*
+DATAS   = datafiles/*
 
 .c.o:
 	$(CC) $(CFLAGS) -D$(shell echo `uname -s`) -c $< -o $*.o $(INCDIR)
@@ -43,6 +44,7 @@ install:: hhl7
 	install -c -d -m 0755 $(DESTDIR)/images
 	install -c -d -m 0755 $(DESTDIR)/responders
 	install -c -d -m 0755 $(DESTDIR)/templates
+	install -c -d -m 0755 $(DESTDIR)/datafiles
 	install -c -s -m 0755 $(BIN) $(DESTDIR)/bin
 	ln -sf $(DESTDIR)/bin/$(BIN) $(BINDIR)/$(BIN)
 	install -c -m 0644 $(CERTS) $(DESTDIR)/certs
@@ -54,4 +56,5 @@ install:: hhl7
 	install -c -m 0644 $(BASHCP) /usr/share/bash-completion/completions/$(BIN)
 	install -c -m 0644 $(RESPS) $(DESTDIR)/responders
 	install -c -m 0644 $(TEMPS) $(DESTDIR)/templates
+	install -c -m 0644 $(DATAS) $(DESTDIR)/datafiles
 	install -c -m 0644 $(MAN) $(MANDIR)
