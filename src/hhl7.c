@@ -40,7 +40,7 @@ static void showVersion() {
 static void showHelp(int exCode) {
   printf("Usage:\n");
   printf("  hhl7 [-s <IP>] [-L <IP] [-p <port>] [-P <port>] [-o]\n");
-  printf("       {-D|-f|-F|-t|-T|-g|-G|-l|-r|-n|-N} [options] [argument ...]\n\n");
+  printf("       {-D|-f|-F|-t|-T|-g|-G|-l|-r|-a|-A|-n|-N} [options] [argument ...]\n\n");
   printf("Help Options:\n");
   printf("  -h, --help               Show help page and exit\n");
   printf("  -v, --version            Show version information and exit\n\n");
@@ -58,9 +58,11 @@ static void showHelp(int exCode) {
   printf("  -G <temp>                Display a templates guide description\n");
   printf("  -o                       Suppress sending message, use with -T for STDOUT only\n");
   printf("  -l                       Listen for incoming messages\n");
+  printf("  -a                       Send random ACK codes back to the sending server\n");
+  printf("  -A <code,...>            Same as -a, but accepts a comma list of codes, e.g: \"AA,AR\"\n");
   printf("  -r <temps ...>           Respond to incoming messages if they match template\n");
-  printf("  -n <integer>             Send template multiple times, meant for stress testing\n");
-  printf("  -r <temps ...>           Delay between sending multiple messages with -n\n\n");
+  printf("  -n <integer>             Send template multiple times, intended for stress testing only\n");
+  printf("  -N <integer>             Delay between sending multiple messages with -n in microseconds\n\n");
 
   printf("Other Options:\n");
   printf("  -D <socket>              Run as a daemon, for systemd.socket use ONLY\n");
@@ -89,7 +91,7 @@ int main(int argc, char *argv[]) {
 
   int daemonSock = 0, sockfd, opt, option_index = 0;
   int fSend = 0, fListen = 0, fRespond = 0, fSendTemplate = 0, fShowTemplate = 0;
-  int noSend = 0, fWeb = 0, sc = 0, sCount = 1, sSleep = 500, rv = -1;
+  int noSend = 0, fWeb = 0, sc = 0, sCount = 1, sSleep = 500, rv = -1, resType = 0;
   FILE *fp;
 
   // TODO move bind port (sIP) to config file
@@ -101,6 +103,7 @@ int main(int argc, char *argv[]) {
   char tName[51] = "";
   char fileName[256] = "file.txt";
   char errStr[28] = "";
+  char *ackList = NULL;
 
   // Catch signals for clean shutdown
   struct sigaction sa = { .sa_handler = cleanShutdown };
@@ -121,7 +124,7 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-  while((opt = getopt_long(argc, argv, ":0vhD:f:Flrt:T:g:G:n:N:owWs:L:p:P:", long_options, &option_index)) != -1) {
+  while((opt = getopt_long(argc, argv, ":0vhD:f:FlA:art:T:g:G:n:N:owWs:L:p:P:", long_options, &option_index)) != -1) {
     switch(opt) {
       case 0:
         exit(1);
@@ -216,6 +219,18 @@ int main(int argc, char *argv[]) {
         if (optarg) sSleep = atoi(optarg);
         break;
 
+      case 'a':
+        resType = 1;
+        break;
+
+      case 'A':
+        if (*argv[optind - 1] == '-')
+          handleError(LOG_ERR, "Option -n requires a value", 1, 1, 1);
+
+        resType = 2;
+        ackList = optarg;
+        break;
+
       case 'o':
         noSend = 1;
         break;
@@ -306,13 +321,13 @@ int main(int argc, char *argv[]) {
 
   if (fListen == 1) {
     // Listen for incoming messages
-    startMsgListener(lIP, lPort, NULL, NULL, -1, 0, NULL);
+    startMsgListener(lIP, lPort, NULL, NULL, -1, 0, NULL, resType, ackList);
   }
 
 
   if (fRespond == 1) {
     // Listen for incoming messages & respond using template
-    startMsgListener(lIP, lPort, sIP, sPort, argc, optind, argv);
+    startMsgListener(lIP, lPort, sIP, sPort, argc, optind, argv, 0, NULL);
   }
 
 

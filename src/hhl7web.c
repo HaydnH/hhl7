@@ -55,7 +55,10 @@ int webRunning = 0;
 struct connection_info_struct {
   struct MHD_Connection *connection;
   int connectiontype;
-  char answerstring[MAXANSWERSIZE];
+  // TODO - WORKING - SORT MEMORY HERE
+  //char answerstring[MAXANSWERSIZE];
+  char answerstring[3];
+  //char *ansstring;
   char *poststring;
   struct MHD_PostProcessor *postprocessor;
   struct Session *session;
@@ -566,6 +569,7 @@ static enum MHD_Result getTemplateList(struct Session *session,
       if (strcmp(ext, ".json") == 0) {
         // Create a template name and full path to file from filename
         memcpy(fName, file->d_name, strlen(file->d_name) - strlen(ext));
+        // TODO check this - strlen can't be valid if it needs a \0 after
         fName[strlen(file->d_name) - strlen(ext)] = '\0';
 
         strcpy(fullName, tPath);
@@ -667,8 +671,9 @@ static enum MHD_Result getTempForm(struct Session *session,
   char *webHL7 = malloc(webHL7S);
   char *jsonReply = malloc(3);
   webForm[0] = '\0';
-  webHL7[0] = '\0';
+  //webHL7[0] = '\0';
   jsonReply[0] = '\0';
+  sprintf(webHL7, "%s", "<div>");
 
   char *tPath = "/usr/local/hhl7";
   char fileName[strlen(tPath) + strlen(url) + 1];
@@ -699,6 +704,7 @@ static enum MHD_Result getTempForm(struct Session *session,
   } else {
     char tmpBuf[2 * strlen(webHL7) + 1];
     escapeSlash(tmpBuf, webHL7);
+    // TODO check this - strlen can't be valid if it needs a \0 after
     tmpBuf[strlen(tmpBuf)] = '\0';
 
     // Construct the JSON reply
@@ -1005,7 +1011,7 @@ static int startListenWeb(struct Session *session, struct MHD_Connection *connec
     }
 
     rc = startMsgListener("127.0.0.1", session->lPort, session->sIP, session->sPort,
-                          argc, 0, argv);
+                          argc, 0, argv, 0, NULL);
 
     if (rc < 0) {
       stopListenWeb(session, connection, url);
@@ -1362,15 +1368,18 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
 }
 
 
-static enum MHD_Result sendPage(struct Session *session, struct MHD_Connection *connection,                                const char* connectiontype, const char *page,
-                                const char *url) {
+static enum MHD_Result sendPage(struct Session *session, struct MHD_Connection *connection,
+                                const char* connectiontype, const char *page,
+                                char *ansStrP, const char *url) {
 
   enum MHD_Result ret;
   struct MHD_Response *response;
   char errStr[300] = "";
 
+  if (ansStrP != NULL) page = ansStrP;
   response = MHD_create_response_from_buffer(strlen(page), (void *) page,
-                                             MHD_RESPMEM_PERSISTENT);
+                                             MHD_RESPMEM_MUST_COPY);
+                                             // MHD_RESPMEM_PERSISTENT);
 
   if (!response) return(MHD_NO);
 
@@ -1422,6 +1431,11 @@ static enum MHD_Result sendPage(struct Session *session, struct MHD_Connection *
   }
 
   MHD_destroy_response(response);
+  if (ansStrP != NULL) {
+    free(ansStrP);
+    ansStrP = NULL;
+  }
+
   return(ret);
 }
 
@@ -1460,7 +1474,7 @@ static enum MHD_Result logout(struct Session *session, struct MHD_Connection *co
 
 
 // Answer to a connection request
-static enum MHD_Result answer_to_connection(void *cls, struct MHD_Connection *connection,
+static enum MHD_Result answerToConnection(void *cls, struct MHD_Connection *connection,
                                             const char *url, const char *method,
                                             const char *version, const char *upload_data,
                                             size_t *upload_data_size, void **con_cls) {
@@ -1470,8 +1484,10 @@ static enum MHD_Result answer_to_connection(void *cls, struct MHD_Connection *co
 
   struct connection_info_struct *con_info = *con_cls;
   struct Session *session;
+  int rc = -1, sockfd = -1;
   char retCode[3] = "", resStr[3] = "", errStr[90] = "";
-  int rc = 0, sockfd = -1;
+  char *resList = malloc(50);
+  sprintf(resList, "%s", "{ \"results\":\"");
 
   // Debug - print connection values, e.g user-agent
   //MHD_get_connection_values(connection, MHD_HEADER_KIND, print_out_key, NULL);
@@ -1482,6 +1498,7 @@ static enum MHD_Result answer_to_connection(void *cls, struct MHD_Connection *co
     con_info->connection = connection;
     con_info->session = getSession(connection);
     con_info->answerstring[0] = '\0';
+    //con_info->ansstring = NULL;
     con_info->poststring = NULL;
     con_info->postprocessor = NULL;
 
@@ -1585,21 +1602,23 @@ static enum MHD_Result answer_to_connection(void *cls, struct MHD_Connection *co
     } else if (strlen(con_info->answerstring) > 0) {
       // If we have a hl7 message to send, send it and clear memory
       if (con_info->poststring != NULL) {
-        if (strncmp(con_info->poststring, "Coffee?", 7) == 0) {
+        if (strncmp(con_info->poststring, "Coffee?", 7) == 0 && 
+            strlen(con_info->poststring) <= 10) {
           snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "TP"); // Teapot
 
         } else {
           sockfd = connectSvr(con_info->session->sIP, con_info->session->sPort);
 
           if (sockfd >= 0) {
-            rc = sendPacket(sockfd, con_info->poststring, resStr, 0);
+            rc = sendPacket(sockfd, con_info->poststring, resStr, &resList, 0);
+
             if (rc >= 0) {
               sprintf(errStr, "[S: %03d][%s] Sent %ld byte packet to socket: %d",
                               con_info->session->shortID, resStr,
                               strlen(con_info->poststring), sockfd);
 
               writeLog(LOG_INFO, errStr, 0);
-              snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", resStr);
+              sprintf(con_info->answerstring, "%s", resStr);
 
             } else if (rc == -1) {
               sprintf(errStr, "[S: %03d][%s] Failed to send packet to socket: %d",
@@ -1642,13 +1661,17 @@ static enum MHD_Result answer_to_connection(void *cls, struct MHD_Connection *co
         con_info->poststring = NULL;
       }
 
-      return(sendPage(session, connection, method, con_info->answerstring, url));
+      if (rc >= 0) {
+        return(sendPage(session, connection, method, con_info->answerstring, resList, url));
+      } else {
+        return(sendPage(session, connection, method, con_info->answerstring, NULL, url));
+      }
 
     }
   }
 
   // We should never get here, but left as a catch all
-  return(sendPage(session, connection, method, errorPage, url));
+  return(sendPage(session, connection, method, errorPage, NULL, url));
 }
 
 
@@ -1771,7 +1794,7 @@ int listenWeb(int daemonSock) {
                               MHD_USE_TLS | MHD_USE_TCP_FASTOPEN,
                               PORT,
                               NULL, NULL,
-                              &answer_to_connection, NULL,
+                              &answerToConnection, NULL,
                               MHD_OPTION_HTTPS_MEM_KEY, key_pem,
                               MHD_OPTION_HTTPS_MEM_CERT, cert_pem,
                               MHD_OPTION_CONNECTION_TIMEOUT, (unsigned int) 15,
@@ -1784,7 +1807,7 @@ int listenWeb(int daemonSock) {
                               MHD_USE_TLS | MHD_USE_TCP_FASTOPEN,
                               PORT,
                               NULL, NULL,
-                              &answer_to_connection, NULL,
+                              &answerToConnection, NULL,
                               MHD_OPTION_HTTPS_MEM_KEY, key_pem,
                               MHD_OPTION_HTTPS_MEM_CERT, cert_pem,
                               MHD_OPTION_CONNECTION_TIMEOUT, (unsigned int) 15,

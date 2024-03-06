@@ -122,7 +122,7 @@ void getRand(int lower, int upper, int dp, char *res, int *resInt, float *resF) 
   
   // Add 0s to the upper/lower values to allow decimal places
   lower = lower * pow(10, dp);
-  upper = upper * pow(10, dp);
+  upper = (upper  + 1) * pow(10, dp);
 
   // Create the random number and remove 0s to add decimal places
   tmpF = (float) (rand() % (upper - lower) + lower);

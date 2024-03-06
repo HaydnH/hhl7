@@ -291,7 +291,7 @@ int connectSvr(char *ip, char *port) {
 // Listen for ACK from server
 int listenACK(int sockfd, char *res) {
   char ackBuf[512] = "", app[12] = "", code[7] = "", aCode[3] = "", errStr[46] = "";
-  int ackErr = 0, recvL = 0;
+  int recvL = 0;
 
   // TODO Add timeout to config file - NOTE: javascript would need timeout change as well
   // Set ListenACK timeout
@@ -310,6 +310,7 @@ int listenACK(int sockfd, char *res) {
 
   } else {
     stripMLLP(ackBuf);
+    // TODO check this - strlen can't be valid if it needs a \0 after
     ackBuf[strlen(ackBuf) - 1] = '\0';
 
     // Find the ack response in MSA.1
@@ -320,8 +321,6 @@ int listenACK(int sockfd, char *res) {
       strcpy(app, "Application");
     } else if ((char) aCode[0] == 'C') {
       strcpy(app, "Commit");
-    } else {
-      ackErr = 1;
     }
 
     if ((char) aCode[1] == 'A') {
@@ -330,24 +329,14 @@ int listenACK(int sockfd, char *res) {
       strcpy(code, "Error");
     } else if ((char) aCode[1] == 'R') {
       strcpy(code, "Reject");
-    } else {
-      ackErr = 2;
     }
 
-    // Print error or response
-    if (ackErr > 0) {
-      handleError(LOG_ERR, "Could not understand ACK response", 1, 0, 1);
-      if (res != NULL) sprintf(res, "%s", "EE");
-      return(-3);
+    sprintf(errStr, "Server ACK response: %s %s (%s)", app, code, aCode);
+    writeLog(LOG_INFO, errStr, 1);
 
-    } else {
-      sprintf(errStr, "Server ACK response: %s %s (%s)", app, code, aCode);
-      writeLog(LOG_INFO, errStr, 1);
-
-      if (res) {
-        aCode[2] = '\0';
-        strcpy(res, aCode);
-      }
+    if (res) {
+      aCode[2] = '\0';
+      strcpy(res, aCode);
     }
   }
   return(recvL);
@@ -372,21 +361,26 @@ void sendFile(FILE *fp, long int fileSize, int sockfd) {
 
   // Send the data file to the server
   unix2hl7(fileData);
-  sendPacket(sockfd, fileData, resStr, 0);
+  sendPacket(sockfd, fileData, resStr, NULL, 0);
 }
 
 
 // Send a string packet over socket
-int sendPacket(int sockfd, char *hl7msg, char *resStr, int fShowTemplate) {
-  const char msgDelim[6] = "MSH|";
+int sendPacket(int sockfd, char *hl7msg, char *resStr, char **resList, int fShowTemplate) {
+  const char msgDelim[6] = "\nMSH|";
   char tokMsg[strlen(hl7msg) + 5];
-  char *curMsg = hl7msg, *nextMsg;
-  int msgCount = 0, retVal = 0;
+  char *curMsg = hl7msg, *nextMsg = NULL;
+  int msgCount = 0, retVal = 0, rlSize = 50, reqS = 0;
   char errStr[43] = "";
 
   while (curMsg != NULL) {
     msgCount++;
     nextMsg = strstr(curMsg + 1, msgDelim);
+
+    if (resList != NULL) {
+      reqS = (strlen(*resList) + 30);
+      if (reqS > rlSize) *resList = dblBuf(*resList, &rlSize, reqS);
+    }
 
     if (nextMsg == NULL) { 
       sprintf(tokMsg, "%s", curMsg);
@@ -418,7 +412,16 @@ int sendPacket(int sockfd, char *hl7msg, char *resStr, int fShowTemplate) {
       retVal = listenACK(sockfd, resStr);
 
     }
+
+    if (resList != NULL) {
+      if (msgCount > 1) strcat(*resList, ",");
+      strcat(*resList, resStr);
+    }
   }
+
+  if (resList != NULL) 
+    sprintf(*resList + strlen(*resList), "%s%d%s", "\", \"count\":", msgCount, " }");
+
   close(sockfd);
   return(retVal);
 }
@@ -466,7 +469,7 @@ void sendTemp(char *sIP, char *sPort, char *tName, int noSend, int fShowTemplate
     if (noSend == 0) {
       // Connect to server, send & listen for ack
       sockfd = connectSvr(sIP, sPort);
-      sendPacket(sockfd, hl7Msg, resStr, fShowTemplate);
+      sendPacket(sockfd, hl7Msg, resStr, NULL, fShowTemplate);
 
     } else if (fShowTemplate == 1) {
        hl72unix(hl7Msg, 1);
@@ -481,10 +484,72 @@ void sendTemp(char *sIP, char *sPort, char *tName, int noSend, int fShowTemplate
 }
 
 
+// Get a random resCode based on command line arguments
+static int getResCode(int resType, char *ackList, char *resCode) {
+  int resRand = 0, listCount = 0;
+  long unsigned int l = 0;
+
+  // Set the default value to AA
+  sprintf(resCode, "%s", "AA");
+
+  // -a provided on command line, use default randomisation
+  if (resType == 1) {
+    getRand(0, 30, 0, NULL, &resRand, NULL);
+    if (resRand == 29) {
+      sprintf(resCode, "%s", "CE");
+    } else if (resRand == 27) {
+      sprintf(resCode, "%s", "CR");
+    } else if (resRand == 26) {
+      sprintf(resCode, "%s", "CA");
+    } else if (resRand > 21 && resRand < 26) {
+      sprintf(resCode, "%s", "AE");
+    } else if (resRand > 16 && resRand < 22) {
+      sprintf(resCode, "%s", "AR");
+    } else {
+      sprintf(resCode, "%s", "AA");
+    }
+    return(0);
+
+  // -A <ackList> provided, parse list and return code
+  } else if (resType == 2) {
+    for (l = 0; l < strlen(ackList); l++) {
+      if (ackList[l] == ',') listCount++;
+    }
+
+    getRand(0, listCount, 0, NULL, &resRand, NULL);
+
+    listCount = 0;
+    for (l = 0; l < strlen(ackList); l++) {
+      if (ackList[l] == ',') listCount++;
+      if (listCount == resRand) break;
+    }
+
+    if (strlen(ackList) < l + 2) {
+      sprintf(resCode, "%s", "AA");
+      return(1);
+
+    } else {
+      if (resRand == 0) l--;
+      if (ackList[l + 1] == ',') return(1);
+      resCode[0] = ackList[l + 1];
+      if (ackList[l + 2] == ',') {
+        resCode[1] = '\0';
+        return(1);
+      }
+      resCode[1] = ackList[l + 2];
+      resCode[2] = '\0';
+
+    }
+  }
+  return(0);
+}
+
+
 // Send and ACK after receiving a message
-int sendAck(int sessfd, char *hl7msg) {
-  char dt[26] = "", cid[201] = "", errStr[251] = "";
-  char ackBuf[1024];
+int sendAck(int sessfd, char *hl7msg, int resType, char *ackList) {
+  char dt[26] = "", cid[201] = "", errStr[256] = "";
+  char ackBuf[1024] = "", resCode[3] = "AA";
+  char *resCodeP = resCode;
   int writeL = 0;
 
   // Get current time and control ID of incoming message
@@ -492,15 +557,20 @@ int sendAck(int sessfd, char *hl7msg) {
   getHL7Field(hl7msg, "MSH", 10, cid);
   if (strlen(cid) == 0) sprintf(cid, "%s", "<UNKNOWN>");
 
-  sprintf(ackBuf, "%c%s%s%s%s%s%s%s%c%c", 0x0B, "MSH|^~\\&|||||", dt, "||ACK|", cid,
-                                          "|P|2.4|\rMSA|AA|", cid, "|OK|", 0x1C, 0x0D);
+  // Create the resCode if required
+  if (resType > 0) getResCode(resType, ackList, resCodeP);
+
+  sprintf(ackBuf, "%c%s%s%s%s%s%s%s%s%s%c%c", 0x0B, "MSH|^~\\&|||||", dt, "||ACK|", cid,
+                                           "|P|2.4|\rMSA|", resCodeP, "|", cid, "|OK|",
+                                           0x1C, 0x0D);
+
   if ((writeL = write(sessfd, ackBuf, strlen(ackBuf))) == -1) {
     close(sessfd);
     handleError(LOG_ERR, "Failed to send ACK response to server", -1, 0, 1);
     return(-1);
 
   } else {
-    sprintf(errStr, "Message with control ID %s received OK and ACK sent", cid);
+    sprintf(errStr, "Message with control ID %s received OK and ACK (%s) sent", cid, resCode);
     writeLog(LOG_INFO, errStr, 1);
   }
 
@@ -646,8 +716,8 @@ static struct Response *checkResponse(char *msg, char *sIP, char *sPort, char *t
 
 
 // Handle an incoming message
-static struct Response *handleMsg(int sessfd, int fd, char *sIP, char *sPort,
-                                  int argc, int optind, char *argv[]) {
+static struct Response *handleMsg(int sessfd, int fd, char *sIP, char *sPort, int argc,
+                                  int optind, char *argv[], int resType, char *ackList) {
 
   struct Response *respHead = responses;
   int readSize = 512, msgSize = 0, maxSize = readSize + msgSize, rcvSize = 1;
@@ -686,7 +756,7 @@ static struct Response *handleMsg(int sessfd, int fd, char *sIP, char *sPort,
           if (rcvBuf[rcvSize - 1] == 28) ignoreNext = 1;
         
           stripMLLP(msgBuf);
-          if (sendAck(sessfd, msgBuf) == -1) webErr = 1;
+          if (sendAck(sessfd, msgBuf, resType, ackList) == -1) webErr = 1;
           msgCount++;
 
           // If we're responding, parse each respond template to see if msg matches
@@ -824,7 +894,7 @@ static int readRespTemps(int respFD, char respTemps[20][256], char *respTempsPtr
 
 // Start listening for incoming messages
 int startMsgListener(char *lIP, const char *lPort, char *sIP, char *sPort,
-                     int argc, int optind, char *argv[]) {
+                     int argc, int optind, char *argv[], int resType, char *ackList) {
   // TODO - malloc instead of limited resp templates
   char respTemps[20][256];
   char *respTempsPtrs[20];
@@ -919,9 +989,11 @@ int startMsgListener(char *lIP, const char *lPort, char *sIP, char *sPort,
       }
 
       if (respUpdated == 0) {
-        responses = handleMsg(sessfd, fd, sIP, sPort, argc, optind, argv);
+        responses = handleMsg(sessfd, fd, sIP, sPort, argc, optind, argv,
+                              resType, ackList);
       } else {
-        responses = handleMsg(sessfd, fd, sIP, sPort, respUpdated, 0, respTempsPtrs);
+        responses = handleMsg(sessfd, fd, sIP, sPort, respUpdated, 0, 
+                              respTempsPtrs, resType, ackList);
       }
 
       close(sessfd);

@@ -108,7 +108,17 @@ Suppress sending the HL7 message, only print the message to stdout. Used in conj
 .sp
 \fB\-l\fP
 .RS 4
-Listen for incoming HL7 messages and print them to stdout. All messages will currently be replied to with an application accept (AA) ACK response, however this will be configurable in a future update.
+Listen for incoming HL7 messages and print them to stdout. By default, all messages will be replied to with an application accept (AA) ACK response, however this can be configured with the -a or -A flags.
+.RE
+.sp
+\fB\-a\fP
+.RS 4
+When listening for messages with -l, the default behaviour is to send an application accept (AA) ACK response. The -a flag will cause the listener to respond with a randmom response weighted towards AA. The possible responses and probability ratios are: AA 17/30, AR 5/30, AE 5/30, CA 1/30, CR 1/30 & CE 1/30.
+.RE
+.sp
+\fB\-A\fP <code,code,...,code>
+.RS 4
+Similarly to -a, the -A flag will respond with a random ACK code based on a comma separated list of codes provided as an argument. The same code may be listed multiple times to provide weighting towards a particular outcome. Blank codes will default to \(aqAA\(aq. For example, \(aq,,,AR\(aq is equivelant to \(aqAA,AA,AA,AR\(aq, a random value of AA or AR with a 75-25% probability split.
 .RE
 .sp
 \fB\-r\fP <template>

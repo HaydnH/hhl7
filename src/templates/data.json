@@ -28,7 +28,7 @@
     { "name":"MSH",
       "fieldcount":9,
       "fields": [
-        { "id":1,  "value":"TestingTwo" }
+        { "id":2,  "value":"TestingTwo" }
       ]
     },
     { "name":"DAT",
@@ -48,9 +48,9 @@
       ]
     },
     { "name":"MSH",
-      "fieldcount":1,
+      "fieldcount":2,
       "fields": [
-        { "id":1,  "value":"TestingThree" }
+        { "id":2,  "value":"TestingThree" }
       ]
     },
     { "name":"DAT",
@@ -72,7 +72,7 @@
     { "name":"MSH",
       "fieldcount":9,
       "fields": [
-        { "id":1,  "value":"TestingFour" }
+        { "id":2,  "value":"TestingFour" }
       ]
     },
     { "name":"DAT",

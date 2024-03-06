@@ -501,7 +501,7 @@ static int parseJSONField(struct json_object *fieldObj, int *lastFid, int lastFi
   json_object_object_get_ex(fieldObj, "id", &idObj);
   fid = (int) json_object_get_int(idObj);
   if (strcmp(segment, "MSH") == 0) {
-    if (fid == 1) writeLog(LOG_WARNING, "MSH segment contains a field id=1, MSH segment may be correupt", 1);
+    if (fid == 1) writeLog(LOG_WARNING, "MSH segment contains a field id=1, MSH segment may be corrupt", 1);
     fid = fid - 1;
   }
 
@@ -593,16 +593,28 @@ static int parseJSONSegs(struct json_object *segObj, char **hl7Msg, int *hl7MsgS
 
 
 // Add the termination character to the hl7Msg
-static void endJSONSeg(char **hl7Msg, int *hl7MsgS, int isWeb) {
+static void endJSONSeg(char **hl7Msg, int *hl7MsgS, int isWeb, int eType) {
   int reqS = 0;
 
   // Increase buffer size if needed and add segment terminator
-  reqS = strlen(*hl7Msg) + 7;
+  reqS = strlen(*hl7Msg) + 30;
   if (reqS > *hl7MsgS) *hl7Msg = dblBuf(*hl7Msg, hl7MsgS, reqS);
+
   if (isWeb == 1) {
-    sprintf(*hl7Msg + strlen(*hl7Msg), "%s", "<br />");
+    if (eType == 2) {
+      sprintf(*hl7Msg + strlen(*hl7Msg), "%s", "</div><div><br /></div>");
+    } else if (eType == 1) {
+      sprintf(*hl7Msg + strlen(*hl7Msg), "%s", "</div><div><br /></div><div>");
+    } else if (eType == 0) {
+      sprintf(*hl7Msg + strlen(*hl7Msg), "%s", "<br />");
+    }
+
   } else {
-    sprintf(*hl7Msg + strlen(*hl7Msg), "%c", '\r');
+    if (eType > 0) {
+      sprintf(*hl7Msg + strlen(*hl7Msg), "%c%c", '\r', '\r');
+    } else {
+      sprintf(*hl7Msg + strlen(*hl7Msg), "%c", '\r');
+    }
   }
 }
 
@@ -708,10 +720,6 @@ int parseJSONTemp(char *jsonMsg, char **hl7Msg, int *hl7MsgS, char **webForm,
 
             }
 
-            // If this is >= 2nd MSH segment, add a blank line
-            if (msgCount > 0) {
-              endJSONSeg(hl7Msg, hl7MsgS, isWeb);
-            }
             msgCount++;
 
             // Create a random number for this message
@@ -774,7 +782,33 @@ int parseJSONTemp(char *jsonMsg, char **hl7Msg, int *hl7MsgS, char **webForm,
           }
 
           // Add terminator to segment
-          if (retVal == 0) endJSONSeg(hl7Msg, hl7MsgS, isWeb);
+          // TODO - WORKING - need to stop this adding a <br> to the last segment in a msg
+          if (retVal == 0) {
+            segObj = NULL;
+            vStr = NULL;
+
+            if (s < segCount - 1) {
+              // Get the name of the next segment if it exists
+              segObj = NULL;
+              vStr = NULL;
+              segObj = json_object_array_get_idx(segsObj, s + 1);
+              if (segObj) {
+                json_object_object_get_ex(segObj, "name", &valObj);
+                vStr = (char *) json_object_get_string(valObj);
+              }
+            }    
+
+            if (s == segCount - 1) { 
+              endJSONSeg(hl7Msg, hl7MsgS, isWeb, 2); // EOF
+
+            } else if (strcmp(vStr, "MSH") == 0) {
+              endJSONSeg(hl7Msg, hl7MsgS, isWeb, 1); // EOM
+
+            } else {
+              endJSONSeg(hl7Msg, hl7MsgS, isWeb, 0); // EOS
+
+            }
+          }
         }
         rCount++;
         step = rStart + (rCount * inc);

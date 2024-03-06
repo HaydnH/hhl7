@@ -131,30 +131,8 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
       }\n\
       #sendButton {\n\
         position: absolute;\n\
-        right: 60px;\n\
+        right: 15px;\n\
         margin-top: 4px;\n\
-      }\n\
-      #sendRes {\n\
-        border: 1px solid #f00;\n\
-        box-sizing: border-box;\n\
-        border-width: 1px;\n\
-        border-style: solid;\n\
-        border-color: #8a93ae;\n\
-        box-shadow: inset 1px 1px 3px #999;\n\
-        position: absolute;\n\
-        right: 0px;\n\
-        padding: 0px 0px 0px 4px;\n\
-        font-size: 24px;\n\
-        height: 39px;\n\
-        line-height: 37px;\n\
-        width: 50px;\n\
-        display: inline-block;\n\
-        text-align: center;\n\
-      }\n\
-      @supports (-moz-appearance:none) {\n\
-        #sendRes {\n\
-          line-height: 43px;\n\
-        }\n\
       }\n\
       #sendPane {\n\
         position: fixed;\n\
@@ -267,9 +245,21 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         width: 15%;\n\
         height: 26px;\n\
       }\n\
-      #hl7Container {\n\
-        flex: 1;\n\
+      #contContainer {\n\
+        display: flex;\n\
+        flex-direction: row;\n\
+        height: 100%;\n\
+        width: 100%;\n\
         overflow-y: scroll;\n\
+      }\n\
+      #respContainer {\n\
+        position: relative;\n\
+        width: 54px;\n\
+        background-color: #eaeffe;\n\
+      }\n\
+      #hl7Container {\n\
+        height: 100%;\n\
+        width: 100%;\n\
       }\n\
       .hl7Message {\n\
         height: 95%;\n\
@@ -278,6 +268,27 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         font-weight: 500;\n\
         padding: 14px 14px;\n\
         outline: none;\n\
+      }\n\
+      .hl7MsgResp {\n\
+        position: absolute;\n\
+        width: 50px;\n\
+        font-family: \"Courier New\", Courier, monospace;\n\
+        font-size: 17px;\n\
+        font-weight: 500;\n\
+        text-align: center;\n\
+        background-color: #d4dcf1;\n\
+        border-width: 1px 0px;\n\
+        border-style: solid;\n\
+        border-color: #8a93ae;\n\
+      }\n\
+      .hl7MsgRespG {\n\
+        background-color: #a9dfad;\n\
+      }\n\
+      .hl7MsgRespR {\n\
+        background-color: #ff9191;\n\
+      }\n\
+      .hl7MsgRespT {\n\
+        background-color: #d1a95a;\n\
       }\n\
       #hl7Log {\n\
         overflow-y: scroll;\n\
@@ -857,6 +868,176 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         pane.style.display = \"flex\";\n\
       }\n\
 \n\
+      function placeCursor(target) {\n\
+        const rng = document.createRange();\n\
+        const sel = window.getSelection();\n\
+\n\
+        if (target.nextElementSibling) target = target.nextElementSibling;\n\
+        if (target.innerText != \"\\n\") {\n\
+          var nDiv = document.createElement(\"div\");\n\
+          nDiv.innerText = \"\\n\";\n\
+          target.parentNode.insertBefore(nDiv, target);\n\
+          target = nDiv;\n\
+        }\n\
+\n\
+        rng.setStart(target, 0);\n\
+        rng.collapse(true);\n\
+        sel.removeAllRanges();\n\
+        sel.addRange(rng);\n\
+      }\n\
+\n\
+      function unwrapResps(curDiv) {\n\
+        var hl7Msg = document.getElementById(\"hl7Message\");\n\
+        var hl7Msgs = hl7Msg.getElementsByTagName(\"DIV\");\n\
+        var delCount = 0;\n\
+\n\
+        for (var i = 0; i < hl7Msgs.length; i++) {\n\
+          if (hl7Msgs[i].getElementsByTagName(\"DIV\").length > 0) {\n\
+            hl7Msgs[i].replaceWith(...hl7Msgs[i].childNodes);\n\
+            placeCursor(curDiv);\n\
+          }\n\
+        }\n\
+        if (hl7Msg.lastChild.innerText != \"\\n\") {\n\
+          var nDiv = document.createElement(\"div\");\n\
+          nDiv.innerText = \"\\n\";\n\
+          hl7Msg.appendChild(nDiv);\n\
+        }\n\
+      }\n\
+\n\
+      function wrapResps() {\n\
+        var dDiv = document.getElementById(\"hl7Message\");\n\
+        var childs = dDiv.childNodes;\n\
+        var msgFound = 0;\n\
+        var nDiv;\n\
+\n\
+        for (var i = childs.length - 1; i >= 0; i--) {\n\
+          if (childs[i].tagName != \"DIV\") {\n\
+            if (childs[i].nodeType == Node.TEXT_NODE && i == 0) {\n\
+              nDiv.insertBefore(childs[i], nDiv.firstChild);\n\
+              dDiv.insertBefore(nDiv, childs[i]);\n\
+              msgFound = 0;\n\
+\n\
+            } else if (childs[i].nodeType == Node.TEXT_NODE &&\n\
+               (childs[i].nodeValue.slice(0, 4) == \"MSH|\" ||\n\
+                childs[i].nodeValue.slice(1, 5) == \"MSH|\")) {\n\
+\n\
+              nDiv.insertBefore(childs[i], nDiv.firstChild);\n\
+              dDiv.insertBefore(nDiv, childs[i]);\n\
+              msgFound = 0;\n\
+\n\
+              if (childs[i].nextSibling.innerText.replace(/[\\n\\r\\t ]/g, \"\") != \"\") {\n\
+                nDiv = document.createElement(\"DIV\");\n\
+                nDiv.innerHTML = \"<br />\";\n\
+                dDiv.insertBefore(nDiv, childs[i].nextSibling);\n\
+              }\n\
+\n\
+            } else {\n\
+              if (msgFound == 0) {\n\
+                nDiv = document.createElement(\"DIV\");\n\
+                msgFound = 1;\n\
+              }\n\
+              nDiv.insertBefore(childs[i], nDiv.firstChild);\n\
+\n\
+            }\n\
+          }\n\
+        }\n\
+      }\n\
+\n\
+      function resizeResps(moveCursor) {\n\
+        var sel = document.getSelection();\n\
+        var curDiv = sel.anchorNode;\n\
+        unwrapResps(curDiv);\n\
+        wrapResps();\n\
+\n\
+        var mResps = document.getElementById(\"respContainer\");\n\
+        mResps.innerHTML = \"\";\n\
+        var hl7Msg = document.getElementById(\"hl7Message\");\n\
+        var hl7Msgs = hl7Msg.getElementsByTagName(\"DIV\");\n\
+        var dTop = 0;\n\
+        var dHeight = 0;\n\
+        var msgCount = 0;\n\
+\n\
+        for (var i = 0; i < hl7Msgs.length; i++) {\n\
+          var addDiv = 0;\n\
+          if (hl7Msgs[i].getElementsByTagName(\"DIV\").length > 0) {\n\
+            addDiv = 0;\n\
+\n\
+          //} else if (hl7Msgs[i].innerText.slice(0,4) == \"MSH|\" && msgCount == 0) {\n\
+          } else if (msgCount == 0) {\n\
+            dTop = hl7Msgs[i].offsetTop;\n\
+            dHeight = hl7Msgs[i].offsetHeight;\n\
+            msgCount++;\n\
+\n\
+          } else if (hl7Msgs[i].innerText.slice(0,4) == \"MSH|\" && msgCount > 0) {\n\
+            msgCount++;\n\
+            addDiv = 1;\n\
+\n\
+          } else if (! hl7Msgs[i].nextElementSibling) {\n\
+            addDiv = 1;\n\
+\n\
+          } else if (hl7Msgs[i].innerText.replace(/[\\n\\r\\t ]/g, \"\") != \"\") {\n\
+            dHeight = hl7Msgs[i].offsetTop + hl7Msgs[i].offsetHeight - dTop;\n\
+          }\n\
+\n\
+          if (addDiv == 1) {\n\
+            var rDiv = document.createElement(\"div\");\n\
+            rDiv.innerText = \"--\";\n\
+            rDiv.className = \"hl7MsgResp\";\n\
+            rDiv.style.top = dTop - hl7Msg.offsetTop + \"px\";\n\
+            rDiv.style.height = dHeight + \"px\";\n\
+            rDiv.style.lineHeight = dHeight + \"px\";\n\
+            mResps.appendChild(rDiv);\n\
+            if (hl7Msgs[i]) {\n\
+              dTop = hl7Msgs[i].offsetTop;\n\
+              dHeight = hl7Msgs[i].offsetTop + hl7Msgs[i].offsetHeight - dTop;\n\
+            }\n\
+          }\n\
+        }\n\
+        mResps.style.height = hl7Msg.scrollHeight + 20 + \"px\";\n\
+      }\n\
+\n\
+      function updateResps(event) {\n\
+        if (!event) {\n\
+          setTimeout(function() { resizeResps(); }, 0);\n\
+\n\
+        } else {\n\
+          if (event.key == \"Enter\" && event.shiftKey) {\n\
+            event.preventDefault();\n\
+          } else if (event.key == \"Enter\") {\n\
+            resizeResps();\n\
+          } else if (event.key == \"Backspace\") {\n\
+            resizeResps();\n\
+          } else if (event.key == \"Control\") {\n\
+            resizeResps();\n\
+            /* TODO - limit ctrl key ups to ctrl+v, ctrl+z etc  */\n\
+          }\n\
+        }\n\
+      }\n\
+\n\
+      function popResps(resJObj) {\n\
+        var respCont = document.getElementById(\"respContainer\");\n\
+        var mResps = respCont.getElementsByTagName(\"DIV\");\n\
+        jObj = JSON.parse(resJObj);\n\
+\n\
+        if (jObj.count != mResps.length) {\n\
+          errHandler(\"ERROR: The backend server replied with a different number of message responses than expected. \" + jObj.count + \" reponses for \" + mResps.length + \" messages\");\n\
+        } else {\n\
+          const rArr = jObj.results.split(\",\");\n\
+          for (var i = 0; i < jObj.count; i++) {\n\
+            mResps[i].innerText = rArr[i];\n\
+            if (rArr[i] == \"AA\" || rArr[i] == \"CA\") {\n\
+              mResps[i].classList.add(\"hl7MsgRespG\");\n\
+            } else if (rArr[i] == \"AE\" || rArr[i] == \"AR\" ||\n\
+                       rArr[i] == \"CE\" || rArr[i] == \"CR\" ||\n\
+                       rArr[i] == \"EE\") {\n\
+              mResps[i].classList.add(\"hl7MsgRespR\");\n\
+            } else {\n\
+              errHandler(\"ERROR: The backed sent an invalid response code (\" + rArr[i] + \", expected one of AA, AE, AR, CA, CE, CR or EE)\");\n\
+            }\n\
+          }\n\
+        }\n\
+      }\n\
+\n\
       function showDesc() {\n\
         var pane = document.getElementById(\"tempDesc\");\n\
         if (pane.style.display == \"none\" || pane.style.display == \"\") {\n\
@@ -939,11 +1120,13 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
       }\n\
 \n\
       function clrRes() {\n\
-        var res = document.getElementById(\"sendRes\");\n\
-        if (res.innerHTML != \"--\") {\n\
-          res.innerHTML = \"--\";\n\
-          res.style.backgroundColor = \"#d4dcf1\";\n\
+        var mResp = document.getElementById(\"respContainer\");\n\
+        var mResps = mResp.getElementsByTagName(\"DIV\");\n\
+        for (var i = 0; i < mResps.length; i++) {\n\
+          mResps[i].innerText = \"--\";\n\
+          mResps[i].className = \"hl7MsgResp\";\n\
         }\n\
+\n\
         var btn = document.getElementById(\"sendButton\");\n\
         btn.addEventListener(\"click\", postHL7);\n\
         btn.classList.add(\"sendActive\");\n\
@@ -1464,31 +1647,13 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         btn.classList.remove(\"sendActive\");\n\
         btn.removeEventListener(\"click\", postHL7);\n\
 \n\
-        var res = document.getElementById(\"sendRes\");\n\
-        res.innerHTML = \"--\";\n\
-        res.style.backgroundColor = \"#d4dcf1\";\n\
         var xhr = new XMLHttpRequest();\n\
 \n\
         xhr.onreadystatechange = function() {\n\
           if (xhr.readyState === 4) {\n\
-            btn.addEventListener(\"click\", postHL7);\n\
-            btn.classList.add(\"sendActive\");\n\
-\n\
             if (xhr.status === 200) {\n\
               if (errHandler(xhr.responseText) == 0) {\n\
-                if (xhr.responseText == \"AA\" || xhr.responseText == \"CA\") {\n\
-                  res.style.backgroundColor = \"#a9dfad\";\n\
-                  res.innerHTML = xhr.responseText;\n\
-\n\
-                } else if (xhr.responseText == \"AE\" || xhr.responseText == \"AR\" ||\n\
-                           xhr.responseText == \"CE\" || xhr.responseText == \"CR\"){\n\
-                  res.style.backgroundColor = \"#ff9191\";\n\
-                  res.innerHTML = xhr.responseText;\n\
-\n\
-                } else {\n\
-                  errHandler(\"ERROR: An unhandled backend server error occured.\");\n\
-\n\
-                }\n\
+                popResps(xhr.responseText);\n\
               }\n\
 \n\
             } else if (xhr.status == 401) {\n\
@@ -1517,10 +1682,12 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
 \n\
             } else if (xhr.status === 418) {\n\
               hl7Msg = document.getElementById(\"hl7Message\");\n\
-              hl7Msg.innerText = \"[418] Coffee is impossible, or at least, infinitely improbable, for I am a teapot.\";\n\
-              res.style.backgroundColor = \"#d1a95a\";\n\
-              res.innerHTML = \"TP\";\n\
-\n\
+              hl7Msg.innerHTML = \"<div>[418] Coffee is impossible, or at least, infinitely improbable, for I am a teapot.</div>\";\n\
+              resizeResps();\n\
+              respCont = document.getElementById(\"respContainer\");\n\
+              var mResps = respCont.getElementsByTagName(\"DIV\");\n\
+              mResps[0].classList.add(\"hl7MsgRespT\");\n\
+              mResps[0].innerText = \"TP\";\n\
             } else if (xhr.status === 500) {\n\
               errHandler(\"ERROR: An unhandled backend server error occured.\");\n\
 \n\
@@ -1679,6 +1846,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
                 formHTML = jsonData[\"desc\"];\n\
                 var sel = document.getElementById(\"tempDesc\");\n\
                 sel.innerHTML = formHTML;\n\
+                resizeResps();\n\
               }\n\
             }\n\
 \n\
@@ -1690,6 +1858,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         } else {\n\
           var sel = document.getElementById(\"hl7Message\");\n\
           sel.innerHTML = \"\";\n\
+          resizeResps();\n\
         }\n\
       }\n\
 \n\
@@ -1781,12 +1950,14 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         <div id=\"tempDesc\"></div>\n\
         <div id=\"tempForm\"></div>\n\
 \n\
-        <div class=\"titleBar\">HL7 Message:\n\
+        <div class=\"titleBar\">HL7 Message(s):\n\
           <img id=\"sendButton\" src=\"./images/send.png\" title=\"Send HL7\"/>\n\
-          <div id=\"sendRes\">--</div>\n\
         </div>\n\
-        <div id=\"hl7Container\">\n\
-          <div id=\"hl7Message\" class=\"hl7Message\" contenteditable=\"true\" onFocus=\"clrHl7Help();\" onInput=\"clrRes();\">Paste/type HL7 message here or use a template above.</div>\n\
+        <div id=\"contContainer\">\n\
+          <div id=\"respContainer\"></div>\n\
+          <div id=\"hl7Container\">\n\
+            <div id=\"hl7Message\" class=\"hl7Message\" contenteditable=\"true\" onFocus=\"clrHl7Help();\" onInput=\"clrRes();\" onkeyup=\"updateResps(event);\" onpaste=\"updateResps();\">Paste/type HL7 message here or use a template above.</div>\n\
+          </div>\n\
         </div>\n\
         <div id=\"tempDesc\"></div>\n\
       </div>\n\

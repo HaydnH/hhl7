@@ -15,10 +15,10 @@ int validPort(char *port);
 int connectSvr(char *ip, char *port);
 int listenACK(int sockfd, char *res);
 void sendFile(FILE *fp, long int fileSize, int sockfd);
-int sendPacket(int sockfd, char *hl7msg, char *resStr, int fShowTemplate);
+int sendPacket(int sockfd, char *hl7msg, char *resStr, char **resList, int fShowTemplate);
 void sendTemp(char *sIP, char *sPort, char *tName, int noSend, int fShowTemplate,
               int optind, int argc, char *argv[], char *resStr);
-int sendAck(int sessfd, char *hl7msg);
+int sendAck(int sessfd, char *hl7msg, int resType, char *ackList);
 int listenServer(char *port, int isWeb);
 int startMsgListener(char *lIP, const char *lPort, char *sIP, char *sPort,
-                     int argc, int optind, char *argv[]);
+                     int argc, int optind, char *argv[], int resType, char *ackList);
