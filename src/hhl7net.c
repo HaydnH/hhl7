@@ -370,7 +370,7 @@ int sendPacket(int sockfd, char *hl7msg, char *resStr, char **resList, int fShow
   const char msgDelim[6] = "\nMSH|";
   char tokMsg[strlen(hl7msg) + 5];
   char *curMsg = hl7msg, *nextMsg = NULL;
-  int msgCount = 0, retVal = 0, rlSize = 50, reqS = 0;
+  int msgCount = 0, retVal = 0, rlSize = 301, reqS = 0;
   char errStr[43] = "";
 
   while (curMsg != NULL) {

@@ -55,10 +55,7 @@ int webRunning = 0;
 struct connection_info_struct {
   struct MHD_Connection *connection;
   int connectiontype;
-  // TODO - WORKING - SORT MEMORY HERE
-  //char answerstring[MAXANSWERSIZE];
   char answerstring[3];
-  //char *ansstring;
   char *poststring;
   struct MHD_PostProcessor *postprocessor;
   struct Session *session;
@@ -671,7 +668,6 @@ static enum MHD_Result getTempForm(struct Session *session,
   char *webHL7 = malloc(webHL7S);
   char *jsonReply = malloc(3);
   webForm[0] = '\0';
-  //webHL7[0] = '\0';
   jsonReply[0] = '\0';
   sprintf(webHL7, "%s", "<div>");
 
@@ -1379,7 +1375,6 @@ static enum MHD_Result sendPage(struct Session *session, struct MHD_Connection *
   if (ansStrP != NULL) page = ansStrP;
   response = MHD_create_response_from_buffer(strlen(page), (void *) page,
                                              MHD_RESPMEM_MUST_COPY);
-                                             // MHD_RESPMEM_PERSISTENT);
 
   if (!response) return(MHD_NO);
 
@@ -1486,7 +1481,7 @@ static enum MHD_Result answerToConnection(void *cls, struct MHD_Connection *conn
   struct Session *session;
   int rc = -1, sockfd = -1;
   char retCode[3] = "", resStr[3] = "", errStr[90] = "";
-  char *resList = malloc(50);
+  char *resList = malloc(301);
   sprintf(resList, "%s", "{ \"results\":\"");
 
   // Debug - print connection values, e.g user-agent
@@ -1498,7 +1493,6 @@ static enum MHD_Result answerToConnection(void *cls, struct MHD_Connection *conn
     con_info->connection = connection;
     con_info->session = getSession(connection);
     con_info->answerstring[0] = '\0';
-    //con_info->ansstring = NULL;
     con_info->poststring = NULL;
     con_info->postprocessor = NULL;
 
@@ -1618,7 +1612,7 @@ static enum MHD_Result answerToConnection(void *cls, struct MHD_Connection *conn
                               strlen(con_info->poststring), sockfd);
 
               writeLog(LOG_INFO, errStr, 0);
-              sprintf(con_info->answerstring, "%s", resStr);
+              snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", resStr);
 
             } else if (rc == -1) {
               sprintf(errStr, "[S: %03d][%s] Failed to send packet to socket: %d",

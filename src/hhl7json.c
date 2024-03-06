@@ -782,7 +782,6 @@ int parseJSONTemp(char *jsonMsg, char **hl7Msg, int *hl7MsgS, char **webForm,
           }
 
           // Add terminator to segment
-          // TODO - WORKING - need to stop this adding a <br> to the last segment in a msg
           if (retVal == 0) {
             segObj = NULL;
             vStr = NULL;
