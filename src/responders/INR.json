@@ -5,7 +5,7 @@
   "reponseTimeMin":20,
   "reponseTimeMax":30,
   "matches": [
-    { "segment":"MSH", "field":8, "value":"OMG^O19" },
+    { "segment":"MSH", "field":9, "value":"OMG^O19" },
     { "segment":"OBR", "field":4, "value":"INR^INR" }
   ],
   "sendTemplate":"INR",

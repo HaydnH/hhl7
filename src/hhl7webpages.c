@@ -1925,7 +1925,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
 \n\
   <body onLoad=\"initPage();\">\n\
     <div id=\"headerBar\">\n\
-      <img id=\"logo\" src=\"./images/logo.png\" />\n\
+      <img id=\"logo\" src=\"/images/logo.png\" />\n\
       <a href=\"\" onClick=\"showMenu(); return false;\">\n\
         <div id=\"person\"></div>\n\
       </a>\n\
@@ -1951,7 +1951,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         <div id=\"tempForm\"></div>\n\
 \n\
         <div class=\"titleBar\">HL7 Message(s):\n\
-          <img id=\"sendButton\" src=\"./images/send.png\" title=\"Send HL7\"/>\n\
+          <img id=\"sendButton\" src=\"/images/send.png\" title=\"Send HL7\"/>\n\
         </div>\n\
         <div id=\"contContainer\">\n\
           <div id=\"respContainer\"></div>\n\

@@ -30,7 +30,6 @@ void hl72unix(char *msg, int onlyPrint);
 void hl72web(char *msg, int maxSize);
 void unix2hl7(char *msg);
 FILE *findTemplate(char *fileName, char *tName, int isRespond);
-char *str2base64(const char *message);
 void escapeSlash(char *dest, char *src);
 void printChars(char *buf);
 char *dblBuf(char *buf, int *bufS, int reqS);

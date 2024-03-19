@@ -17,6 +17,7 @@ You should have received a copy of the GNU General Public License along with hhl
 #include <json.h>
 #include <time.h>
 #include <syslog.h>
+#include <openssl/evp.h>
 #include "hhl7utils.h"
 #include "hhl7extern.h"
 
@@ -393,6 +394,54 @@ static int parseVals(char ***hl7Msg, int *hl7MsgS, char *vStr, char *nStr, char 
       fclose(fp);
     }
 
+
+  // Read a data file and file the value with a line of it
+  } else if (strncmp(vStr, "$B64", 4) == 0) {
+    json_object_object_get_ex(fieldObj, "datafile", &dataFile);
+
+    if (dataFile == NULL) {
+      handleError(LOG_WARNING, "$B64 in JSON template missing datafile argument", 1, 0, 1);
+      return(1);
+
+    } else {
+      FILE* fp = NULL;
+      char dataFName[strlen(json_object_get_string(dataFile)) + 28];
+      sprintf(dataFName, "/usr/local/hhl7/datafiles/%s", json_object_get_string(dataFile));
+      long int dataSize = getFileSize(dataFName);
+      unsigned char fileData[dataSize];
+
+      sprintf(dataFName, "/usr/local/hhl7/datafiles/%s", json_object_get_string(dataFile));
+      fp = openFile(dataFName, "r"); 
+
+      if (fp == NULL) { 
+        handleError(LOG_WARNING, "Could not open datafile from JSON template", 1, 0, 1);
+        return(1);
+
+      } else {
+        if (fread(fileData, dataSize, 1, fp) <= 0) {
+          handleError(LOG_WARNING, "Failed to read datafile contents", 1, 0, 1);
+          fclose(fp);
+          return(1);
+        }
+
+        int b64Size = 4 * ((dataSize / 3) + 1) + 1;
+        unsigned char b64Data[b64Size];
+
+        if (EVP_EncodeBlock(b64Data, fileData, dataSize) <= 0) {
+          handleError(LOG_WARNING, "Failed to base64 encode datafile contents", 1, 0, 1);
+          fclose(fp);
+          return(1);
+        }
+
+        reqS = strlen(**hl7Msg) + b64Size + 1;
+        if (reqS > *hl7MsgS) **hl7Msg = dblBuf(**hl7Msg, hl7MsgS, reqS);
+        strcat(**hl7Msg, (char *) b64Data);
+
+      }
+      fclose(fp);
+    }
+
+
   // Retrieve a value from the random number store
   } else if (strncmp(vStr, "$STR", 4) == 0) {
     if (varLen == 4) {
@@ -423,7 +472,6 @@ static int parseVals(char ***hl7Msg, int *hl7MsgS, char *vStr, char *nStr, char 
         break;
       }
     }
-
 
   // Replace json value with a command line argument
   } else if (nStr && strncmp(vStr, "$VAR", 4) == 0) {

@@ -78,6 +78,7 @@ struct Session {
   int pcaction;
   char userid[33];
   char sIP[256];
+  char tHost[256];
   char sPort[6];
   char lPort[6];
   int isListening;
@@ -91,11 +92,15 @@ static struct Session *sessions;
 
 
 // Get the session ID from cookie or create a new session
-static struct Session *getSession(struct MHD_Connection *connection) {
+static struct Session *getSession(struct MHD_Connection *connection, const char *url) {
   struct Session *ret;
   const char *cookie;
   int maxShortID = 0, baseSession = 0;
   char errStr[122] = "";
+
+  if (strstr(url, "/server/")) {
+    printf("UUU: %s\n", url + 8);
+  }
 
   if (connection) {
     cookie = MHD_lookup_connection_value(connection, MHD_COOKIE_KIND, COOKIE_NAME);
@@ -421,6 +426,9 @@ static enum MHD_Result getSettings(struct Session *session,
                     session->shortID);
     handleError(LOG_ERR, errStr, 1, 0, 1);
   }
+
+  // TODO - check for missing uid, sIP, sPort, lPort objects and error handle
+  // it *should* be ok as all are internally handled, but...
 
   // Loop through users and get their settings
   uCount = json_object_array_length(userArray);
@@ -1126,7 +1134,7 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
 
   // A new connection should have already found it's sesssion, but check to be safe
   if (con_info->session == NULL) {
-    con_info->session = getSession(con_info->connection);
+    con_info->session = getSession(con_info->connection, NULL);
   }
 
   // Discard messages only containing new line characters
@@ -1491,7 +1499,7 @@ static enum MHD_Result answerToConnection(void *cls, struct MHD_Connection *conn
     con_info = malloc(sizeof(struct connection_info_struct));
     if (con_info == NULL) return(MHD_NO);
     con_info->connection = connection;
-    con_info->session = getSession(connection);
+    con_info->session = getSession(connection, url);
     con_info->answerstring[0] = '\0';
     con_info->poststring = NULL;
     con_info->postprocessor = NULL;
@@ -1516,7 +1524,7 @@ static enum MHD_Result answerToConnection(void *cls, struct MHD_Connection *conn
   }
 
   if (con_info->session == NULL) {
-    con_info->session = getSession(connection);
+    con_info->session = getSession(connection, url);
 
     if (con_info->session == NULL) {
       fprintf (stderr, "Failed to setup session for %s\n", url);
@@ -1815,7 +1823,7 @@ int listenWeb(int daemonSock) {
   } else {
     if (isDaemon == 1) {
       // Start a single session to prevent daemon closing until a real session exists
-      getSession(NULL);
+      getSession(NULL, NULL);
     }
     webRunning = 1;
   }

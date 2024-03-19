@@ -12,6 +12,7 @@ You should have received a copy of the GNU General Public License along with hhl
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <unistd.h>
 #include <string.h>
 #include <fcntl.h>
@@ -80,6 +81,7 @@ int checkFile(char *fileName, int perms) {
 }
 
 
+// TODO - check if this function returns NULL when file does not exist
 // Check if we can open a file for reading and return FP, (Modes; r, w etc)
 FILE *openFile(char *fileName, char *mode) {
   FILE *fp;
@@ -87,7 +89,7 @@ FILE *openFile(char *fileName, char *mode) {
   if (fp == NULL) {
     // TODO - change to writeLog
     fprintf(stderr, "ERROR: Cannot open file: %s\n", fileName);
-    exit(1);
+    return(NULL);
   }
   return(fp);
 }
@@ -393,43 +395,6 @@ FILE *findTemplate(char *fileName, char *tName, int isRespond) {
   // We should never get here, but it's included to avoid compiler warnings
   return(fp);
 
-}
-
-
-// Encoding for web certs
-char *str2base64(const char *message) {
-  const char *lookup = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-  unsigned long l;
-  size_t i, j;
-  char *tmp;
-  size_t length = strlen (message);
-
-  tmp = malloc(length * 2 + 1);
-  if (NULL == tmp)
-    return(NULL);
-  j = 0;
-  for (i = 0; i < length; i += 3) {
-    l = (((unsigned long) message[i]) << 16)
-        | (((i + 1) < length) ? (((unsigned long) message[i + 1]) << 8) : 0)
-        | (((i + 2) < length) ? ((unsigned long) message[i + 2]) : 0);
-
-    tmp [j++] = lookup[(l >> 18) & 0x3F];
-    tmp [j++] = lookup[(l >> 12) & 0x3F];
-
-    if (i + 1 < length)
-      tmp [j++] = lookup[(l >> 6) & 0x3F];
-    if (i + 2 < length)
-      tmp [j++] = lookup[l & 0x3F];
-  }
-
-  if (0 != length % 3)
-    tmp [j++] = '=';
-  if (1 == length % 3)
-    tmp [j++] = '=';
-
-  tmp [j] = 0;
-
-  return(tmp);
 }
 
 
