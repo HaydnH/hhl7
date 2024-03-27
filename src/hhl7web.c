@@ -78,7 +78,6 @@ struct Session {
   int pcaction;
   char userid[33];
   char sIP[256];
-  char tHost[256];
   char sPort[6];
   char lPort[6];
   int isListening;
@@ -92,15 +91,11 @@ static struct Session *sessions;
 
 
 // Get the session ID from cookie or create a new session
-static struct Session *getSession(struct MHD_Connection *connection, const char *url) {
+static struct Session *getSession(struct MHD_Connection *connection) {
   struct Session *ret;
   const char *cookie;
   int maxShortID = 0, baseSession = 0;
   char errStr[122] = "";
-
-  if (strstr(url, "/server/")) {
-    printf("UUU: %s\n", url + 8);
-  }
 
   if (connection) {
     cookie = MHD_lookup_connection_value(connection, MHD_COOKIE_KIND, COOKIE_NAME);
@@ -120,11 +115,12 @@ static struct Session *getSession(struct MHD_Connection *connection, const char 
         }
         ret = ret->next;
       }
-      if (ret != NULL) {
 
+      if (ret != NULL) {
         sprintf(errStr, "[S: %03d] Session matched to an active session: %s",
                         ret->shortID, ret->sessID);
         writeLog(LOG_DEBUG, errStr, 0);
+
         ret->rc++;
         return(ret);
       }
@@ -243,6 +239,7 @@ static enum MHD_Result main_page(struct Session *session,
   if (! response) return(MHD_NO);
 
   addCookie(session, response);
+
   ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
   sprintf(errStr, "[S: %03d][200] GET: %s", session->shortID, url);
   writeLog(LOG_INFO, errStr, 0);
@@ -324,6 +321,64 @@ static enum MHD_Result getImage(struct Session *session,
 
   MHD_destroy_response(response);
   return(ret);
+}
+
+
+// Check if a server is valid in the server file and retun it's address
+static int checkServerName(struct Session *session, char *sName, char *sAddr) {
+  struct json_object *svrsObj = NULL, *svrArray = NULL, *svrObj = NULL;
+  struct json_object *nameObj = NULL, *addrObj = NULL;
+  int sCount = 0, s = 0;
+  char errStr[80] = "";
+
+  // Define server file location
+  char svrsFile[34];
+  if (isDaemon == 1) {
+    sprintf(svrsFile, "%s", "/usr/local/hhl7/conf/servers.hhl7");
+  } else {
+    sprintf(svrsFile, "%s", "./conf/servers.hhl7");
+  }
+
+  svrsObj = json_object_from_file(svrsFile);
+  if (svrsObj == NULL) {
+    sprintf(errStr, "[S: %03d] Failed to read server config file", session->shortID);
+    handleError(LOG_ERR, errStr, 1, 0, 1);
+    return(1);
+  }
+
+  json_object_object_get_ex(svrsObj, "servers", &svrArray);
+  if (svrArray == NULL) {
+    sprintf(errStr, "[S: %03d] Failed to get server object, server file corrupt?",
+                    session->shortID);
+    handleError(LOG_ERR, errStr, 1, 0, 1);
+    json_object_put(svrsObj);
+    return(1);
+  }
+
+  sCount = json_object_array_length(svrArray);
+
+  for (s = 0; s < sCount; s++) {
+    svrObj = json_object_array_get_idx(svrArray, s);
+    nameObj = json_object_object_get(svrObj, "displayName"); 
+    addrObj = json_object_object_get(svrObj, "address");
+
+    if (nameObj == NULL || addrObj == NULL) {
+      sprintf(errStr, "[S: %03d] Failed to name or address for server, server file corrupt?",
+                      session->shortID);
+      handleError(LOG_ERR, errStr, 1, 0, 1);
+      json_object_put(svrsObj);
+      return(1);
+    }
+
+    if (strcmp(json_object_get_string(nameObj), sName) == 0) {
+      sprintf(sAddr, "%s", json_object_get_string(addrObj));
+      json_object_put(svrsObj);
+      return(0);
+    }
+  }
+
+  json_object_put(svrsObj);
+  return(1);
 }
 
 
@@ -441,8 +496,20 @@ static enum MHD_Result getSettings(struct Session *session,
       sPort = json_object_object_get(userObj, "sPort");
       lPort = json_object_object_get(userObj, "lPort");
 
+      // Check if the url overrides the server settings
+      char sAddr[256] = "";
+      char *svrPtr = strstr(url, "/server/");
+      if (svrPtr) {
+        if (checkServerName(session, svrPtr + 8, sAddr) == 0) {
+          sprintf(session->sIP, "%s", sAddr);
+
+        } else {
+          sprintf(session->sIP, "%s", json_object_get_string(sIP));
+
+        }    
+      }
+
       // Push the connection settings from passwd file to live session
-      sprintf(session->sIP, "%s", json_object_get_string(sIP));
       sprintf(session->sPort, "%s", json_object_get_string(sPort));
       sprintf(session->lPort, "%s", json_object_get_string(lPort));
 
@@ -574,7 +641,6 @@ static enum MHD_Result getTemplateList(struct Session *session,
       if (strcmp(ext, ".json") == 0) {
         // Create a template name and full path to file from filename
         memcpy(fName, file->d_name, strlen(file->d_name) - strlen(ext));
-        // TODO check this - strlen can't be valid if it needs a \0 after
         fName[strlen(file->d_name) - strlen(ext)] = '\0';
 
         strcpy(fullName, tPath);
@@ -708,8 +774,6 @@ static enum MHD_Result getTempForm(struct Session *session,
   } else {
     char tmpBuf[2 * strlen(webHL7) + 1];
     escapeSlash(tmpBuf, webHL7);
-    // TODO check this - strlen can't be valid if it needs a \0 after
-    tmpBuf[strlen(tmpBuf)] = '\0';
 
     // Construct the JSON reply
     jsonReply = realloc(jsonReply, strlen(webForm) + strlen(webHL7) + strlen(descStr) + 65);
@@ -1016,7 +1080,6 @@ static int startListenWeb(struct Session *session, struct MHD_Connection *connec
 
     rc = startMsgListener("127.0.0.1", session->lPort, session->sIP, session->sPort,
                           argc, 0, argv, 0, NULL);
-
     if (rc < 0) {
       stopListenWeb(session, connection, url);
       sprintf(errStr, "Failed to start listener on port: %s", session->lPort);
@@ -1134,7 +1197,7 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
 
   // A new connection should have already found it's sesssion, but check to be safe
   if (con_info->session == NULL) {
-    con_info->session = getSession(con_info->connection, NULL);
+    con_info->session = getSession(con_info->connection);
   }
 
   // Discard messages only containing new line characters
@@ -1499,7 +1562,7 @@ static enum MHD_Result answerToConnection(void *cls, struct MHD_Connection *conn
     con_info = malloc(sizeof(struct connection_info_struct));
     if (con_info == NULL) return(MHD_NO);
     con_info->connection = connection;
-    con_info->session = getSession(connection, url);
+    con_info->session = getSession(connection);
     con_info->answerstring[0] = '\0';
     con_info->poststring = NULL;
     con_info->postprocessor = NULL;
@@ -1524,7 +1587,7 @@ static enum MHD_Result answerToConnection(void *cls, struct MHD_Connection *conn
   }
 
   if (con_info->session == NULL) {
-    con_info->session = getSession(connection, url);
+    con_info->session = getSession(connection);
 
     if (con_info->session == NULL) {
       fprintf (stderr, "Failed to setup session for %s\n", url);
@@ -1561,7 +1624,8 @@ static enum MHD_Result answerToConnection(void *cls, struct MHD_Connection *conn
       if (session->aStatus != 1) return(requestLogin(session, connection, url));
       return(getServers(session, connection, con_info, url));
 
-    } else if (strcmp(url, "/getSettings") == 0) {
+    } else if (strncmp(url, "/getSettings", 12) == 0) {
+    //} else if (strcmp(url, "/getSettings") == 0) {
       // Request login if not logged in
       if (session->aStatus != 1) return(requestLogin(session, connection, url));
       return(getSettings(session, connection, con_info, url));
@@ -1579,10 +1643,13 @@ static enum MHD_Result answerToConnection(void *cls, struct MHD_Connection *conn
 
       if (session->isListening == 0) {
         rc = startListenWeb(con_info->session, con_info->connection, url, -1, NULL);
+        if (rc != 0) {
+          sprintf(retCode, "%s", "FX");
+          return(sendHL72Web(session, connection, session->readFD, url, retCode));
+        }
       }
 
       if (session->isListening == 1) {
-        if (rc != 0) sprintf(retCode, "%s", "FX");
         return(sendHL72Web(session, connection, session->readFD, url, retCode));
 
       } else {
@@ -1823,7 +1890,7 @@ int listenWeb(int daemonSock) {
   } else {
     if (isDaemon == 1) {
       // Start a single session to prevent daemon closing until a real session exists
-      getSession(NULL, NULL);
+      getSession(NULL);
     }
     webRunning = 1;
   }

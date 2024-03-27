@@ -125,6 +125,17 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         color: #8a93ae;\n\
         padding: 0px 14px;\n\
       }\n\
+      #tHostText {\n\
+        float: right;\n\
+        height: 36px;\n\
+        line-height: 38px;\n\
+        margin: 0px 80px 2px 0px;\n\
+        padding: 0px 15px;\n\
+        background-color: #eaeffe;\n\
+        border-width: 0px 1px;\n\
+        border-style: solid;\n\
+        border-color: #8a93ae;\n\
+      }\n\
       #sendButton.sendActive:hover {\n\
         content: url(\"/images/send_hl.png\");\n\
         cursor: pointer;\n\
@@ -1421,6 +1432,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         var xhr = new XMLHttpRequest();\n\
         var btn = document.getElementById(\"saveSendSets\");\n\
         var tHost = document.getElementById(\"tHost\");\n\
+        var tHostText = document.getElementById(\"tHostText\");\n\
         var tHostSave = document.getElementById(\"tHostSave\");\n\
         var tPort = document.getElementById(\"tPort\");\n\
         var tPortSave = document.getElementById(\"tPortSave\");\n\
@@ -1432,6 +1444,8 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
                 if (xhr.responseText == \"OK\") {\n\
                   btn.classList.add(\"menuItemButtonGreen\");\n\
                   btn.classList.replace(\"menuItemButton\", \"menuItemButtonInactive\");\n\
+                  var tHostSel = tHost.options[tHost.selectedIndex];\n\
+                  tHostText.innerHTML = \"[\" + tHostSel.innerHTML + \"]\";\n\
                   tHostSave.value = tHost.value;\n\
                   tPortSave.value = tPort.value;\n\
                 } else {\n\
@@ -1751,17 +1765,25 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
 \n\
           } else if (response.ok) {\n\
             var sIP = document.getElementById(\"tHost\");\n\
+            var sHost = document.getElementById(\"tHost\");\n\
+            var sHostText = document.getElementById(\"tHostText\");\n\
             sIP.innerHTML = \"\";\n\
 \n\
             var sObj = JSON.parse(htmlData);\n\
             for (var i = 0; i < sObj.length; i++) {\n\
-              var opt = document.createElement(\"option\");\n\
-              opt.innerHTML = sObj[i].displayName;\n\
-              opt.value = sObj[i].address;\n\
-              if (sObj[i].address == setIP) opt.selected = true;\n\
-              sIP.appendChild(opt);\n\
-\n\
+              if (sObj[i].address == setIP || sObj[i].hidden != true) {\n\
+                var opt = document.createElement(\"option\");\n\
+                opt.innerHTML = sObj[i].displayName;\n\
+                opt.value = sObj[i].address;\n\
+                if (sObj[i].address == setIP) {\n\
+                  opt.selected = true;\n\
+                  sHostText.innerHTML = \"[\" + sObj[i].displayName + \"]\";\n\
+                }\n\
+                sIP.appendChild(opt);\n\
+              }\n\
             }\n\
+            var sHostSel = sHost.options[sHost.selectedIndex];\n\
+            sHostText.innerHTML = \"[\" + sHostSel.innerHTML + \"]\";\n\
           }\n\
 \n\
         } catch(error) {\n\
@@ -1772,7 +1794,9 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
 \n\
       async function popSettings() {\n\
         try {\n\
-          const response = await fetch(\"/getSettings\");\n\
+          var sHostText = document.getElementById(\"tHostText\");\n\
+          if (sHostText.innerHTML == \"\") var uPath = window.location.pathname;\n\
+          const response = await fetch(\"/getSettings\" + uPath);\n\
           const htmlData = await response.text();\n\
 \n\
           if (response.status == 401) {\n\
@@ -1787,6 +1811,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
             });\n\
 \n\
             var sHost = document.getElementById(\"tHost\");\n\
+            var sHostText = document.getElementById(\"tHostText\");\n\
             var sHostSave = document.getElementById(\"tHostSave\");\n\
             var sPort = document.getElementById(\"tPort\");\n\
             var sPortSave = document.getElementById(\"tPortSave\");\n\
@@ -1951,6 +1976,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         <div id=\"tempForm\"></div>\n\
 \n\
         <div class=\"titleBar\">HL7 Message(s):\n\
+          <div id=\"tHostText\"></div>\n\
           <img id=\"sendButton\" src=\"/images/send.png\" title=\"Send HL7\"/>\n\
         </div>\n\
         <div id=\"contContainer\">\n\

@@ -310,8 +310,6 @@ int listenACK(int sockfd, char *res) {
 
   } else {
     stripMLLP(ackBuf);
-    // TODO check this - strlen can't be valid if it needs a \0 after
-    ackBuf[strlen(ackBuf) - 1] = '\0';
 
     // Find the ack response in MSA.1
     getHL7Field(ackBuf, "MSA", 1, aCode);
@@ -740,7 +738,6 @@ static struct Response *handleMsg(int sessfd, int fd, char *sIP, char *sPort, in
     } else {
       if (rcvSize == -1 && msgCount == 0) {
         handleError(LOG_ERR, "Failed to read incoming message from server", 1, 0, 1);
-        // TODO - check if we're still using webErr
         webErr = 1;
       }
 
@@ -773,8 +770,6 @@ static struct Response *handleMsg(int sessfd, int fd, char *sIP, char *sPort, in
           if (webRunning == 1) {
             if (webErr > 0) {
               sprintf(msgBuf, "ERROR: The backend failed to receive or process a message from the sending server");
-              // TODO  WORKING - rework how errors get sent to web listener
-              //  strcpy(msgBuf, webErrStr);
             }
 
             if (argc <= 0) {
@@ -800,7 +795,6 @@ static struct Response *handleMsg(int sessfd, int fd, char *sIP, char *sPort, in
     }
 
     rcvBuf[0] = '\0';
-
   }
 
   free(msgBuf);
@@ -932,8 +926,6 @@ int startMsgListener(char *lIP, const char *lPort, char *sIP, char *sPort,
     sprintf(hhl7rfifo, "%s%d", "/tmp/hhl7rfifo.", getpid());
     mkfifo(hhl7rfifo, 0666);
     rfd = open(hhl7rfifo, O_RDONLY | O_NONBLOCK);
-    //fcntl(rfd, F_SETPIPE_SZ, 1048576); // Change pipe size, default seems OK
-
   }
 
   while(1) {
@@ -952,6 +944,7 @@ int startMsgListener(char *lIP, const char *lPort, char *sIP, char *sPort,
     }
 
     int res = select(svrfd + 1, &rs, NULL, NULL, tvp);
+
     if (res == -1) {
       if (errno != EINTR) {
         handleError(LOG_ERR, "startMsgListener() Failed during select() routine", 1, 1, 1);
@@ -982,6 +975,7 @@ int startMsgListener(char *lIP, const char *lPort, char *sIP, char *sPort,
       }
 
       sessfd = accept(svrfd, 0, 0);
+
       if (sessfd == -1) {
         close(svrfd);
         handleError(LOG_ERR, "Can't accept connections", 1, 0, 1);
