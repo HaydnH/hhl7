@@ -307,15 +307,15 @@ int main(int argc, char *argv[]) {
     handleError(LOG_ERR, "Only one functional flag may be used at a time (-f, -F, -t, -T, -l, -r, -D or -w)", 1, 1, 1);
 
   if (fSend == 1) {
-    // Connect to the server
-    sockfd = connectSvr(sIP, sPort);
-
-    // Send a file test
+    // Open File
     fp = openFile(fileName, "r");
-    sendFile(fp, getFileSize(fileName), sockfd);
 
-    // Close connection
-    close(sockfd);
+    // If we've managed to open the file, connect to server & send it
+    if (fp != NULL) {
+      sockfd = connectSvr(sIP, sPort);
+      sendFile(fp, getFileSize(fileName), sockfd);
+      close(sockfd);
+    }
   } 
 
 

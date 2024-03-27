@@ -80,14 +80,15 @@ int checkFile(char *fileName, int perms) {
 }
 
 
-// TODO - check if this function returns NULL when file does not exist
 // Check if we can open a file for reading and return FP, (Modes; r, w etc)
 FILE *openFile(char *fileName, char *mode) {
   FILE *fp;
+  char errStr[282] = "";
+
   fp = fopen(fileName, mode);
   if (fp == NULL) {
-    // TODO - change to writeLog
-    fprintf(stderr, "ERROR: Cannot open file: %s\n", fileName);
+    sprintf(errStr, "Cannot open file: %s\n", fileName);
+    writeLog(LOG_ERR, errStr, 1);
     return(NULL);
   }
   return(fp);

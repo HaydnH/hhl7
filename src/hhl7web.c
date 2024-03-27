@@ -271,8 +271,6 @@ static enum MHD_Result getImage(struct Session *session,
 
   // Error accessing file
   if (fp == NULL) {
-    fclose(fp);
-
     response = MHD_create_response_from_buffer(strlen (errorstr), 
                                                (void *) errorstr,
                                                MHD_RESPMEM_PERSISTENT);
