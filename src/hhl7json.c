@@ -658,11 +658,7 @@ static void endJSONSeg(char **hl7Msg, int *hl7MsgS, int isWeb, int eType) {
     }
 
   } else {
-    if (eType > 0) {
-      sprintf(*hl7Msg + strlen(*hl7Msg), "%c%c", '\r', '\r');
-    } else {
-      sprintf(*hl7Msg + strlen(*hl7Msg), "%c", '\r');
-    }
+    sprintf(*hl7Msg + strlen(*hl7Msg), "%c", '\r');
   }
 }
 

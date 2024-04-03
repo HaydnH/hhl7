@@ -365,15 +365,18 @@ void sendFile(FILE *fp, long int fileSize, int sockfd) {
 
 // Send a string packet over socket
 int sendPacket(int sockfd, char *hl7msg, char *resStr, char **resList, int fShowTemplate) {
-  const char msgDelim[6] = "\nMSH|";
   char tokMsg[strlen(hl7msg) + 5];
-  char *curMsg = hl7msg, *nextMsg = NULL;
+  char *curMsg = hl7msg, *nextMsg = NULL, *nextMsgR = NULL;
   int msgCount = 0, retVal = 0, rlSize = 301, reqS = 0;
   char errStr[43] = "";
 
   while (curMsg != NULL) {
     msgCount++;
-    nextMsg = strstr(curMsg + 1, msgDelim);
+    nextMsg = strstr(curMsg + 1, "\nMSH|");
+    if (nextMsg == NULL) {
+      nextMsgR = strstr(curMsg + 1, "\rMSH|");
+      nextMsg = nextMsgR;
+    }
 
     if (resList != NULL) {
       reqS = (strlen(*resList) + 30);
@@ -785,6 +788,7 @@ static struct Response *handleMsg(int sessfd, int fd, char *sIP, char *sPort, in
 
           } else if (argc <= 0) {
             hl72unix(msgBuf, 1);
+            printf("\n");
           }
 
           // Clean up counters and buffers

@@ -290,7 +290,9 @@ void hl72unix(char *msg, int onlyPrint) {
   long unsigned int c, ignore = 0;
   char msgUnix[strlen(msg) + 1];
   for (c = 0; c < strlen(msg); c++) {
-    if (msg[c] == 13) {
+    if (c == 0 && msg[c] == 13) {
+      ignore++;
+    } else if (msg[c] == 13) {
       msgUnix[c - ignore] = '\n';
     } else if (msg[c] == 10 || msg[c] == 11 || msg[c] == 28) {
       ignore++;
