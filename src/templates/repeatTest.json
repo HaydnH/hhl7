@@ -20,7 +20,6 @@
         },
         { "name":"PID",
           "fields": [  
-            { "id":2,  "value":"$VAR1", "name":"Hospital Number" },
             { "id":3,  "value":"$VAR1", "name":"Hospital Number" },
             { "id":4,  "value":"$VAR1", "name":"Hospital Number" }
           ]
@@ -68,7 +67,6 @@
         },
         { "name":"PID",
           "fields": [
-            { "id":2,  "value":"$VAR1", "name":"Hospital Number" },
             { "id":3,  "value":"$VAR1", "name":"Hospital Number" },
             { "id":4,  "value":"$VAR1", "name":"Hospital Number" }
           ]

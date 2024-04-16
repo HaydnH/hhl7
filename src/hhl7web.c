@@ -494,22 +494,19 @@ static enum MHD_Result getSettings(struct Session *session,
       sPort = json_object_object_get(userObj, "sPort");
       lPort = json_object_object_get(userObj, "lPort");
 
+      // Push the connection settings from passwd file to live session
+      sprintf(session->sPort, "%s", json_object_get_string(sPort));
+      sprintf(session->lPort, "%s", json_object_get_string(lPort));
+      sprintf(session->sIP, "%s", json_object_get_string(sIP));
+
       // Check if the url overrides the server settings
       char sAddr[256] = "";
       char *svrPtr = strstr(url, "/server/");
       if (svrPtr) {
         if (checkServerName(session, svrPtr + 8, sAddr) == 0) {
           sprintf(session->sIP, "%s", sAddr);
-
-        } else {
-          sprintf(session->sIP, "%s", json_object_get_string(sIP));
-
         }    
       }
-
-      // Push the connection settings from passwd file to live session
-      sprintf(session->sPort, "%s", json_object_get_string(sPort));
-      sprintf(session->lPort, "%s", json_object_get_string(lPort));
 
       sprintf(setStr, "{\"sIP\":\"%s\",\"sPort\":\"%s\",\"lPort\":\"%s\"}",
                       session->sIP, session->sPort, session->lPort);
@@ -1674,6 +1671,7 @@ static enum MHD_Result answerToConnection(void *cls, struct MHD_Connection *conn
           snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "TP"); // Teapot
 
         } else {
+printf("IP:   %s\nPort: %s\n", con_info->session->sIP, con_info->session->sPort);
           sockfd = connectSvr(con_info->session->sIP, con_info->session->sPort);
 
           if (sockfd >= 0) {

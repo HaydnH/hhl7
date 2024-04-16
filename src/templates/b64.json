@@ -1,0 +1,19 @@
+{
+  "name":"Data",
+  "argcount":0,
+  "cmdhelp":"hhl7 -t data",
+  "segments": [
+    { "name":"MSH",
+      "fieldcount":2,
+      "fields": [
+        { "id":2,  "value":"TestingOne" }
+      ]
+    },
+    { "name":"B64",
+      "fieldcount":2,
+      "fields": [
+        { "id":1,  "value":"$B64", "datafile":"test.pdf" }
+      ]
+    }
+  ]
+}
