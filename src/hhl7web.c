@@ -584,7 +584,7 @@ static enum MHD_Result getTemplateList(struct Session *session,
 
   if (respond == 0) {
     sprintf(tPath, "%s", "/usr/local/hhl7/templates/");
-    if (strlen(url) > 16) sprintf(tPath, "%s%s", tPath, url + 17);
+    if (strlen(url) > 17) sprintf(tPath, "%s%s", "/usr/local/hhl7/templates/", url + 17);
     sprintf(fExt, "%s", ".json");
     strcpy(dirOpts, nOpt);
 
@@ -660,7 +660,7 @@ static enum MHD_Result getTemplateList(struct Session *session,
             }
 
             // Increase memory for tempOpts to allow file name etc
-            newPtr = realloc(tempOpts, (2*strlen(fName)) + strlen(tempOpts) + 38);
+            newPtr = realloc(tempOpts, strlen(fName) + strlen(tName) + strlen(tempOpts) + 38);
             if (newPtr == NULL) {
               freeFileList(fileList, fCount);
               free(dirOpts);
@@ -1442,7 +1442,10 @@ static enum MHD_Result sendPage(struct Session *session, struct MHD_Connection *
   response = MHD_create_response_from_buffer(strlen(page), (void *) page,
                                              MHD_RESPMEM_MUST_COPY);
 
-  if (!response) return(MHD_NO);
+  if (!response) {
+    if (ansStrP != NULL) free(ansStrP);
+    return(MHD_NO);
+  }
 
   MHD_add_response_header(response, "Content-Type", "text/plain");
   MHD_add_response_header(response, "Cache-Control", "no-cache");
@@ -1547,8 +1550,8 @@ static enum MHD_Result answerToConnection(void *cls, struct MHD_Connection *conn
   struct Session *session;
   int rc = -1, sockfd = -1;
   char retCode[3] = "", resStr[3] = "", errStr[90] = "";
-  char *resList = malloc(301);
-  sprintf(resList, "%s", "{ \"results\":\"");
+  //char *resList = malloc(301);
+  //sprintf(resList, "%s", "{ \"results\":\"");
 
   // Debug - print connection values, e.g user-agent
   //MHD_get_connection_values(connection, MHD_HEADER_KIND, print_out_key, NULL);
@@ -1666,6 +1669,9 @@ static enum MHD_Result answerToConnection(void *cls, struct MHD_Connection *conn
     } else if (strlen(con_info->answerstring) > 0) {
       // If we have a hl7 message to send, send it and clear memory
       if (con_info->poststring != NULL) {
+        char *resList = malloc(301);
+        sprintf(resList, "%s", "{ \"results\":\"");
+
         if (strncmp(con_info->poststring, "Coffee?", 7) == 0 && 
             strlen(con_info->poststring) <= 10) {
           snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "TP"); // Teapot
@@ -1723,13 +1729,14 @@ static enum MHD_Result answerToConnection(void *cls, struct MHD_Connection *conn
 
         free(con_info->poststring);
         con_info->poststring = NULL;
+        if (rc >= 0) {
+          return(sendPage(session, connection, method, con_info->answerstring, resList, url));
+        } else {
+          free(resList);
+        }
       }
 
-      if (rc >= 0) {
-        return(sendPage(session, connection, method, con_info->answerstring, resList, url));
-      } else {
-        return(sendPage(session, connection, method, con_info->answerstring, NULL, url));
-      }
+      return(sendPage(session, connection, method, con_info->answerstring, NULL, url));
 
     }
   }
