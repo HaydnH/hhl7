@@ -1550,8 +1550,6 @@ static enum MHD_Result answerToConnection(void *cls, struct MHD_Connection *conn
   struct Session *session;
   int rc = -1, sockfd = -1;
   char retCode[3] = "", resStr[3] = "", errStr[90] = "";
-  //char *resList = malloc(301);
-  //sprintf(resList, "%s", "{ \"results\":\"");
 
   // Debug - print connection values, e.g user-agent
   //MHD_get_connection_values(connection, MHD_HEADER_KIND, print_out_key, NULL);
