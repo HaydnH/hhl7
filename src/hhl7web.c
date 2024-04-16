@@ -1671,7 +1671,6 @@ static enum MHD_Result answerToConnection(void *cls, struct MHD_Connection *conn
           snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "TP"); // Teapot
 
         } else {
-printf("IP:   %s\nPort: %s\n", con_info->session->sIP, con_info->session->sPort);
           sockfd = connectSvr(con_info->session->sIP, con_info->session->sPort);
 
           if (sockfd >= 0) {
