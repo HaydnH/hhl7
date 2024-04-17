@@ -867,7 +867,6 @@ static int readRespTemps(int respFD, char respTemps[20][256], char *respTempsPtr
         updated = 1;
         rBuf[readSize] = '\0';
 
-        // TODO - IMPORTANT - error check! data can come from external and may seg fault
         rootObj = json_tokener_parse(rBuf);
         json_object_object_get_ex(rootObj, "templates", &dataArray);
 
