@@ -155,6 +155,9 @@ static struct Session *getSession(struct MHD_Connection *connection) {
   ret->shortID = maxShortID + 1;
   ret->rc++;
   ret->lastSeen = time(NULL);
+  ret->isListening = -1;
+  ret->readFD = -1;
+  ret->respFD = -1;
   ret->next = sessions;
   sessions = ret;
 
@@ -1124,7 +1127,7 @@ static int startListenWeb(struct Session *session, struct MHD_Connection *connec
 // Update the list of response templates to listen to
 static void sendRespList(struct Session *session, struct json_object *rootObj) {
   const char *tempStr = json_object_to_json_string_ext(rootObj, JSON_C_TO_STRING_PLAIN);
-  char writeSize[11];
+  char writeSize[11] = "";
 
   sprintf(writeSize, "%d", (int) strlen(tempStr));
 
@@ -1174,7 +1177,7 @@ static int startResponder(struct Session *session, struct MHD_Connection *connec
 
 
 // TODO - move legacy style iterations to newer json object POSTs
-static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
+static enum MHD_Result iteratePost(void *coninfo_cls, enum MHD_ValueKind kind,
               const char *key, const char *filename, const char *content_type,
               const char *transfer_encoding, const char *data, uint64_t off, size_t size) {
 
@@ -1213,7 +1216,7 @@ static enum MHD_Result iterate_post(void *coninfo_cls, enum MHD_ValueKind kind,
     }
 
     // Handle a JSON string sent in a POST
-    if (strcmp (key, "jsonPOST") == 0 ) {
+    if (strcmp(key, "jsonPOST") == 0 ) {
       rootObj = json_tokener_parse(data);
       json_object_object_get_ex(rootObj, "postFunc", &postObj);
 
@@ -1565,7 +1568,7 @@ static enum MHD_Result answerToConnection(void *cls, struct MHD_Connection *conn
 
     if (strcmp(method, "POST") == 0) {
       con_info->postprocessor = MHD_create_post_processor(connection, POSTBUFFERSIZE,
-                                                     iterate_post, (void *) con_info);
+                                                     iteratePost, (void *) con_info);
 
       if (con_info->postprocessor == NULL) {
         free(con_info);
