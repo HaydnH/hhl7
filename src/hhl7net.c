@@ -123,7 +123,7 @@ static int processResponses(int fd) {
   char resStr[3] = "";
   char *sArg = "";
   // TODO - add expiry time to config file
-  int nextResp = -1, nr = -1, respCount = 0, rmCount = 0, argCount = 0, expTime = 900;
+  int nextResp = -1, respCount = 0, rmCount = 0, argCount = 0, expTime = 900;
   // TODO - add webLimit to config file? Remove once changed to SSE?
   int webRespS = 1024, reqS = 0, webLimit = 200;
   char *webResp = malloc(webRespS);
@@ -184,10 +184,6 @@ static int processResponses(int fd) {
 
     } else if (tNow - resp->sendTime < expTime) {
       writeLog(LOG_DEBUG, "Response queue processing, sent response added to queue", 0);
-      if (nextResp == -1 || nextResp > expTime) nextResp = expTime;
-
-      nr = tNow - resp->sendTime;
-      if (nextResp == -1 || nr < nextResp) nextResp = nr;
 
       if (webRunning == 1  && respCount <= webLimit) addRespWeb(newResp, resp, respCount);
       respCount++;
@@ -874,12 +870,20 @@ static int readRespTemps(int respFD, char respTemps[20][256], char *respTempsPtr
         // TODO - IMPORTANT - error check! data can come from external and may seg fault
         rootObj = json_tokener_parse(rBuf);
         json_object_object_get_ex(rootObj, "templates", &dataArray);
-        dataInt = json_object_array_length(dataArray);
 
-        for (i = 0; i < dataInt; i++) {
-          dataObj = json_object_array_get_idx(dataArray, i);
-          sprintf(respTemps[i], "%s", json_object_get_string(dataObj));
-          respTempsPtrs[i] = respTemps[i];
+        if (dataArray == NULL) {
+          handleError(LOG_ERR, "Invalid response templates list provided", 1, 0, 1);
+          json_object_put(rootObj);
+          return(1);
+
+        } else {
+          dataInt = json_object_array_length(dataArray);
+
+          for (i = 0; i < dataInt; i++) {
+            dataObj = json_object_array_get_idx(dataArray, i);
+            sprintf(respTemps[i], "%s", json_object_get_string(dataObj));
+            respTempsPtrs[i] = respTemps[i];
+          }
         }
       }
     }

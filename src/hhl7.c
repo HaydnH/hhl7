@@ -31,7 +31,7 @@ int isDaemon = 0;
 
 // Show version number
 static void showVersion() {
-  printf("HHL7 - version 0.01\n");
+  printf("HHL7 - version 0.01-alpha\n");
   exit(0);
 }
 
