@@ -155,9 +155,6 @@ static struct Session *getSession(struct MHD_Connection *connection) {
   ret->shortID = maxShortID + 1;
   ret->rc++;
   ret->lastSeen = time(NULL);
-  ret->isListening = -1;
-  ret->readFD = -1;
-  ret->respFD = -1;
   ret->next = sessions;
   sessions = ret;
 
