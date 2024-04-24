@@ -658,7 +658,11 @@ static void endJSONSeg(char **hl7Msg, int *hl7MsgS, int isWeb, int eType) {
     }
 
   } else {
-    sprintf(*hl7Msg + strlen(*hl7Msg), "%c", '\r');
+    if (eType == 3) {
+      sprintf(*hl7Msg + strlen(*hl7Msg), "%c", '|');
+    } else {
+      sprintf(*hl7Msg + strlen(*hl7Msg), "%c", '\r');
+    }
   }
 }
 
@@ -822,6 +826,7 @@ int parseJSONTemp(char *jsonMsg, char **hl7Msg, int *hl7MsgS, char **webForm,
                   return(1);
                 }
               }
+              endJSONSeg(hl7Msg, hl7MsgS, isWeb, 3); // EOSF
             }
           }
 
