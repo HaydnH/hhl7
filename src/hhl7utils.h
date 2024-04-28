@@ -29,6 +29,7 @@ void findLine(char *buf, long int dataSize, int lineNum, int *start, int *end);
 void hl72unix(char *msg, int onlyPrint);
 void hl72web(char *msg, int maxSize);
 void unix2hl7(char *msg);
+int findConfFile(char *confFile);
 FILE *findTemplate(char *fileName, char *tName, int isRespond);
 void escapeSlash(char *dest, char *src);
 void printChars(char *buf);

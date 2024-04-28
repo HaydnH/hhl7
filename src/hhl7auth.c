@@ -71,7 +71,6 @@ static int createPWFile(char *fileName) {
   if (PWLOCK == 0) {
     fp = openFile(fileName, "w");
     if (fp == NULL) {
-      fclose(fp);
       handleError(LOG_ERR, "ERROR: Could not create new password file", 1, 1, 1);
       return(1);
 
@@ -177,6 +176,8 @@ int regNewUser(char *uid, char *passwd) {
     json_object_object_add(newUserObj, "sIP", json_object_new_string("127.0.0.1"));
     json_object_object_add(newUserObj, "sPort", json_object_new_string("11011"));
     json_object_object_add(newUserObj, "lPort", json_object_new_string(""));
+    json_object_object_add(newUserObj, "ackTimeout", json_object_new_int(0));
+    json_object_object_add(newUserObj, "webTimeout", json_object_new_int(0));
 
     json_object_array_add(userArray, newUserObj);
 
@@ -303,7 +304,6 @@ int checkAuth(char *uid, const char *passwd) {
   struct json_object *pwObj = NULL, *userArray = NULL, *userObj = NULL;
   struct json_object *uidStr = NULL, *atInt = NULL, *saltStr = NULL, *pwdStr = NULL;
   int uCount = 0, u = 0, uExists = 0, attempts = 0;
-  // TODO - move maxAttempts to config file
   int maxAttempts = 3;
   unsigned long int maxPassL = 32;
   size_t saltedL = 3 * maxPassL;
@@ -312,6 +312,11 @@ int checkAuth(char *uid, const char *passwd) {
   saltPasswd[0] = '\0';
   pwdHash[0] = '\0';
   char errStr[63] = "";
+
+  // Update maxAttemts from config if it exists
+  if (globalConfig) {
+    if (globalConfig->maxAttempts > 0) maxAttempts = globalConfig->maxAttempts;
+  }
 
   // Define passwd file location
   char pwFile[34];

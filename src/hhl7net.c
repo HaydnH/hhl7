@@ -122,9 +122,7 @@ static int processResponses(int fd) {
   char writeSize[11] = "";
   char resStr[3] = "";
   char *sArg = "";
-  // TODO - add expiry time to config file
   int nextResp = -1, respCount = 0, rmCount = 0, argCount = 0, expTime = 900;
-  // TODO - add webLimit to config file? Remove once changed to SSE?
   int webRespS = 1024, reqS = 0, webLimit = 200;
   char *webResp = malloc(webRespS);
   webResp[0] = '\0';
@@ -135,6 +133,12 @@ static int processResponses(int fd) {
 
   char newResp[strlen(resp->rName) + strlen(resp->tName) +
                strlen(resp->sIP) + strlen(resp->sPort) + 293];
+
+  // Use global config variables if they exist
+  if (globalConfig) {
+    if (globalConfig->rQueueSize >= 0) webLimit = globalConfig->rQueueSize;
+    if (globalConfig->rExpiryTime >= 0) expTime = globalConfig->rExpiryTime;
+  }
 
   writeLog(LOG_DEBUG, "Processing response queue...", 0);
 
@@ -285,14 +289,23 @@ int connectSvr(char *ip, char *port) {
 
 
 // Listen for ACK from server
-int listenACK(int sockfd, char *res) {
+int listenACK(int sockfd, char *res, int aTimeout) {
   char ackBuf[512] = "", app[12] = "", code[7] = "", aCode[3] = "", errStr[46] = "";
-  int recvL = 0;
+  int recvL = 0, ackT = 3;
 
-  // TODO Add timeout to config file - NOTE: javascript would need timeout change as well
+  // Get the timeout from global config if it exists
+  if (aTimeout > 0 && aTimeout < 100) {
+    ackT = aTimeout;
+  } else {
+    if (globalConfig) {
+      if (globalConfig->ackTimeout > 0 && globalConfig->ackTimeout < 100)
+        ackT = globalConfig->maxAttempts;
+    }
+  }
+
   // Set ListenACK timeout
   struct timeval tv, *tvp;
-  tv.tv_sec = 3;
+  tv.tv_sec = ackT;
   tv.tv_usec = 0;
   tvp = &tv;
   setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, tvp, sizeof tv);
@@ -355,12 +368,14 @@ void sendFile(FILE *fp, long int fileSize, int sockfd) {
 
   // Send the data file to the server
   unix2hl7(fileData);
-  sendPacket(sockfd, fileData, resStr, NULL, 0);
+  sendPacket(sockfd, fileData, resStr, NULL, 0, 0);
 }
 
 
 // Send a string packet over socket
-int sendPacket(int sockfd, char *hl7msg, char *resStr, char **resList, int fShowTemplate) {
+int sendPacket(int sockfd, char *hl7msg, char *resStr, char **resList,
+               int fShowTemplate, int aTimeout) {
+
   char tokMsg[strlen(hl7msg) + 5];
   char *curMsg = hl7msg, *nextMsg = NULL, *nextMsgR = NULL;
   int msgCount = 0, retVal = 0, rlSize = 301, reqS = 0;
@@ -406,7 +421,7 @@ int sendPacket(int sockfd, char *hl7msg, char *resStr, char **resList, int fShow
       return(-1);
 
     } else {
-      retVal = listenACK(sockfd, resStr);
+      retVal = listenACK(sockfd, resStr, aTimeout);
 
     }
 
@@ -466,7 +481,9 @@ void sendTemp(char *sIP, char *sPort, char *tName, int noSend, int fShowTemplate
     if (noSend == 0) {
       // Connect to server, send & listen for ack
       sockfd = connectSvr(sIP, sPort);
-      sendPacket(sockfd, hl7Msg, resStr, NULL, fShowTemplate);
+      if (sockfd >= 0) {
+        sendPacket(sockfd, hl7Msg, resStr, NULL, fShowTemplate, 0);
+      }
 
     } else if (fShowTemplate == 1) {
        hl72unix(hl7Msg, 1);
@@ -543,7 +560,7 @@ static int getResCode(int resType, char *ackList, char *resCode) {
 
 
 // Send and ACK after receiving a message
-int sendAck(int sessfd, char *hl7msg, int resType, char *ackList) {
+int sendACK(int sessfd, char *hl7msg, int resType, char *ackList) {
   char dt[26] = "", cid[201] = "", errStr[256] = "";
   char ackBuf[1024] = "", resCode[3] = "AA";
   char *resCodeP = resCode;
@@ -558,8 +575,8 @@ int sendAck(int sessfd, char *hl7msg, int resType, char *ackList) {
   if (resType > 0) getResCode(resType, ackList, resCodeP);
 
   sprintf(ackBuf, "%c%s%s%s%s%s%s%s%s%s%c%c", 0x0B, "MSH|^~\\&|||||", dt, "||ACK|", cid,
-                                           "|P|2.4|\rMSA|", resCodeP, "|", cid, "|OK|",
-                                           0x1C, 0x0D);
+                                              "|P|2.4|\rMSA|", resCodeP, "|", cid, "|OK|",
+                                              0x1C, 0x0D);
 
   if ((writeL = write(sessfd, ackBuf, strlen(ackBuf))) == -1) {
     close(sessfd);
@@ -753,7 +770,7 @@ static struct Response *handleMsg(int sessfd, int fd, char *sIP, char *sPort, in
           rcvSize = 0;
 
           stripMLLP(msgBuf);
-          if (sendAck(sessfd, msgBuf, resType, ackList) == -1) webErr = 1;
+          if (sendACK(sessfd, msgBuf, resType, ackList) == -1) webErr = 1;
           msgCount++;
 
           // If we're responding, parse each respond template to see if msg matches
@@ -901,10 +918,8 @@ int startMsgListener(char *lIP, const char *lPort, char *sIP, char *sPort,
   char respTemps[20][256];
   char *respTempsPtrs[20];
   char errStr[58] = "";
-  // TODO - move timeout/polling interval nextResponse to config file
   int svrfd = 0, sessfd = 0, fd = 0, rfd = 0, nextResp = -1, resU = 0, respUpdated = 0;
   time_t lastProcess = time(NULL), now;
-  // TODO add to config file? Maybe remove it once we only send respond updates to web?
   int procThrot = 1;
 
   writeLog(LOG_INFO, "Listener child process starting up", 0);

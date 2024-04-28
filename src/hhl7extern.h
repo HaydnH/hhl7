@@ -10,9 +10,28 @@ hhl7 is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY
 You should have received a copy of the GNU General Public License along with hhl7. If not, see <https://www.gnu.org/licenses/>. 
 */
 
-extern int isDaemon;
-extern char infoStr[513];
-extern int webRunning;
+// Global config struct
+struct globalConfigInfo {
+  // General settings
+  int logLevel;
 
-void writeHL7Buf(char *srcBuf, int bufSize);
-void readHL7Buf(void);
+  // Web daemon settings
+  char wPort[6];
+  int maxAttempts;
+  int sessExpiry;
+  int exitDelay;
+  int rQueueSize;
+  int rExpiryTime;
+
+  // Send/Listen address info
+  char sIP[256];
+  char sPort[6];
+  char lIP[256];
+  char lPort[6];
+  int ackTimeout;
+  int webTimeout;
+};
+
+extern struct globalConfigInfo *globalConfig;
+extern int isDaemon;
+extern int webRunning;

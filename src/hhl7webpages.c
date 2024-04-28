@@ -675,6 +675,8 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
     <script>\n\
       var webLocked = true;\n\
       var isConnectionOpen = false;\n\
+      var ackTimeout = 3000;\n\
+      var webTimeout = 3000;\n\
 \n\
       function showLogin() {\n\
         webLocked = true;\n\
@@ -789,6 +791,33 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         } else {\n\
           lButton.classList.replace(\"menuItemButton\", \"menuItemButtonInactive\");\n\
           lPortObj.classList.add(\"menuInputErr\");\n\
+\n\
+        }\n\
+      }\n\
+\n\
+      var ackPostFunc = function(event) { postACKSets(event); };\n\
+      function validACKSets() {\n\
+        ackTObj = document.getElementById(\"ackTimeout\");\n\
+        ackT = Number(ackTObj.value);\n\
+        webTObj = document.getElementById(\"webTimeout\");\n\
+        webT = Number(webTObj.value);\n\
+        aButton = document.getElementById(\"saveACKSets\");\n\
+\n\
+        aButton.removeEventListener(\"click\", listPostFunc);\n\
+        aButton.classList.remove(\"menuItemButtonGreen\");\n\
+        aButton.classList.remove(\"menuItemButtonRed\");\n\
+\n\
+        if (typeof(ackT) == 'number' && ackT > 0 && ackT < 100 && \n\
+            typeof(webT) == 'number' && webT >= 50 && webT <= 5000) {\n\
+          aButton.addEventListener(\"click\", ackPostFunc);\n\
+          aButton.classList.replace(\"menuItemButtonInactive\", \"menuItemButton\");\n\
+          ackTObj.classList.remove(\"menuInputErr\");\n\
+          webTObj.classList.remove(\"menuInputErr\");\n\
+\n\
+        } else {\n\
+          aButton.classList.replace(\"menuItemButton\", \"menuItemButtonInactive\");\n\
+          ackTObj.classList.add(\"menuInputErr\");\n\
+          webTObj.classList.add(\"menuInputErr\");\n\
 \n\
         }\n\
       }\n\
@@ -1020,7 +1049,6 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
             resizeResps();\n\
           } else if (event.key == \"Control\") {\n\
             resizeResps();\n\
-            /* TODO - limit ctrl key ups to ctrl+v, ctrl+z etc  */\n\
           }\n\
         }\n\
       }\n\
@@ -1343,8 +1371,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         };\n\
 \n\
         xhr.open(\"POST\", \"/postJSON\");\n\
-        // TODO review timeout\n\
-        xhr.timeout = 2500;\n\
+        xhr.timeout = webTimeout;\n\
         var formData = new FormData();\n\
         formData.append(\"jsonPOST\", jsonObj);\n\
         xhr.send(formData);\n\
@@ -1406,7 +1433,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         };\n\
 \n\
         xhr.open(\"POST\", \"/postCreds\");\n\
-        xhr.timeout = 1000;\n\
+        xhr.timeout = webTimeout;\n\
 \n\
         var formData = new FormData();\n\
 \n\
@@ -1467,7 +1494,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         };\n\
 \n\
         xhr.open(\"POST\", \"/postSendSets\");\n\
-        xhr.timeout = 1000;\n\
+        xhr.timeout = webTimeout;\n\
 \n\
         var formData = new FormData();\n\
 \n\
@@ -1517,10 +1544,66 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         };\n\
 \n\
         xhr.open(\"POST\", \"/postListSets\");\n\
-        xhr.timeout = 1000;\n\
+        xhr.timeout = webTimeout;\n\
 \n\
         var formData = new FormData();\n\
         formData.append(\"lPort\", lPort.value);\n\
+\n\
+        xhr.send(formData);\n\
+      }\n\
+\n\
+      function postACKSets() {\n\
+        event.preventDefault();\n\
+        var xhr = new XMLHttpRequest();\n\
+        var btn = document.getElementById(\"saveACKSets\");\n\
+        var ackT = document.getElementById(\"ackTimeout\");\n\
+        var ackTSave = document.getElementById(\"ackTimeoutSave\");\n\
+        var webT = document.getElementById(\"webTimeout\");\n\
+        var webTSave = document.getElementById(\"webTimeoutSave\");\n\
+\n\
+        xhr.onreadystatechange = function() {\n\
+          if (xhr.readyState === 4) {\n\
+            if (xhr.status === 200) {\n\
+              if (errHandler(xhr.responseText) == 0) {\n\
+                if (xhr.responseText == \"OK\") {\n\
+                  btn.classList.add(\"menuItemButtonGreen\");\n\
+                  btn.classList.replace(\"menuItemButton\", \"menuItemButtonInactive\");\n\
+                  ackTSave.value = ackT.value;\n\
+                  webTSave.value = webT.value;\n\
+                  ackTimeout = ackT.value;\n\
+                  webTimeout = webT.value;\n\
+\n\
+                } else if (xhr.responseText == \"SR\") {\n\
+                  btn.classList.add(\"menuItemButtonRed\");\n\
+                  btn.classList.replace(\"menuItemButton\", \"menuItemButtonInactive\");\n\
+                  ackT.value = ackTSave.value;\n\
+                  webT.value = webTSave.value;\n\
+                  errHandler(\"ERROR: Invalid timeout values submitted, valid ranges are 1-99 and 50-5000.\");\n\
+\n\
+                } else {\n\
+                  btn.classList.add(\"menuItemButtonRed\");\n\
+                  btn.classList.replace(\"menuItemButton\", \"menuItemButtonInactive\");\n\
+                  ackT.value = ackTSave.value;\n\
+                  webT.value = webTSave.value;\n\
+                  errHandler(\"ERROR: The backend failed to save your settings, please try again.\");\n\
+                }\n\
+              }\n\
+\n\
+            } else if (xhr.status == 401) {\n\
+              showLogin();\n\
+\n\
+            } else {\n\
+              errHandler(\"ERROR: The hhl7 backend is not running.\");\n\
+            }\n\
+          }\n\
+        };\n\
+\n\
+        xhr.open(\"POST\", \"/postACKSets\");\n\
+        xhr.timeout = webTimeout;\n\
+\n\
+        var formData = new FormData();\n\
+        formData.append(\"ackTimeout\", ackT.value);\n\
+        formData.append(\"webTimeout\", webT.value);\n\
 \n\
         xhr.send(formData);\n\
       }\n\
@@ -1560,7 +1643,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         };\n\
 \n\
         xhr.open(\"POST\", \"/postPwdSets\");\n\
-        xhr.timeout = 1000;\n\
+        xhr.timeout = webTimeout;\n\
 \n\
         var formData = new FormData();\n\
 \n\
@@ -1579,9 +1662,6 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
           if (response.status == 401) {\n\
             webLocked = true;\n\
             showLogin();\n\
-\n\
-          } else if (response.status == 500) {\n\
-            // TODO internal server error\n\
 \n\
           } else if (response.ok) {\n\
             webLocked = false;\n\
@@ -1603,9 +1683,6 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
           if (response.status == 401) {\n\
             showLogin();\n\
 \n\
-          } else if (response.status == 500) {\n\
-            // TODO internal server error\n\
-\n\
           } else if (response.ok) {\n\
             showLogin();\n\
 \n\
@@ -1624,9 +1701,6 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
 \n\
           if (response.status == 401) {\n\
             showLogin();\n\
-\n\
-          } else if (response.status == 500) {\n\
-            // TODO internal server error\n\
 \n\
           } else if (response.ok) {\n\
             if (htmlData.length > 0 || htmlData === \"QE\") {\n\
@@ -1712,7 +1786,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         };\n\
 \n\
         xhr.open(\"POST\", \"/postHL7\");\n\
-        xhr.timeout = 3500;\n\
+        xhr.timeout = (ackTimeout * 1000) + webTimeout;\n\
 \n\
         var HL7Text = document.getElementById(\"hl7Message\").innerText;\n\
         var formData = new FormData();\n\
@@ -1732,9 +1806,6 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
 \n\
           if (response.status == 401) {\n\
             showLogin();\n\
-\n\
-          } else if (response.status == 500) {\n\
-            // TODO internal server error\n\
 \n\
           } else if (response.ok) {\n\
             if (temptype == 0) {\n\
@@ -1759,9 +1830,6 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
 \n\
           if (response.status == 401) {\n\
             showLogin();\n\
-\n\
-          } else if (response.status == 500) {\n\
-            // TODO internal server error\n\
 \n\
           } else if (response.ok) {\n\
             var sIP = document.getElementById(\"tHost\");\n\
@@ -1802,9 +1870,6 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
           if (response.status == 401) {\n\
             showLogin();\n\
 \n\
-          } else if (response.status == 500) {\n\
-            // TODO internal server error\n\
-\n\
           } else if (response.ok) {\n\
             jObj = JSON.parse(htmlData, function(key, value) {\n\
               return value;\n\
@@ -1817,6 +1882,10 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
             var sPortSave = document.getElementById(\"tPortSave\");\n\
             var lPort = document.getElementById(\"lPort\");\n\
             var lPortSave = document.getElementById(\"lPortSave\");\n\
+            var ackT = document.getElementById(\"ackTimeout\");\n\
+            var ackTSave = document.getElementById(\"ackTimeoutSave\");\n\
+            var webT = document.getElementById(\"webTimeout\");\n\
+            var webTSave = document.getElementById(\"webTimeoutSave\");\n\
 \n\
             popServers(jObj.sIP);\n\
             sHostSave.value = sHost.value;\n\
@@ -1838,6 +1907,14 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
               lPort.value = \"\";\n\
               lPort.classList.add(\"menuInputErr\");\n\
             }\n\
+\n\
+            ackT.value = jObj.ackT;\n\
+            ackTSave.value = jObj.ackT;\n\
+            webT.value = jObj.webT;\n\
+            webTSave.value = jObj.webT;\n\
+            ackTimeout = jObj.ackT;\n\
+            webTimeout = jObj.webT;\n\
+\n\
           }\n\
 \n\
         } catch(error) {\n\
@@ -2093,6 +2170,23 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
           </div>\n\
         </div>\n\
         <button id=\"saveListSets\" class=\"menuItemButtonInactive\">Save Listen Settings</button>\n\
+        <div class=\"menuSpacer\"></div>\n\
+        <div class=\"menuHeader\">ACK Timeout Settings</div>\n\
+        <div class=\"menuItem\">\n\
+          <div class=\"menuSubHeader\">ACK (s):</div>\n\
+          <div class=\"menuDataItem\">\n\
+            <input id=\"ackTimeout\" class=\"menuInput\" onInput=\"validACKSets();\" onChange=\"validACKSets();\" name=\"hhl7ackTimeout\" autocomplete=\"new-password\" />\n\
+            <input type=\"hidden\" id=\"ackTimeoutSave\" name=\"hhl7ackTimeoutSave\" autocomplete=\"new-password\" />\n\
+          </div>\n\
+        </div>\n\
+        <div class=\"menuItem\">\n\
+          <div class=\"menuSubHeader\">Web (ms):</div>\n\
+          <div class=\"menuDataItem\">\n\
+            <input id=\"webTimeout\" class=\"menuInput\" onInput=\"validACKSets();\" onChange=\"validACKSets();\" name=\"hhl7webTimeout\" autocomplete=\"new-password\" />\n\
+            <input type=\"hidden\" id=\"webTimeoutSave\" name=\"hhl7webTimeoutSave\" autocomplete=\"new-password\" />\n\
+          </div>\n\
+        </div>\n\
+        <button id=\"saveACKSets\" class=\"menuItemButtonInactive\">Save Timeout Settings</button>\n\
         <div class=\"menuSpacer\"></div>\n\
         <div class=\"menuHeader\">Reset Password</div>\n\
         <div class=\"menuItem\">\n\

@@ -37,8 +37,6 @@ You should have received a copy of the GNU General Public License along with hhl
 #include "hhl7json.h"
 #include <errno.h>
 
-// TODO - Add dev port to config file
-#define PORT            5377
 #define REALM           "\"Maintenance\""
 #define COOKIE_NAME      "hhl7Session"
 #define GET             0
@@ -61,9 +59,9 @@ struct connection_info_struct {
   struct Session *session;
 };
 
+
 // Session info
 struct Session {
-  // Pointer to next session in linked list - TODO - change to hash table?
   struct Session *next;
 
   // Session id, previous session ID, connection counter, time last active
@@ -80,11 +78,14 @@ struct Session {
   char sIP[256];
   char sPort[6];
   char lPort[6];
+  int ackTimeout;
+  int webTimeout;
   int isListening;
   int readFD; // File descriptor for listen named pipe
   int respFD; // File descriptor for listen named pipe
   pid_t lpid; // Per user/session PID of web listener
 };
+
 
 // Linked list of sessions
 static struct Session *sessions;
@@ -137,7 +138,7 @@ static struct Session *getSession(struct MHD_Connection *connection) {
     return(NULL);
   }
 
-  // TODO - create a better ID generation method?
+  // Generate a session ID
   snprintf (ret->sessID,
             sizeof (ret->sessID),
             "%X%X%X%X",
@@ -461,9 +462,11 @@ static enum MHD_Result getSettings(struct Session *session,
   //struct json_object *resObj = json_object_new_object();
   struct json_object *pwObj = NULL, *userArray = NULL, *userObj = NULL;
   struct json_object  *uidStr = NULL, *sIP = NULL, *sPort = NULL, *lPort = NULL;
-  char setStr[300] = "";
-  int uCount = 0, u = 0;
+  struct json_object  *ackTObj = NULL, *webTObj = NULL;
+  char setStr[350] = "";
   char errStr[300] = "";
+  int uCount = 0, u = 0;
+  int ackT = 3, webT = 500, ackTc = 0, webTc = 0;
 
   char *uid = session->userid;
 
@@ -493,11 +496,43 @@ static enum MHD_Result getSettings(struct Session *session,
       sIP = json_object_object_get(userObj, "sIP");
       sPort = json_object_object_get(userObj, "sPort");
       lPort = json_object_object_get(userObj, "lPort");
+      ackTObj = json_object_object_get(userObj, "ackTimeout");
+      webTObj = json_object_object_get(userObj, "webTimeout");
+      ackTc = json_object_get_int(ackTObj);
+      webTc = json_object_get_int(webTObj);
 
       // Push the connection settings from passwd file to live session
       sprintf(session->sPort, "%s", json_object_get_string(sPort));
       sprintf(session->lPort, "%s", json_object_get_string(lPort));
       sprintf(session->sIP, "%s", json_object_get_string(sIP));
+
+      // Determine if the user has custom timeouts or if they use the defaults
+      session->ackTimeout = 3;
+      session->webTimeout = 500;
+
+      if (ackTc > 0 && ackTc < 100) {
+        session->ackTimeout = ackTc;
+        ackT = ackTc;
+      } else {
+        if (globalConfig) {
+          if (globalConfig->ackTimeout > 0 && globalConfig->ackTimeout < 100) {
+            session->ackTimeout = globalConfig->ackTimeout;
+            ackT = globalConfig->ackTimeout;
+          }
+        }
+      }
+
+      if (webTc >= 50 && webTc <= 5000) {
+        session->webTimeout = webTc;
+        webT = webTc;
+      } else {
+        if (globalConfig) {
+          if (globalConfig->webTimeout >= 50 && globalConfig->webTimeout <= 5000) {
+            session->webTimeout = globalConfig->webTimeout;
+            webT = globalConfig->webTimeout;
+          }
+        }
+      }
 
       // Check if the url overrides the server settings
       char sAddr[256] = "";
@@ -508,8 +543,7 @@ static enum MHD_Result getSettings(struct Session *session,
         }    
       }
 
-      sprintf(setStr, "{\"sIP\":\"%s\",\"sPort\":\"%s\",\"lPort\":\"%s\"}",
-                      session->sIP, session->sPort, session->lPort);
+      sprintf(setStr, "{\"sIP\":\"%s\",\"sPort\":\"%s\",\"lPort\":\"%s\",\"ackT\":%d,\"webT\":%d,\"resQS\":%d}", session->sIP, session->sPort, session->lPort, ackT, webT, globalConfig->rQueueSize);
 
       break;
     }
@@ -1398,10 +1432,42 @@ static enum MHD_Result iteratePost(void *coninfo_cls, enum MHD_ValueKind kind,
 
       } else if (updatePasswdFile(con_info->session->userid, key, data, -1) == 0) {
         sprintf(con_info->session->lPort, "%s", data);
-        // TODO - do we always start a listener after changing port??
-        // TODO - check return code from start listener
-        stopListenWeb(con_info->session, con_info->connection, "/postListSets");
-        startListenWeb(con_info->session, con_info->connection, "/postListSets", -1, NULL);
+        if (con_info->session->isListening == 1) {
+          stopListenWeb(con_info->session, con_info->connection, "/postListSets");
+          startListenWeb(con_info->session, con_info->connection, "/postListSets", -1, NULL);
+        }
+        snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "OK");  // Save OK
+        sprintf(errStr, "[S: %03d] Listen port settings saved OK, uid: %s",
+                        con_info->session->shortID, con_info->session->userid);
+        writeLog(LOG_INFO, errStr, 0);
+
+      } else {
+        snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "SX");  // Save failed
+        sprintf(errStr, "[S: %03d] Failed to save send port settings, uid: %s",
+                        con_info->session->shortID, con_info->session->userid);
+        writeLog(LOG_WARNING, errStr, 0);
+
+      }
+
+    } else if (strcmp(key, "ackTimeout") == 0 ) {
+      if (updatePasswdFile(con_info->session->userid, key, NULL, atoi(data)) == 0) {    
+        con_info->session->ackTimeout = atoi(data);
+        snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "OK");  // Save OK
+        sprintf(errStr, "[S: %03d] Listen port settings saved OK, uid: %s",
+                        con_info->session->shortID, con_info->session->userid);
+        writeLog(LOG_INFO, errStr, 0);
+
+      } else {
+        snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "SX");  // Save failed
+        sprintf(errStr, "[S: %03d] Failed to save send port settings, uid: %s",
+                        con_info->session->shortID, con_info->session->userid);
+        writeLog(LOG_WARNING, errStr, 0);
+
+      }      
+
+    } else if (strcmp(key, "webTimeout") == 0 ) {
+      if (updatePasswdFile(con_info->session->userid, key, NULL, atoi(data)) == 0) {    
+        con_info->session->webTimeout = atoi(data);
         snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "OK");  // Save OK
         sprintf(errStr, "[S: %03d] Listen port settings saved OK, uid: %s",
                         con_info->session->shortID, con_info->session->userid);
@@ -1621,7 +1687,6 @@ static enum MHD_Result answerToConnection(void *cls, struct MHD_Connection *conn
       return(getServers(session, connection, con_info, url));
 
     } else if (strncmp(url, "/getSettings", 12) == 0) {
-    //} else if (strcmp(url, "/getSettings") == 0) {
       // Request login if not logged in
       if (session->aStatus != 1) return(requestLogin(session, connection, url));
       return(getSettings(session, connection, con_info, url));
@@ -1678,7 +1743,8 @@ static enum MHD_Result answerToConnection(void *cls, struct MHD_Connection *conn
           sockfd = connectSvr(con_info->session->sIP, con_info->session->sPort);
 
           if (sockfd >= 0) {
-            rc = sendPacket(sockfd, con_info->poststring, resStr, &resList, 0);
+            rc = sendPacket(sockfd, con_info->poststring, resStr, &resList, 0,
+                            con_info->session->ackTimeout);
 
             if (rc >= 0) {
               sprintf(errStr, "[S: %03d][%s] Sent %ld byte packet to socket: %d",
@@ -1810,12 +1876,19 @@ static int expireSessions(struct MHD_Daemon *daemon, int expireAfter) {
 // Start the web interface
 int listenWeb(int daemonSock) {
   struct MHD_Daemon *daemon;
-  // TODO - Change expire times to config file?
   int maxExpire = 0, expireSecs = 900, expireDelay = 10;
   time_t now, last = time(NULL) - (expireSecs + expireDelay + 1) ;
+  int port = 5377;
   char SKEY[34];
   char SPEM[34];
   char errStr[54] = "";
+
+  // Get the port and expire times from the config file if it exists
+  if (globalConfig) {
+    if (strlen(globalConfig->wPort) > 0) port = atoi(globalConfig->wPort);
+    if (globalConfig->sessExpiry > 0) expireSecs = globalConfig->sessExpiry;
+    if (globalConfig->exitDelay > 0) expireDelay = globalConfig->exitDelay;
+  }
 
   // Configure the cert location dependant on if we're a daemon or dev mode
   if (isDaemon == 1) {
@@ -1857,11 +1930,11 @@ int listenWeb(int daemonSock) {
   MHD_socket max;
   MHD_UNSIGNED_LONG_LONG mhd_timeout;
 
-  // Daemon uses systemd socket with MHD_OPTION_LISTEN_SOCKET, -w uses PORT
+  // Daemon uses systemd socket with MHD_OPTION_LISTEN_SOCKET, -w uses port variable
   if (isDaemon == 1) {
     daemon = MHD_start_daemon(MHD_USE_AUTO | MHD_USE_TURBO |
                               MHD_USE_TLS | MHD_USE_TCP_FASTOPEN,
-                              PORT,
+                              port,
                               NULL, NULL,
                               &answerToConnection, NULL,
                               MHD_OPTION_HTTPS_MEM_KEY, key_pem,
@@ -1874,7 +1947,7 @@ int listenWeb(int daemonSock) {
   } else {
     daemon = MHD_start_daemon(MHD_USE_AUTO | MHD_USE_TURBO |
                               MHD_USE_TLS | MHD_USE_TCP_FASTOPEN,
-                              PORT,
+                              port,
                               NULL, NULL,
                               &answerToConnection, NULL,
                               MHD_OPTION_HTTPS_MEM_KEY, key_pem,

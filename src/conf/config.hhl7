@@ -1,0 +1,21 @@
+{
+  "SECTION": "General settings",     
+    "logLevel"    : 6,           "desc":"Log level, 0-7, see syslog.h for levels",
+
+  "SECTION": "Web settings",
+    "Note":"The port for the web daemon is configured by the systemd socket config",
+    "wPort"       : "5377",      "desc":"Port for the -w development web server",
+    "maxAttempts" : 3,           "desc":"Maximum login attempts before locking account",
+    "sessExpiry"  : 900,         "desc":"Wait time before expiring an inactive session (seconds)",
+    "exitDelay"   : 10,          "desc":"Wait time after all sessions are inactive to exit (seconds)",
+    "rQueueSize"  : 200,         "desc":"Number of responses to display in the response list",
+    "rExpiryTime" : 900,         "desc":"Time to keep sent responses in the queue (seconds)",
+
+  "SECTION": "Default network settings",
+    "sendIP"      : "127.0.0.1", "desc":"Default target host address",
+    "sendPort"    : "11011",     "desc":"Default target host port",
+    "listenIP"    : "127.0.0.1", "desc":"Default address to listen on",
+    "listenPort"  : "22022",     "desc":"Default port to listen on",
+    "ackTimeout"  : 3,           "desc":"Timeout for receiving ACK response (seconds)",
+    "webTimeout"  : 750,         "desc":"Additional timeout for ACK to reach browser (ms)"
+}

@@ -20,12 +20,16 @@ You should have received a copy of the GNU General Public License along with hhl
 #include <systemd/sd-daemon.h>
 #include <syslog.h>
 #include <signal.h>
+#include <json.h>
 #include "hhl7extern.h"
 #include "hhl7utils.h"
 #include "hhl7json.h"
 #include "hhl7net.h"
 #include "hhl7web.h"
 
+
+// Global variables
+struct globalConfigInfo *globalConfig;
 int isDaemon = 0;
 
 
@@ -72,6 +76,89 @@ static void showHelp(int exCode) {
 }
 
 
+// Populate the global config struct from config file
+static int popGlobalConfig() {
+  char confFile[75] = "", errStr[96] = "";
+  struct json_object *confObj = NULL, *confItem = NULL;
+
+  // Find the config file
+  if (findConfFile(confFile) != 0) {
+    return(1);
+  }
+
+  // Load the JSON config file
+  confObj = json_object_from_file(confFile);
+  if (confObj == NULL) {
+    writeLog(LOG_WARNING, "Failed to load or parse config file, using default values", 1);
+    json_object_put(confObj);
+    return(1);
+  }
+
+  // Alloc memory for the config info 
+  globalConfig = malloc(sizeof(struct globalConfigInfo));
+
+  // Parse config items
+  confItem = json_object_object_get(confObj, "logLevel");
+  if (confItem != NULL)
+    globalConfig->logLevel = json_object_get_int(confItem);
+
+  confItem = json_object_object_get(confObj, "wPort");
+  if (confItem != NULL)
+    sprintf(globalConfig->wPort, "%s", json_object_get_string(confItem));
+
+  confItem = json_object_object_get(confObj, "maxAttempts");
+  if (confItem != NULL)
+    globalConfig->maxAttempts = json_object_get_int(confItem);
+
+  confItem = json_object_object_get(confObj, "sessExpiry");
+  if (confItem != NULL)
+    globalConfig->sessExpiry = json_object_get_int(confItem);
+
+  confItem = json_object_object_get(confObj, "exitDelay");
+  if (confItem != NULL)
+    globalConfig->exitDelay = json_object_get_int(confItem);
+
+  confItem = json_object_object_get(confObj, "rQueueSize");
+  if (confItem != NULL)
+    globalConfig->rQueueSize = json_object_get_int(confItem);
+
+  confItem = json_object_object_get(confObj, "rExpiryTime");
+  if (confItem != NULL)
+    globalConfig->rExpiryTime = json_object_get_int(confItem);
+
+  confItem = json_object_object_get(confObj, "sendIP");
+  if (confItem != NULL)
+    sprintf(globalConfig->sIP, "%s", json_object_get_string(confItem));
+  
+  confItem = json_object_object_get(confObj, "sendPort");
+  if (confItem != NULL)
+    sprintf(globalConfig->sPort, "%s", json_object_get_string(confItem)); 
+
+  confItem = json_object_object_get(confObj, "listenIP");
+  if (confItem != NULL)
+    sprintf(globalConfig->lIP, "%s", json_object_get_string(confItem));
+
+  confItem = json_object_object_get(confObj, "listenPort");
+  if (confItem != NULL)
+    sprintf(globalConfig->lPort, "%s", json_object_get_string(confItem));
+
+  confItem = json_object_object_get(confObj, "ackTimeout");
+  if (confItem != NULL)
+    globalConfig->ackTimeout = json_object_get_int(confItem);
+
+  confItem = json_object_object_get(confObj, "webTimeout");
+  if (confItem != NULL)
+    globalConfig->webTimeout = json_object_get_int(confItem);
+
+  // Log which config file is being used
+  sprintf(errStr, "Using config file: %s", confFile);
+  writeLog(LOG_INFO, errStr, 1);
+
+  json_object_put(confObj);
+  return(0);
+}
+
+
 // Clean shutdown
 static void cleanShutdown() {
   if (getppid() > 1) {
@@ -80,6 +167,7 @@ static void cleanShutdown() {
     writeLog(LOG_INFO, "Received signal, politely shutting down", 1);
   }
   if (webRunning == 1) cleanAllSessions();
+  free(globalConfig);
   exit(0);
 }
 
@@ -94,7 +182,6 @@ int main(int argc, char *argv[]) {
   int noSend = 0, fWeb = 0, sc = 0, sCount = 1, sSleep = 500, rv = -1, resType = 0;
   FILE *fp;
 
-  // TODO move bind port (sIP) to config file
   long unsigned int maxNameL = 255;
   char sIP[256] = "127.0.0.1";
   char lIP[256] = "127.0.0.1";
@@ -104,6 +191,14 @@ int main(int argc, char *argv[]) {
   char fileName[256] = "file.txt";
   char errStr[28] = "";
   char *ackList = NULL;
+
+  // Populate send/listen addresses from config
+  if (popGlobalConfig() == 0) {
+    if (strlen(globalConfig->sIP) > 0) sprintf(sIP, "%s", globalConfig->sIP);
+    if (strlen(globalConfig->lIP) > 0) sprintf(lIP, "%s", globalConfig->lIP);
+    if (strlen(globalConfig->sPort) > 0) sprintf(sPort, "%s", globalConfig->sPort);
+    if (strlen(globalConfig->lPort) > 0) sprintf(lPort, "%s", globalConfig->lPort);
+  }
 
   // Catch signals for clean shutdown
   struct sigaction sa = { .sa_handler = cleanShutdown };
@@ -332,7 +427,6 @@ int main(int argc, char *argv[]) {
 
 
   if (fSendTemplate == 1) {
-    
     // Send a message based on the given JSON template & arguments, repeat N times
     for (sc = 0; sc < sCount; sc++) {
       sendTemp(sIP, sPort, tName, noSend, fShowTemplate, optind, argc, argv, NULL);

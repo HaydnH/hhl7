@@ -4,5 +4,7 @@ After=network-online.target
 Documentation=man:hhl7(1)
 
 [Service]
+User=hhl7
 Type=simple
 ExecStart=/usr/local/hhl7/bin/hhl7 -D %i
+#ExecStart=valgrind --leak-check=full --show-leak-kinds=all --show-reachable=no --track-origins=yes --log-file=/usr/local/hhl7/valgrind.out /usr/local/hhl7/bin/hhl7 -D %i

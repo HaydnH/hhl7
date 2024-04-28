@@ -2,8 +2,8 @@
   "name":"INR",
   "author":"Haydn Haines",
   "version":"1.0",
-  "reponseTimeMin":20,
-  "reponseTimeMax":30,
+  "reponseTimeMin":10,
+  "reponseTimeMax":20,
   "matches": [
     { "segment":"MSH", "field":9, "value":"OMG^O19" },
     { "segment":"OBR", "field":4, "value":"INR^INR" }

@@ -36,9 +36,13 @@ void printChars(char *buf) {
 
 // Open log file for reading, wrapper for syslog openlog()
 void openLog() {
+  int logLevel = 6; // Default log level is LOG_INFO (6, see syslog.h)
+  if (globalConfig) {
+    if (globalConfig->logLevel >= 0) logLevel = globalConfig->logLevel;
+  }
+
   openlog("HHL7", LOG_NDELAY, LOG_USER);
-  // TODO - Conf file log level?
-  setlogmask(LOG_UPTO(LOG_INFO));
+  setlogmask(LOG_UPTO(logLevel));
 }
 
 
@@ -56,7 +60,13 @@ void writeLog(int logLvl, char *logStr, int stdErr) {
   if (isDaemon == 1) {
     syslog(logLvl, "%s%s", logLevels[logLvl], logStr);
   } else if (stdErr == 1) {
-    fprintf(stderr, "%s%s\n", logLevels[logLvl], logStr);
+    if (globalConfig) {
+      if (logLvl <= globalConfig->logLevel) {
+        fprintf(stderr, "%s%s\n", logLevels[logLvl], logStr);
+      }
+    } else {
+      fprintf(stderr, "%s%s\n", logLevels[logLvl], logStr);
+    }
   }
 }
 
@@ -352,6 +362,35 @@ void hl72web(char *msg, int maxSize) {
 }
 
 
+// Find fullpath of a config file
+int findConfFile(char *confFile) {
+  FILE *fp;
+  int p = 0;
+  const char *homeDir = getenv("HOME");
+  char cFile[3][75] = { "./conf/config.hhl7",
+                        "/.config/hhl7/conf/config.hhl7",
+                        "/usr/local/hhl7/conf/config.hhl7" };
+
+  if (strlen(homeDir) > 38) {
+    handleError(LOG_WARNING, "Linux username longer than allowed (>32 chars)", 0, 0, 1);
+    return(2);
+  }
+
+  sprintf(cFile[1], "%s/.config/hhl7/conf/config.hhl7", homeDir);
+
+  for (p = 0; p < 3; p++) {
+    // If we can open the file for reading, update confFile & return 0
+    fp = fopen(cFile[p], "r");
+    if (fp != NULL) {
+      sprintf(confFile, "%s", cFile[p]);
+      fclose(fp);
+      return(0);
+    }
+  }
+  return(1); 
+}
+
+
 // Find fullpath of a json template file
 FILE *findTemplate(char *fileName, char *tName, int isRespond) {
   FILE *fp;
@@ -360,9 +399,7 @@ FILE *findTemplate(char *fileName, char *tName, int isRespond) {
   const char *homeDir = getenv("HOME");
   char tPath[13] = "templates/";
   if (isRespond == 1) sprintf(tPath, "responders/");
-  char tPaths[3][18] = { "/.config/hhl7/",
-                         "./",
-                         "/usr/local/hhl7/" };
+  char tPaths[3][18] = { "./", "/.config/hhl7/", "/usr/local/hhl7/" };
 
   if (isDaemon == 1) {
     sprintf(fileName, "%s%s%s%s", tPaths[2], tPath, tName, ".json");
@@ -374,7 +411,7 @@ FILE *findTemplate(char *fileName, char *tName, int isRespond) {
   } else {
     // Create the full file path/name of the found template location
     for (p = 0; p < 3; p++) {
-      if (p == 0) {
+      if (p == 1) {
         sprintf(fileName, "%s%s%s%s%s", homeDir, tPaths[p], tPath, tName, ".json");
       } else {
         sprintf(fileName, "%s%s%s%s", tPaths[p], tPath, tName, ".json");
@@ -396,7 +433,6 @@ FILE *findTemplate(char *fileName, char *tName, int isRespond) {
 
   // We should never get here, but it's included to avoid compiler warnings
   return(fp);
-
 }
 
 
