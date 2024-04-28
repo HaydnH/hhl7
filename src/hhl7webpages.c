@@ -675,8 +675,8 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
     <script>\n\
       var webLocked = true;\n\
       var isConnectionOpen = false;\n\
-      var ackTimeout = 3000;\n\
-      var webTimeout = 3000;\n\
+      var ackTimeout = 3;\n\
+      var webTimeout = 750;\n\
 \n\
       function showLogin() {\n\
         webLocked = true;\n\
