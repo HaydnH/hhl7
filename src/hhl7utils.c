@@ -142,7 +142,7 @@ void getRand(int lower, int upper, int dp, char *res, int *resInt, float *resF) 
 
   // Create the random number and remove 0s to add decimal places
   tmpF = (float) (rand() % (upper - lower) + lower);
-  tmpF = tmpF/ pow(10, dp);
+  tmpF = tmpF / pow(10, dp);
 
   // Return the final result to the correct DPs
   if (dp == 0) {
