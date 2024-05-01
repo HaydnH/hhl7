@@ -374,7 +374,7 @@ static int parseVals(char ***hl7Msg, int *hl7MsgS, char *vStr, char *nStr, char 
         dataLines = numLines(fileData);
 
         if (strcmp(json_object_get_string(dataType), "rand") == 0) {
-          getRand(0, dataLines, 0, NULL, &getLine, NULL);
+          getRand(1, dataLines, 0, NULL, &getLine, NULL);
         } else if (strcmp(json_object_get_string(dataType), "msgrand") == 0) {
           getLine = (dataLines * msgRand) / 100;
         } else {

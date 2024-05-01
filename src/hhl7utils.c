@@ -134,22 +134,23 @@ void getRand(int lower, int upper, int dp, char *res, int *resInt, float *resF) 
   
   // Add 0s to the upper/lower values to allow decimal places
   lower = lower * pow(10, dp);
-  upper = (upper  + 1) * pow(10, dp);
+  if (dp == 0) {
+    upper = (upper + 1) * pow(10, dp);
+  } else {
+    upper = (upper) * pow(10, dp);
+  }
 
   // Create the random number and remove 0s to add decimal places
   tmpF = (float) (rand() % (upper - lower) + lower);
-  tmpF = tmpF / pow(10, dp);
+  tmpF = tmpF/ pow(10, dp);
 
   // Return the final result to the correct DPs
-  if (*resInt >= 0) {
+  if (dp == 0) {
     *resInt = (int) tmpF;
-
-  } else if (*resF >= 0) {
-    sprintf(res, "%.*f", dp, tmpF);
-    *resF = tmpF;
 
   } else {
     sprintf(res, "%.*f", dp, tmpF);
+    *resF = tmpF;
   }
 }
 
@@ -259,16 +260,14 @@ long unsigned int numLines(const char *buf) {
 
 // Update a start and end count for a line in a file
 void findLine(char *buf, long int dataSize, int lineNum, int *start, int *lineLen) {
-  int i = 0, curLine = 0, startFound = 0, endFound = 0;
-  //printf("B: %s -> %d\n", buf, lineNum);
+  int i = 0, curLine = 1, startFound = 0, endFound = 0;
 
-  if (lineNum == 0) {
+  if (lineNum == 1) {
     *start = 0;
     startFound = 1;
   }
 
   while (startFound + endFound < 2) {
-    //printf("S: %d - E: %d - SF: %d - EF: %d - LN: %d - CL: %d\n", *start, *lineLen, startFound, endFound, lineNum, curLine);
     if (buf[i] == '\n') {
       if (startFound == 0 && curLine == (lineNum - 1)) {
         *start = i + 1;
@@ -291,7 +290,6 @@ void findLine(char *buf, long int dataSize, int lineNum, int *start, int *lineLe
     }
     i++;
   }
-  //printf("S: %d -> E: %d\n", start, end);
 }
 
 

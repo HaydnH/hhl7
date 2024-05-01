@@ -760,7 +760,7 @@ static struct Response *handleMsg(int sessfd, int fd, char *sIP, char *sPort, in
       if (rcvSize > 0 && rcvSize <= readSize) {
         msgSize = msgSize + rcvSize;
         if ((msgSize + 1) > maxSize) msgBuf = dblBuf(msgBuf, ms, msgSize);
-        sprintf(msgBuf, "%s%s", msgBuf, rcvBuf);
+        strcat(msgBuf, rcvBuf);
 
         // Full hl7 message received, handle the msg
         if (rcvBuf[rcvSize - 2] == 28 || rcvBuf[rcvSize - 1] == 28) {
