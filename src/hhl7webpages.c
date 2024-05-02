@@ -1196,7 +1196,17 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         wImg.src = \"/images/warning.png\";\n\
 \n\
         checkAuth();\n\
-        if (webLocked = false) unlockWeb();\n\
+        if (webLocked = false) {\n\
+          unlockWeb();\n\
+        } else {\n\
+          var logInput = document.getElementById(\"uname\");\n\
+          setTimeout(() => {\n\
+            if (logInput.matches(':autofill')) {\n\
+              var sub = document.getElementById(\"submit\");\n\
+              sub.classList.replace(\"buttonInactive\", \"button\");\n\
+            }\n\
+          }, 500);\n\
+        }\n\
       }\n\
 \n\
       function unlockWeb() {\n\

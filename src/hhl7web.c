@@ -1228,7 +1228,6 @@ static enum MHD_Result iteratePost(void *coninfo_cls, enum MHD_ValueKind kind,
   if (con_info->session == NULL) {
     con_info->session = getSession(con_info->connection);
   }
-printf("K: %s\nD: %s\n", key, data);
 
   // Discard messages only containing new line characters
   if (size - numLines(data) == 0) size = 0;
@@ -1260,9 +1259,7 @@ printf("K: %s\nD: %s\n", key, data);
         if (strcmp(json_object_get_string(postObj), "procRespond") == 0) {
           if (con_info->session->isListening == 0) {
             rc = startResponder(con_info->session, con_info->connection, rootObj);
-printf("R: %d\n", rc);
             if (rc != 0) snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "RX");
-printf("AS1: %s\n", con_info->answerstring);
           } else {
             sendRespList(con_info->session, rootObj);
 
@@ -1537,7 +1534,6 @@ static enum MHD_Result sendPage(struct Session *session, struct MHD_Connection *
   } else if (strcmp(page, "RX") == 0 || strcmp(page, "CX") == 0 ||
              strcmp(page, "PX") == 0 || strcmp(page, "PT") == 0 ||
              strcmp(page, "PU") == 0) {
-printf("Yes?\n");
     ret = MHD_queue_response(connection, MHD_HTTP_CONFLICT, response);
     sprintf(errStr, "[S: %03d][409] %s: %s", session->shortID, connectiontype, url);
     writeLog(LOG_INFO, errStr, 0);
