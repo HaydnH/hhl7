@@ -1371,7 +1371,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         };\n\
 \n\
         xhr.open(\"POST\", \"/postJSON\");\n\
-        xhr.timeout = webTimeout;\n\
+        xhr.timeout = ackTimeout + webTimeout;\n\
         var formData = new FormData();\n\
         formData.append(\"jsonPOST\", jsonObj);\n\
         xhr.send(formData);\n\

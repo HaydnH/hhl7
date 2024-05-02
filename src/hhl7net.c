@@ -760,14 +760,17 @@ static struct Response *handleMsg(int sessfd, int fd, char *sIP, char *sPort, in
       if (rcvSize > 0 && rcvSize <= readSize) {
         msgSize = msgSize + rcvSize;
         if ((msgSize + 1) > maxSize) msgBuf = dblBuf(msgBuf, ms, msgSize);
+        //sprintf(msgBuf, "%s%s", msgBuf, rcvBuf);
         strcat(msgBuf, rcvBuf);
 
         // Full hl7 message received, handle the msg
         if (rcvBuf[rcvSize - 2] == 28 || rcvBuf[rcvSize - 1] == 28) {
           // If the EOB character is the last in the message, there is still a CR to
           // receive which we can ignore, set rcvSize to 0 to ensure we exit while loop
-          if (rcvBuf[rcvSize - 1] == 28) ignoreNext = 1;
-          rcvSize = 0;
+          if (rcvBuf[rcvSize - 1] == 28) {
+            ignoreNext = 1;
+            rcvSize = 0;
+          }
 
           stripMLLP(msgBuf);
           if (sendACK(sessfd, msgBuf, resType, ackList) == -1) webErr = 1;

@@ -164,16 +164,42 @@ void timeNow(char *dt, int aMins) {
 }
 
 
+// Trime leading and ending white space from buffer
+void trimWhiteSpace(char* hl7msg) {
+  int i =0, startWS = 0, endWS = 0;
+  int hl7Len = strlen(hl7msg);
+  char tmpBuf[hl7Len + 1];
+
+  strcpy(tmpBuf, hl7msg);
+
+  for (i = 0; i < hl7Len; i++) {
+    if (tmpBuf[i] == '\r' || tmpBuf[i] == '\n') {
+      startWS++;
+    } else {
+      break;
+    }
+  }
+  for (i = hl7Len - 1; i >= 0; i--) {
+    if (tmpBuf[i] == '\r' || tmpBuf[i] == '\n') {
+      endWS++;
+    } else {
+      break;
+    }
+  }
+  snprintf(hl7msg, hl7Len - startWS - endWS, "%s", tmpBuf + startWS);
+}
+
+
 // Strip MLLP parts of packet
 void stripMLLP(char *hl7msg) {
   int msgLen = strlen(hl7msg);
   int m = 0, s = 0;
-  char tmpBuf[strlen(hl7msg)];
+  char tmpBuf[strlen(hl7msg)]; 
 
   for (m = 0; m < msgLen; m++) {
     if (hl7msg[m] == (char) 11 || hl7msg[m] == (char) 28) {
       s++;
- 
+
     } else {
       tmpBuf[m - s] = hl7msg[m];
     }
