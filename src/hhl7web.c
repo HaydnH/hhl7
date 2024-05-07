@@ -29,6 +29,7 @@ You should have received a copy of the GNU General Public License along with hhl
 #include <microhttpd.h>
 #include <json.h>
 #include <dirent.h>
+#include <fcntl.h>
 #include "hhl7extern.h"
 #include "hhl7net.h"
 #include "hhl7utils.h"
@@ -958,6 +959,7 @@ static void cleanSession(struct Session *session) {
     char hhl7fifo[21];
     sprintf(hhl7fifo, "%s%d", "/tmp/hhl7fifo.", session->lpid);
     close(session->readFD);
+    session->readFD = -1;
     unlink(hhl7fifo);
   }
 
@@ -965,6 +967,7 @@ static void cleanSession(struct Session *session) {
     char hhl7rfifo[21];
     sprintf(hhl7rfifo, "%s%d", "/tmp/hhl7rfifo.", session->lpid);
     close(session->respFD);
+    session->respFD = -1;
     unlink(hhl7rfifo);
   }
 
@@ -1878,8 +1881,8 @@ int listenWeb(int daemonSock) {
   int maxExpire = 0, expireSecs = 900, expireDelay = 10;
   time_t now, last = time(NULL) - (expireSecs + expireDelay + 1) ;
   int port = 5377;
-  char SKEY[34];
-  char SPEM[34];
+  char SKEY[256];
+  char SPEM[256];
   char errStr[54] = "";
 
   // Get the port and expire times from the config file if it exists
@@ -1890,7 +1893,11 @@ int listenWeb(int daemonSock) {
   }
 
   // Configure the cert location dependant on if we're a daemon or dev mode
-  if (isDaemon == 1) {
+  if (strlen(globalConfig->wKey) > 0 && strlen(globalConfig->wCrt) > 0) {
+    sprintf(SKEY, "%s", globalConfig->wKey);
+    sprintf(SPEM, "%s", globalConfig->wCrt);
+
+  } else if (isDaemon == 1) {
     sprintf(SKEY, "%s", "/usr/local/hhl7/certs/server.key");
     sprintf(SPEM, "%s", "/usr/local/hhl7/certs/server.pem");
 

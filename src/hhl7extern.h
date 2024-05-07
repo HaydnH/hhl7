@@ -15,6 +15,10 @@ struct globalConfigInfo {
   // General settings
   int logLevel;
 
+  // Web security settings
+  char wKey[256];
+  char wCrt[256];
+
   // Web daemon settings
   char wPort[6];
   int maxAttempts;

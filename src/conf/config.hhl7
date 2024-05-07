@@ -2,6 +2,10 @@
   "SECTION": "General settings",     
     "logLevel"    : 6,           "desc":"Log level, 0-7, see syslog.h for levels",
 
+  "SECTION": "Web security settings",     
+    "wKey" : "/home/haydn/hhl7/src/certs/server.key", "desc":"HTTPS key file",
+    "wCrt" : "/home/haydn/hhl7/src/certs/server.pem", "desc":"HTTPS pem file",
+
   "SECTION": "Web settings",
     "Note":"The port for the web daemon is configured by the systemd socket config",
     "wPort"       : "5377",      "desc":"Port for the -w development web server",
@@ -16,6 +20,6 @@
     "sendPort"    : "11011",     "desc":"Default target host port",
     "listenIP"    : "127.0.0.1", "desc":"Default address to listen on",
     "listenPort"  : "22022",     "desc":"Default port to listen on",
-    "ackTimeout"  : 3,           "desc":"Timeout for receiving ACK response (seconds)",
+    "ackTimeout"  : 4,           "desc":"Timeout for receiving ACK response (seconds)",
     "webTimeout"  : 750,         "desc":"Additional timeout for ACK to reach browser (ms)"
 }

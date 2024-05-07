@@ -76,6 +76,8 @@ static void showHelp(int exCode) {
 }
 
 
+// TODO - check missing options is OK
+// TODO - validate config file options - e.g: cert/key < 256 chars
 // Populate the global config struct from config file
 static int popGlobalConfig() {
   char confFile[75] = "", errStr[96] = "";
@@ -98,54 +100,77 @@ static int popGlobalConfig() {
   globalConfig = malloc(sizeof(struct globalConfigInfo));
 
   // Parse config items
+  globalConfig->logLevel = -1;
   confItem = json_object_object_get(confObj, "logLevel");
   if (confItem != NULL)
     globalConfig->logLevel = json_object_get_int(confItem);
 
+  globalConfig->wKey[0] = '\0';
+  confItem = json_object_object_get(confObj, "wKey");
+  if (confItem != NULL)
+    sprintf(globalConfig->wKey, "%s", json_object_get_string(confItem));
+
+  globalConfig->wCrt[0] = '\0';
+  confItem = json_object_object_get(confObj, "wCrt");
+  if (confItem != NULL)
+    sprintf(globalConfig->wCrt, "%s", json_object_get_string(confItem));
+
+  globalConfig->wPort[0] = '\0';
   confItem = json_object_object_get(confObj, "wPort");
   if (confItem != NULL)
     sprintf(globalConfig->wPort, "%s", json_object_get_string(confItem));
 
+  globalConfig->maxAttempts = -1;
   confItem = json_object_object_get(confObj, "maxAttempts");
   if (confItem != NULL)
     globalConfig->maxAttempts = json_object_get_int(confItem);
 
+  globalConfig->sessExpiry = -1;
   confItem = json_object_object_get(confObj, "sessExpiry");
   if (confItem != NULL)
     globalConfig->sessExpiry = json_object_get_int(confItem);
 
+  globalConfig->exitDelay = -1;
   confItem = json_object_object_get(confObj, "exitDelay");
   if (confItem != NULL)
     globalConfig->exitDelay = json_object_get_int(confItem);
 
+  globalConfig->rQueueSize = -1;
   confItem = json_object_object_get(confObj, "rQueueSize");
   if (confItem != NULL)
     globalConfig->rQueueSize = json_object_get_int(confItem);
 
+  globalConfig->rExpiryTime = -1;
   confItem = json_object_object_get(confObj, "rExpiryTime");
   if (confItem != NULL)
     globalConfig->rExpiryTime = json_object_get_int(confItem);
 
+  globalConfig->sIP[0] = '\0';
   confItem = json_object_object_get(confObj, "sendIP");
   if (confItem != NULL)
     sprintf(globalConfig->sIP, "%s", json_object_get_string(confItem));
   
+  globalConfig->sPort[0] = '\0';
   confItem = json_object_object_get(confObj, "sendPort");
   if (confItem != NULL)
     sprintf(globalConfig->sPort, "%s", json_object_get_string(confItem)); 
 
+  globalConfig->lIP[0] = '\0';
   confItem = json_object_object_get(confObj, "listenIP");
   if (confItem != NULL)
     sprintf(globalConfig->lIP, "%s", json_object_get_string(confItem));
 
+  globalConfig->lPort[0] = '\0';
   confItem = json_object_object_get(confObj, "listenPort");
   if (confItem != NULL)
     sprintf(globalConfig->lPort, "%s", json_object_get_string(confItem));
 
+  globalConfig->ackTimeout = -1;
   confItem = json_object_object_get(confObj, "ackTimeout");
   if (confItem != NULL)
     globalConfig->ackTimeout = json_object_get_int(confItem);
 
+  globalConfig->webTimeout = -1;
   confItem = json_object_object_get(confObj, "webTimeout");
   if (confItem != NULL)
     globalConfig->webTimeout = json_object_get_int(confItem);
@@ -167,7 +192,7 @@ static void cleanShutdown() {
     writeLog(LOG_INFO, "Received signal, politely shutting down", 1);
   }
   if (webRunning == 1) cleanAllSessions();
-  free(globalConfig);
+  if (globalConfig != NULL) free(globalConfig);
   exit(0);
 }
 

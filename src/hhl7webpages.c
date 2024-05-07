@@ -1205,7 +1205,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
               var sub = document.getElementById(\"submit\");\n\
               sub.classList.replace(\"buttonInactive\", \"button\");\n\
             }\n\
-          }, 500);\n\
+          }, 250);\n\
         }\n\
       }\n\
 \n\
@@ -1381,7 +1381,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         };\n\
 \n\
         xhr.open(\"POST\", \"/postJSON\");\n\
-        xhr.timeout = ackTimeout + webTimeout;\n\
+        xhr.timeout = (ackTimeout * 1000) + webTimeout;\n\
         var formData = new FormData();\n\
         formData.append(\"jsonPOST\", jsonObj);\n\
         xhr.send(formData);\n\

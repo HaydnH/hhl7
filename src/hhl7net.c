@@ -299,7 +299,7 @@ int listenACK(int sockfd, char *res, int aTimeout) {
   } else {
     if (globalConfig) {
       if (globalConfig->ackTimeout > 0 && globalConfig->ackTimeout < 100)
-        ackT = globalConfig->maxAttempts;
+        ackT = globalConfig->ackTimeout;
     }
   }
 
@@ -599,6 +599,7 @@ static struct Response *checkResponse(char *msg, char *sIP, char *sPort, char *t
   struct json_object *segStr = NULL, *fldObj = NULL, *valStr = NULL, *exclObj = NULL;
   struct json_object *minObj = NULL, *maxObj = NULL, *sendT = NULL, *respN = NULL;
   int m = 0, mCount = 0, fldInt = 0, exclInt = 0, minT = 0, maxT = 0;
+  // TODO - check resFile, fldStr etc length and error handle
   char resFile[290], fldStr[256], resStr[3] = "", errStr[542] = "";
   char *tmpPtr = NULL;
 
