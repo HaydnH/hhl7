@@ -29,7 +29,6 @@ You should have received a copy of the GNU General Public License along with hhl
 #include <microhttpd.h>
 #include <json.h>
 #include <dirent.h>
-#include <fcntl.h>
 #include "hhl7extern.h"
 #include "hhl7net.h"
 #include "hhl7utils.h"

@@ -76,7 +76,6 @@ static void showHelp(int exCode) {
 }
 
 
-// TODO - check missing options is OK
 // TODO - validate config file options - e.g: cert/key < 256 chars
 // Populate the global config struct from config file
 static int popGlobalConfig() {
