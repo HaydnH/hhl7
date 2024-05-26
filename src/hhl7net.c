@@ -878,7 +878,8 @@ static int createSession(char *ip, const char *port) {
 static int readRespTemps(int respFD, char respTemps[20][256], char *respTempsPtrs[20]) {
   struct json_object *rootObj = NULL, *dataArray = NULL, *dataObj = NULL;
   char readSizeBuf[11];
-  int pLen = 1, readSize = 0, updated = 0, dataInt = 0, i = 0;
+  int pLen = 1, updated = 0, dataInt = 0, i = 0;
+  unsigned long int readSize = 0;
 
   while (pLen > 0) {
     if ((pLen = read(respFD, readSizeBuf, 11)) > 0) {

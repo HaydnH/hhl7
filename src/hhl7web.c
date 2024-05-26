@@ -599,7 +599,7 @@ static enum MHD_Result getTemplateList(struct Session *session,
   char tPath[strlen(url) + 13];
   char fExt[6] = "";
   const char *nOpt = "<option value=\"None\">None</option>\n";
-  // TODO - do these need increasing? Trye large number pf paths etc
+  // TODO - do these need increasing? Try large number of paths etc
   char fName[128] = "", tName[128] = "", fullName[141 + strlen(url)], *ext;
   char *newPtr = NULL;
   char errStr[300] = "";
@@ -761,7 +761,8 @@ static enum MHD_Result getTempForm(struct Session *session,
   enum MHD_Result ret;
   struct MHD_Response *response;
   FILE *fp;
-  int retVal = 0, descSize = 1;
+  int retVal = 0;
+  long int descSize = 1;
   struct json_object *rootObj = NULL, *descObj = NULL;
   char errStr[300] = "";
 
@@ -1882,7 +1883,7 @@ int listenWeb(int daemonSock) {
   int port = 5377;
   char SKEY[256];
   char SPEM[256];
-  char errStr[54] = "";
+  char errStr[274] = "";
 
   // Get the port and expire times from the config file if it exists
   if (globalConfig) {
@@ -1920,6 +1921,12 @@ int listenWeb(int daemonSock) {
 
   if ((fpSKEY == NULL) || (fpSPEM == NULL)) {
     handleError(LOG_CRIT, "The HTTPS key/cert files could not be read", 1, 1, 1);
+
+  } else {
+      sprintf(errStr, "Using cert file: %s", SPEM);
+      writeLog(LOG_INFO, errStr, 1);
+      sprintf(errStr, "Using pkey file: %s", SKEY);
+      writeLog(LOG_INFO, errStr, 1);
   }
 
   file2buf(key_pem, fpSKEY, keySize);
