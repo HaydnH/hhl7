@@ -149,17 +149,17 @@ int getJSONValue(char *jsonMsg, int type, char *key, char *resVal) {
 // Add a JSON template object to the template web form
 static void addVar2WebForm(char **webForm, int *webFormS, struct json_object *fieldObj) {
   struct json_object *nameObj = NULL, *optsObj = NULL, *optObj = NULL, *oObj = NULL;
-  struct json_object *defObj = NULL;
-  char *oStr = NULL, *nStr = NULL, *dStr = NULL;
+  struct json_object *defObj = NULL, *txtBoxObj = NULL, *newLineObj = NULL;
+  char *oStr = NULL, *nStr = NULL, *dStr = NULL, *nlStr = NULL;
   long unsigned int o = 0;
-  int reqS = 0;
+  int reqS = 0, textBox = -1;
 
   // HTML strings to keep the code below tidy
   const char wStr1[]  = "<div class='tempFormField'><div class='tempFormKey'>";
   const char wStr2[]  = ":</div><div class='tempFormValue'>";
   const char wStr3[]  = "<select id='HHL7_FL_";
   const char wStr4[]  = "' class='tempFormSelect'";
-  const char wStr5[]  = " onInput='updateHL7(this.id, this.value);' />";
+  const char wStr5[]  = " onInput='updateHL7(this.id, this.value, true);' />";
   const char wStr6[]  = "<option value='";
   const char wStr7[]  = "' selected='selected";
   const char wStr8[]  = "'>";
@@ -168,13 +168,22 @@ static void addVar2WebForm(char **webForm, int *webFormS, struct json_object *fi
   const char wStr11[] = "<input id='HHL7_FL_";
   const char wStr12[] = "' class='tempFormInput'";
   const char wStr13[] = "</div></div>";
-  
+  const char wStr14[] = "' class='tempFormText' data-br='";
+  const char wStr15[] = "' onFocus='refreshBox(this);'";
+  const char wStr16[] = "<a href='' class='tempTextButton' ";
+  const char wStr17[] = "onclick=\\\"showTextBox('HHL7_FL_";
+  const char wStr18[] = "'); return false;\\\">&#7790;</a>";
+
   // Try to obtain the options and default values from the JSON template
   json_object_object_get_ex(fieldObj, "name", &nameObj);
   json_object_object_get_ex(fieldObj, "options", &optsObj);
   json_object_object_get_ex(fieldObj, "default", &defObj);
+  json_object_object_get_ex(fieldObj, "textbox", &txtBoxObj);
+  json_object_object_get_ex(fieldObj, "newline", &newLineObj);
   nStr = (char *) json_object_get_string(nameObj);
   dStr = (char *) json_object_get_string(defObj);
+  nlStr = (char *) json_object_get_string(newLineObj);
+  textBox = json_object_get_boolean(txtBoxObj);
 
   // Stop processing if this is not a named object or is already on the form
   if (!nStr) return;
@@ -183,7 +192,7 @@ static void addVar2WebForm(char **webForm, int *webFormS, struct json_object *fi
   if (strstr(*webForm, valSpan) != NULL) return;
 
   // Increase memory, if required, for all strings outside the below for loop
-  reqS = strlen(*webForm) + (2 * strlen(nStr)) + 128;
+  reqS = strlen(*webForm) + (3 * strlen(nStr)) + 336;
   if (reqS > *webFormS) *webForm = dblBuf(*webForm, webFormS, reqS);
 
   // Add the key name to the web form
@@ -213,8 +222,17 @@ static void addVar2WebForm(char **webForm, int *webFormS, struct json_object *fi
     sprintf(*webForm + strlen(*webForm), "%s", wStr10);
 
   } else {
-    sprintf(*webForm + strlen(*webForm), "%s%s%s%s", wStr11, nStr, wStr12, wStr5);
-
+    if (txtBoxObj && newLineObj) {
+      if (textBox == 1 && strlen(nlStr) > 0) {
+        sprintf(*webForm + strlen(*webForm), "%s%s%s%s%s%s%s%s%s%s",
+                                             wStr11, nStr, wStr14, nlStr, wStr15,
+                                             wStr5, wStr16, wStr17, nStr, wStr18);
+      } else {
+        sprintf(*webForm + strlen(*webForm), "%s%s%s%s", wStr11, nStr, wStr12, wStr5);
+      }
+    } else {
+      sprintf(*webForm + strlen(*webForm), "%s%s%s%s", wStr11, nStr, wStr12, wStr5);
+    }
   }
   sprintf(*webForm + strlen(*webForm), "%s", wStr13);
 }

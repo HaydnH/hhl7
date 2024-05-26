@@ -36,6 +36,11 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
       a.black {\n\
         color: #000;\n\
       }\n\
+      a.tempTextButton {\n\
+        color: #000;\n\
+        padding: 0px 0px 0px 10px;\n\
+        font-weight: bold;\n\
+      }\n\
       a:hover {\n\
         color: #eeb11e;\n\
       }\n\
@@ -207,6 +212,16 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         padding: 0px 10px 0px 10px;\n\
         outline: none;\n\
       }\n\
+      .tempFormText {\n\
+        font-family: inherit;\n\
+        font-size: inherit;\n\
+        background-color: #fff;\n\
+        border: 0px;\n\
+        height: 26px;\n\
+        width: 88%;\n\
+        padding: 0px 10px 0px 10px;\n\
+        outline: none;\n\
+      }\n\
       .tempFormSelect {\n\
         font-family: inherit;\n\
         font-size: inherit;\n\
@@ -216,6 +231,29 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         width: 100%;\n\
         padding: 0px 10px 0px 10px;\n\
         outline: none;\n\
+      }\n\
+      #tempFormBox {\n\
+        box-sizing: border-box;\n\
+        display: none;\n\
+        width: 100%;\n\
+        height: 119px;\n\
+        padding: 5px 24px;\n\
+        background-color: #eeeff3;\n\
+      }\n\
+      #tempFormBoxCtrl {\n\
+        display: none;\n\
+      }\n\
+      #tempFormBoxText {\n\
+        box-sizing: border-box;\n\
+        width: 100%;\n\
+        font-family: inherit;\n\
+        font-size: inherit;\n\
+        background-color: #fff;\n\
+        border: 1px solid #8a93ae;\n\
+        outline: none;\n\
+        height: 104px;\n\
+        resize: none;\n\
+        padding: 5px 10px;\n\
       }\n\
       #respPlus {\n\
         display: inline-block;\n\
@@ -1122,7 +1160,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         var thisOpt = thisSel.options[thisSel.selectedIndex];\n\
         if (thisOpt.value != \"None\" && thisOpt.dataset.dir) {\n\
           var newSel = document.createElement(\"select\");\n\
-          var nextID = Number(thisSel.id.slice(10)) + 1;\v\
+          var nextID = Number(thisSel.id.slice(10)) + 1;\n\
           newSel.id = \"tempSelect\" + nextID;\n\
           newSel.classList.add(\"tempSelect\");\n\
           newSel.addEventListener(\"change\", function() { updateTemps(this) });\n\
@@ -1171,12 +1209,86 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         btn.classList.add(\"sendActive\");\n\
       }\n\
 \n\
-      function updateHL7(id, val) {\n\
+      function updateHL7(id, val, hideBorder) {\n\
         clrRes();\n\
+        if (hideBorder) hideBox();\n\
+\n\
         var hl7Spans = document.getElementsByClassName(id + \"_HL7\");\n\
         for (var i = 0; i < hl7Spans.length; ++i) {\n\
           hl7Spans[i].innerHTML = val;\n\
         }\n\
+      }\n\
+\n\
+      // TODO - move all formatting to css classes and add/remove class\n\
+      function showTextBox(id) {\n\
+        var box = document.getElementById(\"tempFormBox\");\n\
+        var boxText = document.getElementById(\"tempFormBoxText\");\n\
+        var boxCtrl = document.getElementById(\"tempFormBoxCtrl\");\n\
+        var tempField = document.getElementById(id);\n\
+\n\
+        tempField.style.border = \"0px\";\n\
+        if (boxCtrl.value) {\n\
+          var oldField = document.getElementById(boxCtrl.value);\n\
+          oldField.style.border = \"0px\";\n\
+        }\n\
+\n\
+        if (box.style.display == \"block\" && boxCtrl.value == id) {\n\
+          box.style.display = \"none\";\n\
+          boxText.value = \"\";\n\
+          boxCtrl.value = \"\";\n\
+        } else {\n\
+          box.style.display = \"block\";\n\
+          boxCtrl.value = id;\n\
+          var regex = new RegExp(tempField.dataset.br, \"g\");\n\
+          boxText.value = tempField.value.replace(regex, \"\\n\");\n\
+          tempField.style.border = \"1px solid #8a93ae\";\n\
+        }\n\
+      }\n\
+\n\
+      function updateBox() {\n\
+        clrRes();\n\
+        var box = document.getElementById(\"tempFormBoxText\");\n\
+        var boxCtrl = document.getElementById(\"tempFormBoxCtrl\");\n\
+        var tempField = document.getElementById(boxCtrl.value);\n\
+\n\
+        tempField.value = box.value.replace(/\\r\\n|\\r|\\n/g, tempField.dataset.br);\n\
+        updateHL7(boxCtrl.value, tempField.value, false);\n\
+      }\n\
+\n\
+      function refreshBox(obj) {\n\
+        clrRes();\n\
+        var box = document.getElementById(\"tempFormBox\");\n\
+        var boxText = document.getElementById(\"tempFormBoxText\");\n\
+        var boxCtrl = document.getElementById(\"tempFormBoxCtrl\");\n\
+\n\
+        if (boxCtrl.value) {\n\
+          var tempField = document.getElementById(boxCtrl.value);\n\
+          if (obj.id != boxCtrl.value) tempField.style.border = \"0px\";\n\
+\n\
+          if (obj.id != boxCtrl.value) {\n\
+            if (obj.className == \"tempFormText\") {\n\
+              boxCtrl.value = obj.id;\n\
+              boxText.value = obj.value.replace(/~/g, \"\\n\");\n\
+              obj.style.border = \"1px solid #8a93ae\";\n\
+\n\
+            } else {\n\
+              box.style.display = \"none\";\n\
+              boxText.value = \"\";\n\
+              boxCtrl.value = \"\";\n\
+\n\
+            }\n\
+          }\n\
+        }\n\
+      }\n\
+\n\
+      function hideBox() {\n\
+        var box = document.getElementById(\"tempFormBox\");\n\
+        var boxText = document.getElementById(\"tempFormBoxText\");\n\
+        var boxCtrl = document.getElementById(\"tempFormBoxCtrl\");\n\
+\n\
+        box.style.display = \"none\";\n\
+        boxText.value = \"\";\n\
+        boxCtrl.value = \"\";\n\
       }\n\
 \n\
       function closeErrWin() {\n\
@@ -2061,6 +2173,10 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
 \n\
         <div id=\"tempDesc\"></div>\n\
         <div id=\"tempForm\"></div>\n\
+        <div id=\"tempFormBox\">\n\
+          <input id=\"tempFormBoxCtrl\"></input>\n\
+          <textarea id=\"tempFormBoxText\" oninput=\"updateBox();\"></textarea>\n\
+        </div>\n\
 \n\
         <div class=\"titleBar\">HL7 Message(s):\n\
           <div id=\"tHostText\"></div>\n\
