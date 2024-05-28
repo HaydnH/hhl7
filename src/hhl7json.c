@@ -240,9 +240,9 @@ static void addVar2WebForm(char **webForm, int *webFormS, struct json_object *fi
 
 // Function turn json variables in to a value
 static int parseVals(char ***hl7Msg, int *hl7MsgS, char *vStr, char *nStr, char fieldTok,
-                     char *argv[], int lastField, int isWeb, struct json_object *fieldObj,
-                     int *incArr, float *strArr, int msgCount, char *post,
-                     time_t rangeVal, int msgRand) {
+                     int argc, char *argv[], int lastField, int isWeb,
+                     struct json_object *fieldObj, int *incArr, float *strArr,
+                     int msgCount, char *post, time_t rangeVal, int msgRand) {
 
   struct json_object *defObj = NULL, *min = NULL, *max = NULL, *dp = NULL, *str = NULL;
   struct json_object *start = NULL, *iMax = NULL, *iType = NULL, *rHide = NULL;
@@ -502,6 +502,12 @@ static int parseVals(char ***hl7Msg, int *hl7MsgS, char *vStr, char *nStr, char 
     varNumBuf[varLen - 4] = '\0';
     varNum = atoi(varNumBuf) - 1;
 
+    // Check the VAR number is within a valid range, 0 to argcount
+    if (varNum < 0 || varNum >= argc) {
+      handleError(LOG_ERR, "Template contains $VAR with number out of range", 1, 0, 1);
+      return(1);
+    }
+
     // Add the variable to the web form and add spans to the HL7 message for linking
     if (isWeb == 1) {
       // Check if ths value has a default and add it to the JSON template
@@ -554,9 +560,9 @@ static int parseVals(char ***hl7Msg, int *hl7MsgS, char *vStr, char *nStr, char 
 
 // Parse the JSON field
 static int parseJSONField(struct json_object *fieldObj, int *lastFid, int lastField, 
-                          char **hl7Msg, int *hl7MsgS, char *argv[], char fieldTok,
-                          int isWeb, int incArr[], float strArr[], int msgCount,
-                          time_t rangeVal, int msgRand, char *segment) {
+                          char **hl7Msg, int *hl7MsgS, int argc, char *argv[],
+                          char fieldTok, int isWeb, int incArr[], float strArr[],
+                          int msgCount, time_t rangeVal, int msgRand, char *segment) {
 
   struct json_object *valObj = NULL, *idObj = NULL;
   char *vStr = NULL, *nStr = NULL, *pre = NULL, *post = NULL;
@@ -620,8 +626,8 @@ static int parseJSONField(struct json_object *fieldObj, int *lastFid, int lastFi
     }
 
     // Parse JSON values
-    retVal = parseVals(&hl7Msg, hl7MsgS, vStr, nameStr, fieldTok, argv, lastField, isWeb,
-                       fieldObj, incArr, strArr, msgCount, post, rangeVal, msgRand);
+    retVal = parseVals(&hl7Msg, hl7MsgS, vStr, nameStr, fieldTok, argc, argv, lastField,
+                       isWeb, fieldObj, incArr, strArr, msgCount, post, rangeVal, msgRand);
 
   }
 
@@ -698,7 +704,7 @@ int parseJSONTemp(char *jsonMsg, char **hl7Msg, int *hl7MsgS, char **webForm,
   // TODO - make these variable based on MSH segment for CLI (maybe not web?)
   char fieldTok = '|', sfTok = '^', *vStr = NULL;
   int argcount = 0, msgsCount = 0, segCount = 0, s = 0, fieldCount = 0, f = 0, lastFid = 0;
-  int mCount = 0, msgCount = 0, subFCount = 0, sf = 0, retVal = 0;
+  int lastFidPreSF = 0, mCount = 0, msgCount = 0, subFCount = 0, sf = 0, retVal = 0;
   // TODO - increment & store has a max of 10? Consider malloc/realloc...
   int incArr[10] = {-1};
   float strArr[10] = {-1.0};
@@ -820,7 +826,7 @@ int parseJSONTemp(char *jsonMsg, char **hl7Msg, int *hl7MsgS, char **webForm,
             if (isWeb == 1) addVar2WebForm(webForm, webFormS, fieldObj);
 
             retVal = parseJSONField(fieldObj, &lastFid, fieldCount - f, hl7Msg, hl7MsgS,
-                                    argv, fieldTok, isWeb, incArr, strArr, msgCount,
+                                    argc, argv, fieldTok, isWeb, incArr, strArr, msgCount,
                                     step, msgRand, vStr);
 
             if (retVal > 0) {
@@ -830,13 +836,15 @@ int parseJSONTemp(char *jsonMsg, char **hl7Msg, int *hl7MsgS, char **webForm,
 
             json_object_object_get_ex(fieldObj, "subfields", &subFObj);
             if (subFObj) {
+              lastFidPreSF = lastFid;
+              lastFid = 0;
               subFCount = json_object_array_length(subFObj);
 
               for (sf = 0; sf < subFCount; sf++) {
                 fieldObj = json_object_array_get_idx(subFObj, sf);
                 if (isWeb == 1) addVar2WebForm(webForm, webFormS, fieldObj);
                 retVal = parseJSONField(fieldObj, &lastFid, subFCount - sf, hl7Msg,
-                                        hl7MsgS, argv, sfTok, isWeb, incArr, strArr,
+                                        hl7MsgS, argc, argv, sfTok, isWeb, incArr, strArr,
                                         msgCount, step, msgRand, vStr);
 
                 if (retVal > 0) {
@@ -844,6 +852,7 @@ int parseJSONTemp(char *jsonMsg, char **hl7Msg, int *hl7MsgS, char **webForm,
                   return(1);
                 }
               }
+              lastFid = lastFidPreSF;
               endJSONSeg(hl7Msg, hl7MsgS, isWeb, 3); // EOSF
             }
           }
