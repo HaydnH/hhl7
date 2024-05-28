@@ -149,8 +149,8 @@ int getJSONValue(char *jsonMsg, int type, char *key, char *resVal) {
 // Add a JSON template object to the template web form
 static void addVar2WebForm(char **webForm, int *webFormS, struct json_object *fieldObj) {
   struct json_object *nameObj = NULL, *optsObj = NULL, *optObj = NULL, *oObj = NULL;
-  struct json_object *defObj = NULL, *txtBoxObj = NULL, *newLineObj = NULL;
-  char *oStr = NULL, *nStr = NULL, *dStr = NULL, *nlStr = NULL;
+  struct json_object *defObj = NULL, *txtBoxObj = NULL, *newLineObj = NULL, *escObj = NULL;
+  char *oStr = NULL, *nStr = NULL, *dStr = NULL, *nlStr = NULL, *escStr = NULL;
   long unsigned int o = 0;
   int reqS = 0, textBox = -1;
 
@@ -169,10 +169,11 @@ static void addVar2WebForm(char **webForm, int *webFormS, struct json_object *fi
   const char wStr12[] = "' class='tempFormInput'";
   const char wStr13[] = "</div></div>";
   const char wStr14[] = "' class='tempFormText' data-br='";
-  const char wStr15[] = "' onFocus='refreshBox(this);'";
-  const char wStr16[] = "<a href='' class='tempTextButton' ";
-  const char wStr17[] = "onclick=\\\"showTextBox('HHL7_FL_";
-  const char wStr18[] = "'); return false;\\\">&#7790;</a>";
+  const char wStr15[] = "' data-esc='";
+  const char wStr16[] = "' onFocus='refreshBox(this);'";
+  const char wStr17[] = "<a href='' class='tempTextButton' ";
+  const char wStr18[] = "onclick=\\\"showTextBox('HHL7_FL_";
+  const char wStr19[] = "'); return false;\\\">&#7790;</a>";
 
   // Try to obtain the options and default values from the JSON template
   json_object_object_get_ex(fieldObj, "name", &nameObj);
@@ -180,9 +181,11 @@ static void addVar2WebForm(char **webForm, int *webFormS, struct json_object *fi
   json_object_object_get_ex(fieldObj, "default", &defObj);
   json_object_object_get_ex(fieldObj, "textbox", &txtBoxObj);
   json_object_object_get_ex(fieldObj, "newline", &newLineObj);
+  json_object_object_get_ex(fieldObj, "escape", &escObj);
   nStr = (char *) json_object_get_string(nameObj);
   dStr = (char *) json_object_get_string(defObj);
   nlStr = (char *) json_object_get_string(newLineObj);
+  escStr = (char *) json_object_get_string(escObj);
   textBox = json_object_get_boolean(txtBoxObj);
 
   // Stop processing if this is not a named object or is already on the form
@@ -191,8 +194,9 @@ static void addVar2WebForm(char **webForm, int *webFormS, struct json_object *fi
   sprintf(valSpan, "%s%s%s", "id='HHL7_FL_", nStr, "'");
   if (strstr(*webForm, valSpan) != NULL) return;
 
+  // TODO - change the 350 below to multiple if newline/escape obj, reqS = reqS + N
   // Increase memory, if required, for all strings outside the below for loop
-  reqS = strlen(*webForm) + (3 * strlen(nStr)) + 336;
+  reqS = strlen(*webForm) + (3 * strlen(nStr)) + 350;
   if (reqS > *webFormS) *webForm = dblBuf(*webForm, webFormS, reqS);
 
   // Add the key name to the web form
@@ -224,9 +228,15 @@ static void addVar2WebForm(char **webForm, int *webFormS, struct json_object *fi
   } else {
     if (txtBoxObj && newLineObj) {
       if (textBox == 1 && strlen(nlStr) > 0) {
-        sprintf(*webForm + strlen(*webForm), "%s%s%s%s%s%s%s%s%s%s",
-                                             wStr11, nStr, wStr14, nlStr, wStr15,
-                                             wStr5, wStr16, wStr17, nStr, wStr18);
+        if (escObj) {
+          sprintf(*webForm + strlen(*webForm), "%s%s%s%s%s%s%s%s%s%s%s%s",
+                                              wStr11, nStr, wStr14, nlStr, wStr15, escStr,
+                                              wStr16, wStr5, wStr17, wStr18, nStr, wStr19);
+        } else {
+          sprintf(*webForm + strlen(*webForm), "%s%s%s%s%s%s%s%s%s%s",
+                                              wStr11, nStr, wStr14, nlStr, wStr15,
+                                              wStr5, wStr17, wStr18, nStr, wStr19);
+        }
       } else {
         sprintf(*webForm + strlen(*webForm), "%s%s%s%s", wStr11, nStr, wStr12, wStr5);
       }
@@ -503,9 +513,11 @@ static int parseVals(char ***hl7Msg, int *hl7MsgS, char *vStr, char *nStr, char 
     varNum = atoi(varNumBuf) - 1;
 
     // Check the VAR number is within a valid range, 0 to argcount
-    if (varNum < 0 || varNum >= argc) {
-      handleError(LOG_ERR, "Template contains $VAR with number out of range", 1, 0, 1);
-      return(1);
+    if (isWeb == 0) {
+      if (varNum < 0 || varNum >= argc) {
+        handleError(LOG_ERR, "Template contains $VAR with number out of range", 1, 0, 1);
+        return(1);
+      }
     }
 
     // Add the variable to the web form and add spans to the HL7 message for linking

@@ -587,6 +587,7 @@ int descAlphasort(const struct dirent **a, const struct dirent **b) {
 }
 
 
+// TODO - getTemplateList crashes if \s are not escaped, e.g: "escape":"\R\"
 // Get a list of template files and return them as a set of <select> <option>s
 static enum MHD_Result getTemplateList(struct Session *session,
                                        struct MHD_Connection *connection,
@@ -736,6 +737,7 @@ static enum MHD_Result getTemplateList(struct Session *session,
   } else {
     dirOpts = newPtr;
   }
+
   sprintf(dirOpts + strlen(dirOpts), "%s", tempOpts);
 
   // Succesful template list response

@@ -1241,6 +1241,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
           boxCtrl.value = id;\n\
           var regex = new RegExp(tempField.dataset.br, \"g\");\n\
           boxText.value = tempField.value.replace(regex, \"\\n\");\n\
+          boxText.value = boxText.value.split(tempField.dataset.esc).join(tempField.dataset.br,);\n\
           tempField.style.border = \"1px solid #8a93ae\";\n\
         }\n\
       }\n\
@@ -1251,7 +1252,8 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         var boxCtrl = document.getElementById(\"tempFormBoxCtrl\");\n\
         var tempField = document.getElementById(boxCtrl.value);\n\
 \n\
-        tempField.value = box.value.replace(/\\r\\n|\\r|\\n/g, tempField.dataset.br);\n\
+        var regex = new RegExp(tempField.dataset.br, \"g\");\n\
+        tempField.value = box.value.replace(regex, tempField.dataset.esc).replace(/\\r\\n|\\r|\\n/g, tempField.dataset.br);\n\
         updateHL7(boxCtrl.value, tempField.value, false);\n\
       }\n\
 \n\
@@ -1268,7 +1270,9 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
           if (obj.id != boxCtrl.value) {\n\
             if (obj.className == \"tempFormText\") {\n\
               boxCtrl.value = obj.id;\n\
-              boxText.value = obj.value.replace(/~/g, \"\\n\");\n\
+              var regex = new RegExp(tempField.dataset.br, \"g\");\n\
+              boxText.value = obj.value.replace(regex, \"\\n\");\n\
+              boxText.value = boxText.value.split(tempField.dataset.esc).join(tempField.dataset.br,);\n\
               obj.style.border = \"1px solid #8a93ae\";\n\
 \n\
             } else {\n\
