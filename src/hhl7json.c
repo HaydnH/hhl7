@@ -233,8 +233,8 @@ static void addVar2WebForm(char **webForm, int *webFormS, struct json_object *fi
                                               wStr11, nStr, wStr14, nlStr, wStr15, escStr,
                                               wStr16, wStr5, wStr17, wStr18, nStr, wStr19);
         } else {
-          sprintf(*webForm + strlen(*webForm), "%s%s%s%s%s%s%s%s%s%s",
-                                              wStr11, nStr, wStr14, nlStr, wStr15,
+          sprintf(*webForm + strlen(*webForm), "%s%s%s%s%s%s%s%s%s%s%s",
+                                              wStr11, nStr, wStr14, nlStr, wStr15, wStr16,
                                               wStr5, wStr17, wStr18, nStr, wStr19);
         }
       } else {

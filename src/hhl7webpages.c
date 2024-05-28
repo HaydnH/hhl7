@@ -1239,9 +1239,12 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         } else {\n\
           box.style.display = \"block\";\n\
           boxCtrl.value = id;\n\
+          boxText.focus();\n\
           var regex = new RegExp(tempField.dataset.br, \"g\");\n\
           boxText.value = tempField.value.replace(regex, \"\\n\");\n\
-          boxText.value = boxText.value.split(tempField.dataset.esc).join(tempField.dataset.br,);\n\
+          if (tempField.dataset.esc != \"\") {\n\
+            boxText.value = boxText.value.split(tempField.dataset.esc).join(tempField.dataset.br,);\n\
+          }\n\
           tempField.style.border = \"1px solid #8a93ae\";\n\
         }\n\
       }\n\
@@ -1253,7 +1256,13 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         var tempField = document.getElementById(boxCtrl.value);\n\
 \n\
         var regex = new RegExp(tempField.dataset.br, \"g\");\n\
-        tempField.value = box.value.replace(regex, tempField.dataset.esc).replace(/\\r\\n|\\r|\\n/g, tempField.dataset.br);\n\
+        if (tempField.dataset.esc != \"\") {\n\
+          tempField.value = box.value.replace(regex, tempField.dataset.esc).replace(/\\r\\n|\\r|\\n/g, tempField.dataset.br);\n\
+\n\
+        } else {\n\
+          tempField.value = box.value.replace(/\\r\\n|\\r|\\n/g, tempField.dataset.br);\n\
+        }\n\
+\n\
         updateHL7(boxCtrl.value, tempField.value, false);\n\
       }\n\
 \n\
@@ -1270,6 +1279,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
           if (obj.id != boxCtrl.value) {\n\
             if (obj.className == \"tempFormText\") {\n\
               boxCtrl.value = obj.id;\n\
+              boxText.focus();\n\
               var regex = new RegExp(tempField.dataset.br, \"g\");\n\
               boxText.value = obj.value.replace(regex, \"\\n\");\n\
               boxText.value = boxText.value.split(tempField.dataset.esc).join(tempField.dataset.br,);\n\
@@ -2064,6 +2074,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
                 errHandler(\"ERROR: Failed to parse JSON template. Please contact your system administrator\");\n\
 \n\
               } else {\n\
+                hideBox();\n\
                 jsonData = JSON.parse(htmlData);\n\
                 formHTML = jsonData[\"form\"];\n\
                 var sel = document.getElementById(\"tempForm\");\n\
