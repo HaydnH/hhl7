@@ -27,9 +27,10 @@ _hhl7() {
       isFile=-1;
       [[ -f "$file" ]] && isFile=1;
       [[ -d "$file" ]] && isFile=0;
-      file="${file%.*}";
+      [[ ${file: -1} = "/" ]] && file=${file::-1};
+      [[ $isFile -eq 1 ]] && file="${file%.*}";
       file="${file##*/}";
-      file="${file// /\\ }"
+      [[ $isFile -eq 1 ]] && file="${file// /\\ }"
       [[ $isFile -eq 0 ]] && file="$SPATH${file}/";
       [[ $isFile -eq 1 ]] && file="$SPATH$file" && compopt +o nospace;
       [[ $isFile -eq 0 || $isFile -eq 1 ]] && options+=("${file}");
