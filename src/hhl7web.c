@@ -1113,7 +1113,7 @@ static int startListenWeb(struct Session *session, struct MHD_Connection *connec
     }
 
     rc = startMsgListener("127.0.0.1", session->lPort, session->sIP, session->sPort,
-                          argc, 0, argv, 0, NULL);
+                          argc, 0, argv, 0, NULL, session->ackTimeout);
     if (rc < 0) {
       stopListenWeb(session, connection, url);
       sprintf(errStr, "Failed to start listener on port: %s", session->lPort);
@@ -1618,8 +1618,8 @@ static enum MHD_Result answerToConnection(void *cls, struct MHD_Connection *conn
 
   struct connection_info_struct *con_info = *con_cls;
   struct Session *session;
-  int rc = -1, sockfd = -1;
-  char retCode[3] = "", resStr[3] = "", errStr[90] = "";
+  int rc = -1;
+  char retCode[3] = "", resStr[3] = "", errStr[316] = "";
 
   // Debug - print connection values, e.g user-agent
   //MHD_get_connection_values(connection, MHD_HEADER_KIND, print_out_key, NULL);
@@ -1744,54 +1744,54 @@ static enum MHD_Result answerToConnection(void *cls, struct MHD_Connection *conn
           snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "TP"); // Teapot
 
         } else {
-          sockfd = connectSvr(con_info->session->sIP, con_info->session->sPort);
+          rc = splitPacket(con_info->session->sIP, con_info->session->sPort,
+                           con_info->poststring, resStr, &resList, 0, 0,
+                           con_info->session->ackTimeout);
 
-          if (sockfd >= 0) {
-            rc = sendPacket(sockfd, con_info->poststring, resStr, &resList, 0,
-                            con_info->session->ackTimeout);
+          if (rc >= 0) {
+            sprintf(errStr, "[S: %03d][%s] Sent %ld byte packet to: %s:%s",
+                            con_info->session->shortID, resStr,
+                            strlen(con_info->poststring),
+                            con_info->session->sIP, con_info->session->sPort);
 
-            if (rc >= 0) {
-              sprintf(errStr, "[S: %03d][%s] Sent %ld byte packet to socket: %d",
-                              con_info->session->shortID, resStr,
-                              strlen(con_info->poststring), sockfd);
+            writeLog(LOG_INFO, errStr, 0);
+            snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", resStr);
 
-              writeLog(LOG_INFO, errStr, 0);
-              snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", resStr);
+          } else if (rc == -1) {
+            sprintf(errStr, "[S: %03d][%s] Failed to send packet to: %s:%s",
+                            con_info->session->shortID, resStr,
+                            con_info->session->sIP, con_info->session->sPort);
 
-            } else if (rc == -1) {
-              sprintf(errStr, "[S: %03d][%s] Failed to send packet to socket: %d",
-                              con_info->session->shortID, resStr, sockfd);
+            writeLog(LOG_WARNING, errStr, 0);
+            snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "PX");
 
-              writeLog(LOG_WARNING, errStr, 0);
-              snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "PX");
+          } else if (rc == -2) {
+            sprintf(errStr, "[S: %03d][%s] Timeout listening for ACK response",
+                            con_info->session->shortID, resStr);
 
-            } else if (rc == -2) {
-              sprintf(errStr, "[S: %03d][%s] Timeout listening for ACK response",
-                              con_info->session->shortID, resStr);
+            writeLog(LOG_WARNING, errStr, 0);
+            snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "PT");
 
-              writeLog(LOG_WARNING, errStr, 0);
-              snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "PT");
+          } else if (rc == -3) {
+            sprintf(errStr, "[S: %03d][%s] Failed to understand ACK response",
+                            con_info->session->shortID, resStr);
 
-            } else if (rc == -3) {
-              sprintf(errStr, "[S: %03d][%s] Failed to understand ACK response",
-                              con_info->session->shortID, resStr);
+            writeLog(LOG_WARNING, errStr, 0);
+            snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "PU");
 
-              writeLog(LOG_WARNING, errStr, 0);
-              snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "PU");
-
-            } else {
-              sprintf(errStr, "[S: %03d][%s] Unknown error while sending message",
-                              con_info->session->shortID, resStr);
-
-              writeLog(LOG_ERR, errStr, 0);
-              snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "PZ");
-            }
-
-          } else {
+          } else if (rc == -4) {
             sprintf(errStr, "[S: %03d] Can't open socket to send packet",
                             con_info->session->shortID);
             handleError(LOG_ERR, errStr, 1, 0, 1);
-            snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "CX"); // Connection failed
+            snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "CX");
+
+          } else {
+            sprintf(errStr, "[S: %03d][%s] Unknown error while sending message",
+                            con_info->session->shortID, resStr);
+
+            writeLog(LOG_ERR, errStr, 0);
+            snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "PZ");
+
           }
         }
 

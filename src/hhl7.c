@@ -65,6 +65,7 @@ static void showHelp(int exCode) {
   printf("  -a                       Send random ACK codes back to the sending server\n");
   printf("  -A <code,...>            Same as -a, but accepts a comma list of codes, e.g: \"AA,AR\"\n");
   printf("  -r <temps ...>           Respond to incoming messages if they match template\n");
+  printf("  -k <integer>             ACK response timeout, range: 1-60, default: 4 seconds\n");
   printf("  -n <integer>             Send template multiple times, intended for stress testing only\n");
   printf("  -N <integer>             Delay between sending multiple messages with -n in microseconds\n\n");
 
@@ -201,9 +202,10 @@ int main(int argc, char *argv[]) {
   // Arguments are required
   if (argc == 1) showHelp(1);
 
-  int daemonSock = 0, sockfd, opt, option_index = 0;
+  int daemonSock = 0, opt, option_index = 0;
   int fSend = 0, fListen = 0, fRespond = 0, fSendTemplate = 0, fShowTemplate = 0;
   int noSend = 0, fWeb = 0, sc = 0, sCount = 1, sSleep = 500, rv = -1, resType = 0;
+  int aTout = 0;
   FILE *fp;
 
   long unsigned int maxNameL = 255;
@@ -243,7 +245,7 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-  while((opt = getopt_long(argc, argv, ":0vhD:f:FlA:art:T:g:G:n:N:owWs:L:p:P:", long_options, &option_index)) != -1) {
+  while((opt = getopt_long(argc, argv, ":0vhD:f:FlA:art:T:g:G:n:N:ows:L:p:P:k:", long_options, &option_index)) != -1) {
     switch(opt) {
       case 0:
         exit(1);
@@ -323,6 +325,16 @@ int main(int argc, char *argv[]) {
 
         rv = hhgttg(optarg, 1);
         exit(rv);
+
+      case 'k':
+        if (*argv[optind - 1] == '-')
+          handleError(LOG_ERR, "Option -n requires a value", 1, 1, 1);
+
+        if (optarg) aTout = atoi(optarg);
+        if (aTout < 1 || aTout > 60)
+          handleError(LOG_ERR, "Option -k out of range (1 - 60)", 1, 1, 1);
+
+        break;
 
       case 'n':
         if (*argv[optind - 1] == '-')
@@ -431,29 +443,27 @@ int main(int argc, char *argv[]) {
 
     // If we've managed to open the file, connect to server & send it
     if (fp != NULL) {
-      sockfd = connectSvr(sIP, sPort);
-      sendFile(fp, getFileSize(fileName), sockfd);
-      close(sockfd);
+      sendFile(sIP, sPort, fp, getFileSize(fileName), aTout);
     }
   } 
 
 
   if (fListen == 1) {
     // Listen for incoming messages
-    startMsgListener(lIP, lPort, NULL, NULL, -1, 0, NULL, resType, ackList);
+    startMsgListener(lIP, lPort, NULL, NULL, -1, 0, NULL, resType, ackList, aTout);
   }
 
 
   if (fRespond == 1) {
     // Listen for incoming messages & respond using template
-    startMsgListener(lIP, lPort, sIP, sPort, argc, optind, argv, 0, NULL);
+    startMsgListener(lIP, lPort, sIP, sPort, argc, optind, argv, 0, NULL, aTout);
   }
 
 
   if (fSendTemplate == 1) {
     // Send a message based on the given JSON template & arguments, repeat N times
     for (sc = 0; sc < sCount; sc++) {
-      sendTemp(sIP, sPort, tName, noSend, fShowTemplate, optind, argc, argv, NULL);
+      sendTemp(sIP, sPort, tName, noSend, fShowTemplate, optind, argc, argv, NULL, aTout);
       usleep(sSleep);
     }
   }

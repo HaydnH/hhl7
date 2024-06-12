@@ -14,12 +14,14 @@ You should have received a copy of the GNU General Public License along with hhl
 int validPort(char *port);
 int connectSvr(char *ip, char *port);
 int listenACK(int sockfd, char *res, int aTimeout);
-void sendFile(FILE *fp, long int fileSize, int sockfd);
-int sendPacket(int sockfd, char *hl7msg, char *resStr, char **resList,
-               int fShowTemplate, int aTimeout);
+void sendFile(char *sIP, char *sPort, FILE *fp, long int fileSize, int aTimeout);
+int sendPacket(char *sIP, char *sPort, char *hl7msg, char *resStr, int msgCount,
+               int noSend, int fShowTemplate, int aTimeout);
+int splitPacket(char *sIP, char *sPort, char *hl7Msg, char *resStr, char **resList,
+                int noSend, int fShowTemplate, int aTimeout);
 void sendTemp(char *sIP, char *sPort, char *tName, int noSend, int fShowTemplate,
-              int optind, int argc, char *argv[], char *resStr);
+              int optind, int argc, char *argv[], char *resStr, int aTimeout);
 int sendACK(int sessfd, char *hl7msg, int resType, char *ackList);
 int listenServer(char *port, int isWeb);
-int startMsgListener(char *lIP, const char *lPort, char *sIP, char *sPort,
-                     int argc, int optind, char *argv[], int resType, char *ackList);
+int startMsgListener(char *lIP, const char *lPort, char *sIP, char *sPort, int argc,
+                     int optind, char *argv[], int resType, char *ackList, int aTimeout);

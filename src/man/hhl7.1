@@ -123,7 +123,12 @@ Similarly to -a, the -A flag will respond with a random ACK code based on a comm
 .sp
 \fB\-r\fP <template>
 .RS 4
-Listen for incoming HL7 messages and compare them against the \(aqmatches\(aq section of a responder template. If the incoming message matches the template, send a HL7 message based on the template\(aqs configuration. hhl7 will attempt to locate a responder template in \(aq~/.config/hhl7/responders/\(aq, \(aq./responders/\(aq and then \(aq/usr/local/hhl7/responders/\(aq using the first it finds. A template argument provided on the command line should not include the .json extension.
+Listen for incoming HL7 messages and compare them against the \(aqmatches\(aq section of a responder template. If the incoming message matches the template, send a HL7 message based on the template\(aqs configuration. hhl7 will attempt to locate a responder template in \(aq~/.config/hhl7/responders/\(aq, \(aq./responders/\(aq and then \(aq/usr/local/hhl7/responders/\(aq using the first it finds. A template argument provided on the command line should not include the .json extension. Multiple templates maybe provided in a comma separated list.
+.RE
+.sp
+\fB\-k\fP <integer>
+.RS 4
+Timout to wait when listening for an ACK response to a sent message. Valid range 1 - 60 seconds. (Default: 4).
 .RE
 .sp
 \fB\-n\fP <integer>

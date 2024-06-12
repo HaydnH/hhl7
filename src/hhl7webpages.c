@@ -721,8 +721,13 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         hideMenu();\n\
         var login = document.getElementById(\"loginDim\");\n\
         var uname = document.getElementById(\"uname\");\n\
+        var uname = document.getElementById(\"pword\");\n\
         login.style.display = \"block\";\n\
-        uname.focus();\n\
+        if (uname.value.length > 4) {\n\
+          pword.focus();\n\
+        } else {\n\
+          uname.focus();\n\
+        }\n\
         uname.selectionStart = uname.selectionEnd = uname.value.length;\n\
       }\n\
 \n\

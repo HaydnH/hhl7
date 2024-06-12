@@ -116,7 +116,7 @@ static void addRespWeb(char *newResp, struct Response *resp, int respCount) {
 
 
 // Process the response queue
-static int processResponses(int fd) {
+static int processResponses(int fd, int aTimeout) {
   struct Response *resp;
   time_t tNow = time(NULL), fTime;
   char writeSize[11] = "";
@@ -171,7 +171,7 @@ static int processResponses(int fd) {
       // Send the response to the server
       writeLog(LOG_DEBUG, "Response queue processing, response sent", 0);
       sendTemp(resp->sIP, resp->sPort, resp->tName, 0, 0, 0, resp->argc,
-               resp->sendArgs, resStr);
+               resp->sendArgs, resStr, aTimeout);
 
       resp->sent = 1;
       sprintf(resp->resCode, "%s", resStr);
@@ -293,13 +293,17 @@ int listenACK(int sockfd, char *res, int aTimeout) {
   char ackBuf[512] = "", app[12] = "", code[7] = "", aCode[3] = "", errStr[46] = "";
   int recvL = 0, ackT = 3;
 
+  // TODO - allo timeout setting from command line
   // Get the timeout from global config if it exists
-  if (aTimeout > 0 && aTimeout < 100) {
+  if (aTimeout > 0 && aTimeout <= 60) {
     ackT = aTimeout;
   } else {
     if (globalConfig) {
       if (globalConfig->ackTimeout > 0 && globalConfig->ackTimeout < 100)
         ackT = globalConfig->ackTimeout;
+
+    } else {
+      ackT = 4; // No valid ACK timeout from CLI or conf, fall back to a value of 4 seconds
     }
   }
 
@@ -351,7 +355,7 @@ int listenACK(int sockfd, char *res, int aTimeout) {
 
 
 // Send a file over socket
-void sendFile(FILE *fp, long int fileSize, int sockfd) {
+void sendFile(char *sIP, char *sPort, FILE *fp, long int fileSize, int aTimeout) {
   char fileData[fileSize + 4];
   char resStr[3] = "";
 
@@ -368,83 +372,120 @@ void sendFile(FILE *fp, long int fileSize, int sockfd) {
 
   // Send the data file to the server
   unix2hl7(fileData);
-  sendPacket(sockfd, fileData, resStr, NULL, 0, 0);
+  sendPacket(sIP, sPort, fileData, resStr, 0, 0, 0, aTimeout);
 }
 
+// Send a single HL7 message over a socket
+int sendPacket(char *sIP, char *sPort, char *hl7Msg, char *resStr, int msgCount,
+                  int noSend, int fShowTemplate, int aTimeout) {
 
-// Send a string packet over socket
-int sendPacket(int sockfd, char *hl7msg, char *resStr, char **resList,
-               int fShowTemplate, int aTimeout) {
-
-  char tokMsg[strlen(hl7msg) + 5];
-  char *curMsg = hl7msg, *nextMsg = NULL, *nextMsgR = NULL;
-  int msgCount = 0, retVal = 0, rlSize = 301, reqS = 0;
+  int sockfd = -1, retVal = 0;
   char errStr[43] = "";
 
-  while (curMsg != NULL) {
-    msgCount++;
-    nextMsg = strstr(curMsg + 1, "\nMSH|");
-    if (nextMsg == NULL) {
-      nextMsgR = strstr(curMsg + 1, "\rMSH|");
-      nextMsg = nextMsgR;
-    }
+  // Print the HL7 message if requested
+  if (fShowTemplate == 1) {
+    hl72unix(hl7Msg, 1);
+  }
 
-    if (resList != NULL) {
-      reqS = (strlen(*resList) + 30);
-      if (reqS > rlSize) *resList = dblBuf(*resList, &rlSize, reqS);
-    }
-
-    if (nextMsg == NULL) { 
-      sprintf(tokMsg, "%s", curMsg);
-      curMsg = NULL;
-    } else {
-      snprintf(tokMsg, strlen(curMsg) - strlen(nextMsg), "%s", curMsg);
-      curMsg = nextMsg;
-    }
-
+  if (noSend == 0) {
     // Send the data file to the server
     sprintf(errStr, "Sending HL7 message %d to server", msgCount);
     writeLog(LOG_INFO, errStr, 1);
 
-    // Print the HL7 message if requested
-    if (fShowTemplate == 1) {
-       hl72unix(tokMsg, 1);
-    }
+    sockfd = connectSvr(sIP, sPort);
+    if (sockfd >= 0) { 
+      // Add MLLP wrapper to this message
+      wrapMLLP(hl7Msg);
 
-    // Add MLLP wrapper to this message
-    wrapMLLP(tokMsg);
+      // Send the message to the server
+      if (send(sockfd, hl7Msg, strlen(hl7Msg), 0) == -1) {
+        if (resStr != NULL) sprintf(resStr, "%s", "EE");
+        handleError(LOG_ERR, "Could not send data packet to server", -1, 0, 1);
+        return(-1);
 
-    // Send the message to the server
-    if(send(sockfd, tokMsg, strlen(tokMsg), 0) == -1) {
-      if (resStr != NULL) sprintf(resStr, "%s", "EE");
-      handleError(LOG_ERR, "Could not send data packet to server", -1, 0, 1);
-      return(-1);
+      } else {
+        retVal = listenACK(sockfd, resStr, aTimeout);
+
+      }
 
     } else {
-      retVal = listenACK(sockfd, resStr, aTimeout);
-
+      retVal = -4;
     }
 
-    if (resList != NULL) {
-      if (msgCount > 1) strcat(*resList, ",");
-      strcat(*resList, resStr);
+    close(sockfd);
+  }
+
+  return(retVal);
+}
+
+
+// Split a packet in to individual messages
+int splitPacket(char *sIP, char *sPort, char *hl7Msg, char *resStr, char **resList,
+                int noSend, int fShowTemplate, int aTimeout) {
+
+  char *curMsg = hl7Msg, *nextMsg = NULL;
+  char newMsgStr[6] = "MSH|^";
+  int rv = 0, msgCount = 0, lastMsg = 0, reqS = 0, rlSize = 301;
+
+  // Check if there's more than 1 message, if not send the full packet
+  nextMsg = strstr(hl7Msg + 1, newMsgStr);
+  if (nextMsg == NULL) {
+    rv = sendPacket(sIP, sPort, hl7Msg, resStr, msgCount, noSend,
+                       fShowTemplate, aTimeout);
+
+    if (resList != NULL) strcat(*resList, resStr);
+
+  // If there's multiple messages, split and send each individually
+  } else {
+    char singleMsg[strlen(hl7Msg + 1)];
+
+    // Loop through each message in the template
+    while (nextMsg != NULL) {
+      msgCount++;
+
+      // Send each sub message from the template
+      snprintf(singleMsg, (int) (nextMsg - curMsg) + 1, "%s", curMsg);
+
+      // TODO - take the worst return code!
+      rv = sendPacket(sIP, sPort, singleMsg, resStr, msgCount, noSend,
+                         fShowTemplate, 0);
+
+      if (fShowTemplate == 1) printf("\n");
+
+      // Point to the start and end of the next message (or end of packet)
+      curMsg = nextMsg;
+      nextMsg = strstr(curMsg + 1, newMsgStr);
+      if (nextMsg == NULL && lastMsg == 0) {
+        nextMsg = hl7Msg + strlen(hl7Msg);
+        lastMsg = 1;
+      }
+
+      // Add the single message response to the response list
+      if (resList != NULL) {
+        // TODO - check this size!
+        reqS = (rlSize + (3 * msgCount));
+        if (reqS > rlSize) *resList = dblBuf(*resList, &rlSize, reqS);
+        if (msgCount > 1) strcat(*resList, ",");
+        strcat(*resList, resStr);
+
+      }
     }
   }
 
-  if (resList != NULL) 
+  // Complete the response list JSON reply
+  if (resList != NULL)
     sprintf(*resList + strlen(*resList), "%s%d%s", "\", \"count\":", msgCount, " }");
 
-  close(sockfd);
-  return(retVal);
+  return(rv);
 }
 
 
 // Send a json template
 void sendTemp(char *sIP, char *sPort, char *tName, int noSend, int fShowTemplate,
-              int optind, int argc, char *argv[], char *resStr) {
+              int optind, int argc, char *argv[], char *resStr, int aTimeout) {
 
   FILE *fp;
-  int sockfd, retVal = 0;
+  int retVal = 0;
   char fileName[256] = "";
   char errStr[289] = "";
 
@@ -477,18 +518,8 @@ void sendTemp(char *sIP, char *sPort, char *tName, int noSend, int fShowTemplate
 
   } else {
     writeLog(LOG_DEBUG, "JSON Template parsed OK", 0);
+    splitPacket(sIP, sPort, hl7Msg, resStr, NULL, noSend, fShowTemplate, aTimeout);
 
-    if (noSend == 0) {
-      // Connect to server, send & listen for ack
-      sockfd = connectSvr(sIP, sPort);
-      if (sockfd >= 0) {
-        sendPacket(sockfd, hl7Msg, resStr, NULL, fShowTemplate, 0);
-      }
-
-    } else if (fShowTemplate == 1) {
-       hl72unix(hl7Msg, 1);
-
-    }
   }
 
   // Free memory
@@ -593,7 +624,9 @@ int sendACK(int sessfd, char *hl7msg, int resType, char *ackList) {
 
 
 // Check incoming message for responder match and send response
-static struct Response *checkResponse(char *msg, char *sIP, char *sPort, char *tName) {
+static struct Response *checkResponse(char *msg, char *sIP, char *sPort,
+                                      char *tName, int aTimeout) {
+
   struct Response *respHead = responses;
   struct json_object *resObj = NULL, *jArray = NULL, *matchObj = NULL;
   struct json_object *segStr = NULL, *fldObj = NULL, *valStr = NULL, *exclObj = NULL;
@@ -714,7 +747,7 @@ static struct Response *checkResponse(char *msg, char *sIP, char *sPort, char *t
   // If min and max times are 0, send immediately
   if (minT == 0 && maxT == 0) {
     sendTemp(sIP, sPort, (char *) json_object_get_string(sendT), 0, 0, 0,
-             mCount, resp->sendArgs, resStr);
+             mCount, resp->sendArgs, resStr, aTimeout);
     resp->sent = 1;
     sprintf(resp->resCode, "%s", resStr);
 
@@ -732,91 +765,75 @@ static struct Response *checkResponse(char *msg, char *sIP, char *sPort, char *t
 
 // Handle an incoming message
 static struct Response *handleMsg(int sessfd, int fd, char *sIP, char *sPort, int argc,
-                                  int optind, char *argv[], int resType, char *ackList) {
+                                  int optind, char *argv[], int resType, char *ackList,
+                                  int aTimeout) {
 
   struct Response *respHead = responses;
   int readSize = 1024, msgSize = 0, maxSize = readSize + msgSize, rcvSize = 1;
-  int msgCount = 0, ignoreNext = 0, webErr = 0;
+  int webErr = 0;
   int *ms = &maxSize;
   char rcvBuf[readSize + 1];
-  char *msgBuf = malloc(maxSize);
+  char *msgBuf = malloc(readSize);
   char writeSize[11] = "";
   char errStr[306] = "";
-  rcvBuf[0] = '\0';
   msgBuf[0] = '\0';
 
+
+  // Receive the full message
   while (rcvSize > 0) {
+    rcvBuf[0] = '\0';
     rcvSize = read(sessfd, rcvBuf, readSize);
-    rcvBuf[rcvSize] = '\0';
 
-    if (ignoreNext == 1) {
-      ignoreNext = 0;
+    if (rcvSize == -1) {
+      handleError(LOG_ERR, "Failed to read incoming message from server", 1, 0, 1);
+      webErr = 1;
+    }
 
-    } else {
-      if (rcvSize == -1 && msgCount == 0) {
-        handleError(LOG_ERR, "Failed to read incoming message from server", 1, 0, 1);
-        webErr = 1;
+    if (rcvSize > 0) {
+      msgSize = msgSize + rcvSize;
+      if ((msgSize + 1) > maxSize) msgBuf = dblBuf(msgBuf, ms, msgSize);
+      strcat(msgBuf, rcvBuf);
+      msgBuf[msgSize] = '\0';
+
+
+      if (rcvBuf[rcvSize - 2] == 28 && rcvBuf[rcvSize - 1] == 13) {
+        rcvSize = 0;
+      }
+    }
+  }
+
+  stripMLLP(msgBuf);
+  if (sendACK(sessfd, msgBuf, resType, ackList) == -1) webErr = 1;
+
+  // If we're responding, parse each respond template to see if msg matches
+  if (argc > 0) {
+    for (int i = optind; i < argc; i++) {
+      sprintf(errStr, "Checking if incoming message matches responder: %s", argv[i]);
+      writeLog(LOG_INFO, errStr, 1);
+      respHead = checkResponse(msgBuf, sIP, sPort, argv[i], aTimeout);
+      responses = respHead;
+    }
+  }
+
+  if (webRunning == 1) {
+    if (webErr > 0) {
+      sprintf(msgBuf, "ERROR: The backend failed to receive or process a message from the sending server");
+    }
+
+    if (argc <= 0) {
+      sprintf(writeSize, "%d", (int) strlen(msgBuf));
+      if (write(fd, writeSize, 11) == -1) {
+        handleError(LOG_ERR, "ERROR: Failed to write to named pipe", 1, 0, 1);
       }
 
-      if (rcvSize > 0 && rcvSize <= readSize) {
-        msgSize = msgSize + rcvSize;
-        if ((msgSize + 1) > maxSize) msgBuf = dblBuf(msgBuf, ms, msgSize);
-        //sprintf(msgBuf, "%s%s", msgBuf, rcvBuf);
-        strcat(msgBuf, rcvBuf);
-
-        // Full hl7 message received, handle the msg
-        if (rcvBuf[rcvSize - 2] == 28 || rcvBuf[rcvSize - 1] == 28) {
-          // If the EOB character is the last in the message, there is still a CR to
-          // receive which we can ignore, set rcvSize to 0 to ensure we exit while loop
-          if (rcvBuf[rcvSize - 1] == 28) {
-            ignoreNext = 1;
-            rcvSize = 0;
-          }
-
-          stripMLLP(msgBuf);
-          if (sendACK(sessfd, msgBuf, resType, ackList) == -1) webErr = 1;
-          msgCount++;
-
-          // If we're responding, parse each respond template to see if msg matches
-          if (argc > 0) {
-            for (int i = optind; i < argc; i++) {
-              sprintf(errStr, "Checking if incoming message matches responder: %s",
-                      argv[i]);
-              writeLog(LOG_INFO, errStr, 1);
-              respHead = checkResponse(msgBuf, sIP, sPort, argv[i]);
-              responses = respHead;
-            }
-          }
-
-          if (webRunning == 1) {
-            if (webErr > 0) {
-              sprintf(msgBuf, "ERROR: The backend failed to receive or process a message from the sending server");
-            }
-
-            if (argc <= 0) {
-              sprintf(writeSize, "%d", (int) strlen(msgBuf));
-              if (write(fd, writeSize, 11) == -1) {
-                handleError(LOG_ERR, "ERROR: Failed to write to named pipe", 1, 0, 1);
-              }
-
-              if (write(fd, msgBuf, strlen(msgBuf)) == -1) {
-                handleError(LOG_ERR, "ERROR: Failed to write to named pipe", 1, 0, 1);
-              }
-            }
-
-          } else if (argc <= 0) {
-            hl72unix(msgBuf, 1);
-            printf("\n");
-          }
-
-          // Clean up counters and buffers
-          msgSize = 0;
-          msgBuf[0] = '\0';
-        }
+      if (write(fd, msgBuf, strlen(msgBuf)) == -1) {
+        handleError(LOG_ERR, "ERROR: Failed to write to named pipe", 1, 0, 1);
       }
     }
 
-    rcvBuf[0] = '\0';
+  } else if (argc <= 0) {
+    hl72unix(msgBuf, 1);
+    printf("\n");
   }
 
   free(msgBuf);
@@ -917,8 +934,9 @@ static int readRespTemps(int respFD, char respTemps[20][256], char *respTempsPtr
 
 
 // Start listening for incoming messages
-int startMsgListener(char *lIP, const char *lPort, char *sIP, char *sPort,
-                     int argc, int optind, char *argv[], int resType, char *ackList) {
+int startMsgListener(char *lIP, const char *lPort, char *sIP, char *sPort, int argc,
+                     int optind, char *argv[], int resType, char *ackList, int aTimeout) {
+
   // TODO - malloc instead of limited resp templates
   char respTemps[20][256];
   char *respTempsPtrs[20];
@@ -982,7 +1000,7 @@ int startMsgListener(char *lIP, const char *lPort, char *sIP, char *sPort,
     } else if (res == 0) {
       if (argc > 0) {
         if ((now - lastProcess) >= procThrot) {
-          if (argc > 0) nextResp = processResponses(fd);
+          if (argc > 0) nextResp = processResponses(fd, aTimeout);
           lastProcess = now;
         } else {
           nextResp = procThrot;
@@ -1003,7 +1021,6 @@ int startMsgListener(char *lIP, const char *lPort, char *sIP, char *sPort,
       }
 
       sessfd = accept(svrfd, 0, 0);
-
       if (sessfd == -1) {
         close(svrfd);
         handleError(LOG_ERR, "Can't accept connections", 1, 0, 1);
@@ -1012,16 +1029,16 @@ int startMsgListener(char *lIP, const char *lPort, char *sIP, char *sPort,
 
       if (respUpdated == 0) {
         responses = handleMsg(sessfd, fd, sIP, sPort, argc, optind, argv,
-                              resType, ackList);
+                              resType, ackList, aTimeout);
       } else {
         responses = handleMsg(sessfd, fd, sIP, sPort, respUpdated, 0, 
-                              respTempsPtrs, resType, ackList);
+                              respTempsPtrs, resType, ackList, aTimeout);
       }
 
       close(sessfd);
 
       if ((now - lastProcess) >= procThrot) {
-        if (argc > 0) nextResp = processResponses(fd);
+        if (argc > 0) nextResp = processResponses(fd, aTimeout);
         lastProcess = now;
       } else {
         nextResp = procThrot;
@@ -1029,6 +1046,7 @@ int startMsgListener(char *lIP, const char *lPort, char *sIP, char *sPort,
     }
   }
 
+  close(sessfd);
   close(svrfd);
   return(0);
 }
