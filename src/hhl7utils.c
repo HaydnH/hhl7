@@ -410,9 +410,11 @@ FILE *findTemplate(char *fileName, char *tName, int isRespond) {
     // Create the full file path/name of the found template location
     for (p = 0; p < 3; p++) {
       if (p == 1) {
-        sprintf(fileName, "%s%s%s%s%s", homeDir, tPaths[p], tPath, tName, ".json");
+        if (fileName)
+          sprintf(fileName, "%s%s%s%s%s", homeDir, tPaths[p], tPath, tName, ".json");
       } else {
-        sprintf(fileName, "%s%s%s%s", tPaths[p], tPath, tName, ".json");
+        if (fileName)
+          sprintf(fileName, "%s%s%s%s", tPaths[p], tPath, tName, ".json");
       }
 
       // If we can open the file for reading, return the file pointer

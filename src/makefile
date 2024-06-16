@@ -1,5 +1,6 @@
 CC       = gcc
 CFLAGS   = -O3 -Wall   # Live
+#CFLAGS   = -Wall -Wextra -Wno-overlength-strings -Wpedantic -g3  # Debug
 #CFLAGS   = -O3 -Wall -Wextra -Wno-overlength-strings -Wpedantic -g3  # Devel & Debug
 #CFLAGS   = -O3 -Wall -Wextra -fsanitize=undefined,address -g3        # UBSan/Asan
 INCDIR   = -I/usr/include/json-c -I/usr/include/microhttpd -I/usr/include/openssl -I/usr/include/systemd/sd-daemon

@@ -801,7 +801,7 @@ static enum MHD_Result getTempForm(struct Session *session,
 
   if (retVal > 0) {
     handleError(LOG_WARNING, "Failed to parse JSON template", 1, 0, 0);
-    sprintf(jsonReply, "%s", "TX");
+    if (jsonReply) sprintf(jsonReply, "%s", "TX");
 
   } else {
     char tmpBuf[2 * strlen(webHL7) + 1];
@@ -1205,7 +1205,7 @@ static int startResponder(struct Session *session, struct MHD_Connection *connec
   for (i = 0; i < dataInt; i++) {
     dataObj = json_object_array_get_idx(dataArray, i);
     tempPtrs[i] = temps[i];
-    sprintf(temps[i], "%s", json_object_get_string(dataObj));
+    if (tempPtrs[i]) sprintf(tempPtrs[i], "%s", json_object_get_string(dataObj));
   }
 
   return(startListenWeb(session, connection, "/respond", dataInt, tempPtrs));
@@ -1276,7 +1276,7 @@ static enum MHD_Result iteratePost(void *coninfo_cls, enum MHD_ValueKind kind,
 
     if (strcmp (key, "hl7MessageText") == 0 ) {
       if (con_info->poststring == NULL) {
-        con_info->poststring = malloc(strlen(data) + 5);
+        con_info->poststring = calloc(1, strlen(data) + 5);
         con_info->poststring[0] = '\0';
 
       } else {

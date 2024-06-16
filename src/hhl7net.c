@@ -208,8 +208,8 @@ static int processResponses(int fd, int aTimeout) {
   writeLog(LOG_DEBUG, "Response queue processing complete", 0);
 
   if (webRunning == 1 && (respCount + rmCount) > 0) {
-    if ((int) strlen(webResp) == 0) sprintf(webResp, "%s", "QE");
-    sprintf(writeSize, "%d", (int) strlen(webResp));
+    if ((int) strlen(webResp) == 0 && webResp) sprintf(webResp, "%s", "QE");
+      sprintf(writeSize, "%d", (int) strlen(webResp));
 
     if (write(fd, writeSize, 11) == -1) {
       sprintf(errStr, "Failed to write to named pipe: %s", strerror(errno));
@@ -426,10 +426,12 @@ int splitPacket(char *sIP, char *sPort, char *hl7Msg, char *resStr, char **resLi
   char *curMsg = hl7Msg, *nextMsg = NULL;
   char newMsgStr[6] = "MSH|^";
   int rv = 0, msgCount = 0, lastMsg = 0, reqS = 0, rlSize = 301;
+  long unsigned int hl7MsgS = strlen(hl7Msg);
 
   // Check if there's more than 1 message, if not send the full packet
-  nextMsg = strstr(hl7Msg + 1, newMsgStr);
+  if (hl7MsgS >= strlen(newMsgStr)) nextMsg = strstr(hl7Msg + 1, newMsgStr);
   if (nextMsg == NULL) {
+    msgCount++;
     rv = sendPacket(sIP, sPort, hl7Msg, resStr, msgCount, noSend,
                        fShowTemplate, aTimeout);
 
@@ -442,9 +444,10 @@ int splitPacket(char *sIP, char *sPort, char *hl7Msg, char *resStr, char **resLi
     // Loop through each message in the template
     while (nextMsg != NULL) {
       msgCount++;
+      hl7MsgS = (int) (nextMsg - curMsg) + 1;
 
       // Send each sub message from the template
-      snprintf(singleMsg, (int) (nextMsg - curMsg) + 1, "%s", curMsg);
+      snprintf(singleMsg, hl7MsgS, "%s", curMsg);
 
       // TODO - take the worst return code!
       rv = sendPacket(sIP, sPort, singleMsg, resStr, msgCount, noSend,
@@ -454,7 +457,8 @@ int splitPacket(char *sIP, char *sPort, char *hl7Msg, char *resStr, char **resLi
 
       // Point to the start and end of the next message (or end of packet)
       curMsg = nextMsg;
-      nextMsg = strstr(curMsg + 1, newMsgStr);
+      nextMsg = NULL;
+      if (hl7MsgS >= strlen(newMsgStr)) nextMsg = strstr(curMsg + 1, newMsgStr);
       if (nextMsg == NULL && lastMsg == 0) {
         nextMsg = hl7Msg + strlen(hl7Msg);
         lastMsg = 1;
@@ -501,7 +505,7 @@ void sendTemp(char *sIP, char *sPort, char *tName, int noSend, int fShowTemplate
 
   char *jsonMsg = malloc(fSize + 1);
   int hl7MsgS = 1024;
-  char *hl7Msg = malloc(hl7MsgS);
+  char *hl7Msg = calloc(1, hl7MsgS + 1);
   hl7Msg[0] = '\0';
 
   // Read the json template to jsonMsg
@@ -773,11 +777,12 @@ static struct Response *handleMsg(int sessfd, int fd, char *sIP, char *sPort, in
   int webErr = 0;
   int *ms = &maxSize;
   char rcvBuf[readSize + 1];
-  char *msgBuf = malloc(readSize);
+  memset(rcvBuf, 0, sizeof rcvBuf);
+  char *msgBuf = calloc(1, readSize);
   char writeSize[11] = "";
   char errStr[306] = "";
   msgBuf[0] = '\0';
-
+  rcvBuf[0] = '\0';
 
   // Receive the full message
   while (rcvSize > 0) {
@@ -817,7 +822,8 @@ static struct Response *handleMsg(int sessfd, int fd, char *sIP, char *sPort, in
 
   if (webRunning == 1) {
     if (webErr > 0) {
-      sprintf(msgBuf, "ERROR: The backend failed to receive or process a message from the sending server");
+      if (msgBuf)
+        sprintf(msgBuf, "ERROR: The backend failed to receive or process a message from the sending server");
     }
 
     if (argc <= 0) {
