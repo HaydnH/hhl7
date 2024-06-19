@@ -628,7 +628,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         border-color: #fff;\n\
         cursor: default;\n\
       }\n\
-      #ok {\n\
+      #errOk {\n\
         right: 15px;\n\
         bottom: 15px;\n\
         height: 26px;\n\
@@ -750,7 +750,20 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
       }\n\
 \n\
       var logPostFunc = function(event) { postCreds(event); };\n\
-      var logSubmitFunc = function(event) { if (event.key === \"Enter\") postCreds(event); };\n\
+      var logSubmitFunc = function(event) {\n\
+        var usr = document.getElementById(\"uname\");\n\
+        var pwd = document.getElementById(\"pword\");\n\
+        var cpw = document.getElementById(\"confPword\");\n\
+        var sub = document.getElementById(\"submit\");\n\
+\n\
+        sub.removeEventListener(\"click\", logPostFunc);\n\
+        usr.removeEventListener(\"keyup\", logSubmitFunc);\n\
+        pwd.removeEventListener(\"keyup\", logSubmitFunc);\n\
+        cpw.removeEventListener(\"keyup\", logSubmitFunc);\n\
+\n\
+        if (event.key === \"Enter\") postCreds(event);\n\
+      }\n\
+\n\
       function validLogin(evt) {\n\
         var reg = document.getElementById(\"register\").innerText;\n\
         var usr = document.getElementById(\"uname\");\n\
@@ -878,7 +891,6 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         pButton.removeEventListener(\"click\", pwdPostFunc);\n\
         pButton.classList.remove(\"menuItemButtonGreen\");\n\
         pButton.classList.remove(\"menuItemButtonRed\");\n\
-\n\
 \n\
         if (oldPwd.length > 7 && newPwd.length > 7 && conPwd.length > 7 && newPwd == conPwd) {\n\
           pButton.addEventListener(\"click\", pwdPostFunc);\n\
@@ -1096,25 +1108,36 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         }\n\
       }\n\
 \n\
-      function popResps(resJObj) {\n\
+      function popResps(resJObj, isError) {\n\
         var respCont = document.getElementById(\"respContainer\");\n\
         var mResps = respCont.getElementsByTagName(\"DIV\");\n\
-        jObj = JSON.parse(resJObj);\n\
+        var mCount = mResps.length;\n\
+        var oCount = mCount;\n\
 \n\
-        if (jObj.count != mResps.length) {\n\
+        if (!isError) {\n\
+          var jObj = JSON.parse(resJObj);\n\
+          oCount = jObj.count;\n\
+        }\n\
+\n\
+        if (oCount != mCount) {\n\
           errHandler(\"ERROR: The backend server replied with a different number of message responses than expected. \" + jObj.count + \" reponses for \" + mResps.length + \" messages\");\n\
         } else {\n\
-          const rArr = jObj.results.split(\",\");\n\
-          for (var i = 0; i < jObj.count; i++) {\n\
-            mResps[i].innerText = rArr[i];\n\
-            if (rArr[i] == \"AA\" || rArr[i] == \"CA\") {\n\
-              mResps[i].classList.add(\"hl7MsgRespG\");\n\
-            } else if (rArr[i] == \"AE\" || rArr[i] == \"AR\" ||\n\
-                       rArr[i] == \"CE\" || rArr[i] == \"CR\" ||\n\
-                       rArr[i] == \"EE\") {\n\
+          if (!isError) rArr = jObj.results.split(\",\");\n\
+          for (var i = 0; i < mCount; i++) {\n\
+            if (isError) {\n\
+              mResps[i].innerText = \"EE\";\n\
               mResps[i].classList.add(\"hl7MsgRespR\");\n\
-            } else {\n\
-              errHandler(\"ERROR: The backed sent an invalid response code (\" + rArr[i] + \", expected one of AA, AE, AR, CA, CE, CR or EE)\");\n\
+            } else if (i <= oCount) {\n\
+              mResps[i].innerText = rArr[i];\n\
+              if (rArr[i] == \"AA\" || rArr[i] == \"CA\") {\n\
+                mResps[i].classList.add(\"hl7MsgRespG\");\n\
+              } else if (rArr[i] == \"AE\" || rArr[i] == \"AR\" ||\n\
+                         rArr[i] == \"CE\" || rArr[i] == \"CR\" ||\n\
+                         rArr[i] == \"EE\") {\n\
+                mResps[i].classList.add(\"hl7MsgRespR\");\n\
+              } else {\n\
+                errHandler(\"ERROR: The backed sent an invalid response code (\" + rArr[i] + \", expected one of AA, AE, AR, CA, CE, CR or EE)\");\n\
+              }\n\
             }\n\
           }\n\
         }\n\
@@ -1312,6 +1335,9 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
 \n\
       function closeErrWin() {\n\
         var errWin = document.getElementById(\"errDim\");\n\
+        var login = document.getElementById(\"loginDim\");\n\
+        var lPwd = document.getElementById(\"pword\");\n\
+        if (login.style.display == \"block\") lPwd.focus();\n\
         errWin.style.display = \"none\";\n\
       }\n\
 \n\
@@ -1383,7 +1409,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
           }\n\
 \n\
           showRespForm(respList.length);\n\
-          postJSON(JSON.stringify(respJSON));\n\
+          postJSON(JSON.stringify(respJSON), true);\n\
           isRespond = true;\n\
           getRespQueue();\n\
 \n\
@@ -1464,12 +1490,15 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         var errDivT = document.getElementById(\"errTxt\");\n\
         var errDivD = document.getElementById(\"errDim\");\n\
         var errDivI = document.getElementById(\"errImg\");\n\
+        var errDivO = document.getElementById(\"errOkLink\");\n\
 \n\
         if (resStr.slice(0, 7) == \"ERROR: \") {\n\
           errDivI.style.backgroundImage = \"url(/images/error.png)\";\n\
           errHTML = '<span class=\"boldRed\">ERROR: </span>' + resStr.slice(7);\n\
           errDivT.innerHTML = errHTML;\n\
           errDivD.style.display = \"block\";\n\
+          errDivO.focus();\n\
+          errDivO.addEventListener(\"keyup\", closeErrWin);\n\
           return 1;\n\
 \n\
         } else if (resStr.slice(0, 6) == \"WARN: \") {\n\
@@ -1477,6 +1506,8 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
           errHTML = '<span class=\"boldYel\">WARN: </span>' + resStr.slice(6);\n\
           errDivT.innerHTML = errHTML;\n\
           errDivD.style.display = \"block\";\n\
+          errDivO.focus();\n\
+          errDivO.addEventListener(\"keyup\", closeErrWin);\n\
           return 2;\n\
 \n\
         } else {\n\
@@ -1484,120 +1515,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         }\n\
       }\n\
 \n\
-      function postJSON(jsonObj) {\n\
-        event.preventDefault();\n\
-        var xhr = new XMLHttpRequest();\n\
-        xhr.onreadystatechange = function() {\n\
-          if (xhr.readyState === 4) {\n\
-            if (xhr.status === 200) {\n\
-              if (errHandler(xhr.responseText) == 0) {\n\
-                return xhr.responseText;\n\
-              }\n\
-\n\
-            } else if (xhr.status == 409) {\n\
-              if (xhr.responseText == \"RX\") {\n\
-                stopHL7Listener();\n\
-                errHandler(\"ERROR: Failed to start responder, port already in use?\");\n\
-              }\n\
-\n\
-            } else if (xhr.status == 500) {\n\
-              stopHL7Listener();\n\
-              errHandler(\"ERROR: An unexpected back end error occurred.\");\n\
-\n\
-            } else {\n\
-              stopHL7Listener();\n\
-              errHandler(\"ERROR: The hhl7 backend is not running.\");\n\
-            }\n\
-          }\n\
-        };\n\
-\n\
-        xhr.open(\"POST\", \"/postJSON\");\n\
-        xhr.timeout = (ackTimeout * 1000) + webTimeout;\n\
-        var formData = new FormData();\n\
-        formData.append(\"jsonPOST\", jsonObj);\n\
-        xhr.send(formData);\n\
-      }\n\
-\n\
-      function postCreds() {\n\
-        event.preventDefault();\n\
-        var xhr = new XMLHttpRequest();\n\
-\n\
-        xhr.onreadystatechange = function() {\n\
-          if (xhr.readyState === 4) {\n\
-            if (xhr.status === 200) {\n\
-              if (errHandler(xhr.responseText) == 0) {\n\
-                if (xhr.responseText == \"LA\") {\n\
-                  unlockWeb();\n\
-\n\
-                } else if (xhr.responseText == \"LC\") {\n\
-                  errHandler(\"WARN: Account created but requires activation. Please wait for your system admin to enable your account\");\n\
-                  return false;\n\
-\n\
-               } else if (xhr.responseText == \"LF\") {\n\
-                  errHandler(\"WARN: Account creation failed, please try again\");\n\
-                  return false;\n\
-\n\
-               } else {\n\
-                  errHandler(\"ERROR: Login failed, please try again\");\n\
-                  return false;\n\
-                }\n\
-              }\n\
-\n\
-            } else if (xhr.status === 400) {\n\
-              if (errHandler(xhr.responseText) == 0) {\n\
-                if (xhr.responseText == \"DP\") {\n\
-                  errHandler(\"ERROR: The backend received bad data from the client, please try again\");\n\
-                  return false;\n\
-\n\
-                } else {\n\
-                  errHandler(\"ERROR: Login failed, please try again\");\n\
-                  return false;\n\
-                }\n\
-              }\n\
-\n\
-            } else if (xhr.status === 401) {\n\
-              if (errHandler(xhr.responseText) == 0) {\n\
-                if (xhr.responseText == \"LD\") {\n\
-                  errHandler(\"WARN: Account already exists but is locked or requires activation. Please contact your system admin to enable your account\");\n\
-                  return false;\n\
-\n\
-                } else {\n\
-                  errHandler(\"ERROR: Login failed, please try again\");\n\
-                  return false;\n\
-                }\n\
-              }\n\
-\n\
-            } else {\n\
-              errHandler(\"ERROR: The hhl7 backend is not running.\");\n\
-            }\n\
-          }\n\
-        };\n\
-\n\
-        xhr.open(\"POST\", \"/postCreds\");\n\
-        xhr.timeout = webTimeout;\n\
-\n\
-        var formData = new FormData();\n\
-\n\
-        var pcaction = document.getElementById(\"register\").innerText;\n\
-        if (pcaction == \"Register\") {\n\
-          formData.append(\"pcaction\", 1);\n\
-        } else if (pcaction == \"Login\") {\n\
-          formData.append(\"pcaction\", 2);\n\
-        } else {\n\
-          formData.append(\"pcaction\", 0);\n\
-        }\n\
-\n\
-        var uname = document.getElementById(\"uname\").value;\n\
-        var pword = document.getElementById(\"pword\").value;\n\
-        formData.append(\"uname\", uname);\n\
-        formData.append(\"pword\", pword);\n\
-\n\
-        xhr.send(formData);\n\
-      }\n\
-\n\
-      function postSendSets() {\n\
-        event.preventDefault();\n\
-        var xhr = new XMLHttpRequest();\n\
+      function postSendsFormat(resText) {\n\
         var btn = document.getElementById(\"saveSendSets\");\n\
         var tHost = document.getElementById(\"tHost\");\n\
         var tHostText = document.getElementById(\"tHostText\");\n\
@@ -1605,194 +1523,223 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         var tPort = document.getElementById(\"tPort\");\n\
         var tPortSave = document.getElementById(\"tPortSave\");\n\
 \n\
-        xhr.onreadystatechange = function() {\n\
-          if (xhr.readyState === 4) {\n\
-            if (xhr.status === 200) {\n\
-              if (errHandler(xhr.responseText) == 0) {\n\
-                if (xhr.responseText == \"OK\") {\n\
-                  btn.classList.add(\"menuItemButtonGreen\");\n\
-                  btn.classList.replace(\"menuItemButton\", \"menuItemButtonInactive\");\n\
-                  var tHostSel = tHost.options[tHost.selectedIndex];\n\
-                  tHostText.innerHTML = \"[\" + tHostSel.innerHTML + \"]\";\n\
-                  tHostSave.value = tHost.value;\n\
-                  tPortSave.value = tPort.value;\n\
-                } else {\n\
-                  btn.classList.add(\"menuItemButtonRed\");\n\
-                  btn.classList.replace(\"menuItemButton\", \"menuItemButtonInactive\");\n\
-                  tHost.value = tHostSave.value;\n\
-                  tPort.value = tPortSave.value;\n\
-                  errHandler(\"ERROR: The backend failed to save your settings, please try again.\");\n\
-                }\n\
-              }\n\
-\n\
-            } else if (xhr.status == 401) {\n\
-              showLogin();\n\
-\n\
-            } else {\n\
-              errHandler(\"ERROR: The hhl7 backend is not running.\");\n\
-            }\n\
-          }\n\
-        };\n\
-\n\
-        xhr.open(\"POST\", \"/postSendSets\");\n\
-        xhr.timeout = webTimeout;\n\
-\n\
-        var formData = new FormData();\n\
-\n\
-        formData.append(\"sIP\", tHost.value);\n\
-        formData.append(\"sPort\", tPort.value);\n\
-\n\
-        xhr.send(formData);\n\
+        if (resText == \"OK\") {\n\
+          btn.classList.add(\"menuItemButtonGreen\");\n\
+          btn.classList.replace(\"menuItemButton\", \"menuItemButtonInactive\");\n\
+          var tHostSel = tHost.options[tHost.selectedIndex];\n\
+          tHostText.innerHTML = \"[\" + tHostSel.innerHTML + \"]\";\n\
+          tHostSave.value = tHost.value;\n\
+          tPortSave.value = tPort.value;\n\
+        } else {\n\
+          btn.classList.add(\"menuItemButtonRed\");\n\
+          btn.classList.replace(\"menuItemButton\", \"menuItemButtonInactive\");\n\
+          tHost.value = tHostSave.value;\n\
+          tPort.value = tPortSave.value;\n\
+          errHandler(\"ERROR: The backend failed to save your settings, please try again.\");\n\
+        }\n\
       }\n\
 \n\
-      function postListSets() {\n\
-        event.preventDefault();\n\
-        var xhr = new XMLHttpRequest();\n\
+      function postListsFormat(resText) {\n\
         var btn = document.getElementById(\"saveListSets\");\n\
         var lPort = document.getElementById(\"lPort\");\n\
         var lPortSave = document.getElementById(\"lPortSave\");\n\
 \n\
-        xhr.onreadystatechange = function() {\n\
-          if (xhr.readyState === 4) {\n\
-            if (xhr.status === 200) {\n\
-              if (errHandler(xhr.responseText) == 0) {\n\
-                if (xhr.responseText == \"OK\") {\n\
-                  btn.classList.add(\"menuItemButtonGreen\");\n\
-                  btn.classList.replace(\"menuItemButton\", \"menuItemButtonInactive\");\n\
-                  lPortSave.value = lPort.value;\n\
+        if (resText == \"OK\") {\n\
+          btn.classList.add(\"menuItemButtonGreen\");\n\
+          btn.classList.replace(\"menuItemButton\", \"menuItemButtonInactive\");\n\
+          lPortSave.value = lPort.value;\n\
 \n\
-                } else if (xhr.responseText == \"SR\") {\n\
-                  btn.classList.add(\"menuItemButtonRed\");\n\
-                  btn.classList.replace(\"menuItemButton\", \"menuItemButtonInactive\");\n\
-                  lPort.value = lPortSave.value;\n\
-                  errHandler(\"ERROR: Your chosen port number is being used by another user, please try again.\");\n\
+        } else if (resText == \"SR\") {\n\
+          btn.classList.add(\"menuItemButtonRed\");\n\
+          btn.classList.replace(\"menuItemButton\", \"menuItemButtonInactive\");\n\
+          lPort.value = lPortSave.value;\n\
+          errHandler(\"ERROR: Your chosen port number is being used by another user, please try again.\");\n\
 \n\
-                } else {\n\
-                  btn.classList.add(\"menuItemButtonRed\");\n\
-                  btn.classList.replace(\"menuItemButton\", \"menuItemButtonInactive\");\n\
-                  lPort.value = lPortSave.value;\n\
-                  errHandler(\"ERROR: The backend failed to save your settings, please try again.\");\n\
-                }\n\
-              }\n\
-\n\
-            } else if (xhr.status == 401) {\n\
-              showLogin();\n\
-\n\
-            } else {\n\
-              errHandler(\"ERROR: The hhl7 backend is not running.\");\n\
-            }\n\
-          }\n\
-        };\n\
-\n\
-        xhr.open(\"POST\", \"/postListSets\");\n\
-        xhr.timeout = webTimeout;\n\
-\n\
-        var formData = new FormData();\n\
-        formData.append(\"lPort\", lPort.value);\n\
-\n\
-        xhr.send(formData);\n\
+        } else {\n\
+          btn.classList.add(\"menuItemButtonRed\");\n\
+          btn.classList.replace(\"menuItemButton\", \"menuItemButtonInactive\");\n\
+          lPort.value = lPortSave.value;\n\
+          errHandler(\"ERROR: The backend failed to save your settings, please try again.\");\n\
+        }\n\
       }\n\
 \n\
-      function postACKSets() {\n\
-        event.preventDefault();\n\
-        var xhr = new XMLHttpRequest();\n\
+      function postAcksFormat(resText) {\n\
         var btn = document.getElementById(\"saveACKSets\");\n\
         var ackT = document.getElementById(\"ackTimeout\");\n\
         var ackTSave = document.getElementById(\"ackTimeoutSave\");\n\
         var webT = document.getElementById(\"webTimeout\");\n\
         var webTSave = document.getElementById(\"webTimeoutSave\");\n\
 \n\
-        xhr.onreadystatechange = function() {\n\
-          if (xhr.readyState === 4) {\n\
-            if (xhr.status === 200) {\n\
-              if (errHandler(xhr.responseText) == 0) {\n\
-                if (xhr.responseText == \"OK\") {\n\
-                  btn.classList.add(\"menuItemButtonGreen\");\n\
-                  btn.classList.replace(\"menuItemButton\", \"menuItemButtonInactive\");\n\
-                  ackTSave.value = ackT.value;\n\
-                  webTSave.value = webT.value;\n\
-                  ackTimeout = ackT.value;\n\
-                  webTimeout = webT.value;\n\
+        if (resText == \"OK\") {\n\
+          btn.classList.add(\"menuItemButtonGreen\");\n\
+          btn.classList.replace(\"menuItemButton\", \"menuItemButtonInactive\");\n\
+          ackTSave.value = ackT.value;\n\
+          webTSave.value = webT.value;\n\
+          ackTimeout = ackT.value;\n\
+          webTimeout = webT.value;\n\
 \n\
-                } else if (xhr.responseText == \"SR\") {\n\
-                  btn.classList.add(\"menuItemButtonRed\");\n\
-                  btn.classList.replace(\"menuItemButton\", \"menuItemButtonInactive\");\n\
-                  ackT.value = ackTSave.value;\n\
-                  webT.value = webTSave.value;\n\
-                  errHandler(\"ERROR: Invalid timeout values submitted, valid ranges are 1-99 and 50-5000.\");\n\
+        } else if (resText == \"SR\") {\n\
+          btn.classList.add(\"menuItemButtonRed\");\n\
+          btn.classList.replace(\"menuItemButton\", \"menuItemButtonInactive\");\n\
+          ackT.value = ackTSave.value;\n\
+          webT.value = webTSave.value;\n\
+          errHandler(\"ERROR: Invalid timeout values submitted, valid ranges are 1-99 and 50-5000.\");\n\
 \n\
-                } else {\n\
-                  btn.classList.add(\"menuItemButtonRed\");\n\
-                  btn.classList.replace(\"menuItemButton\", \"menuItemButtonInactive\");\n\
-                  ackT.value = ackTSave.value;\n\
-                  webT.value = webTSave.value;\n\
-                  errHandler(\"ERROR: The backend failed to save your settings, please try again.\");\n\
-                }\n\
-              }\n\
-\n\
-            } else if (xhr.status == 401) {\n\
-              showLogin();\n\
-\n\
-            } else {\n\
-              errHandler(\"ERROR: The hhl7 backend is not running.\");\n\
-            }\n\
-          }\n\
-        };\n\
-\n\
-        xhr.open(\"POST\", \"/postACKSets\");\n\
-        xhr.timeout = webTimeout;\n\
-\n\
-        var formData = new FormData();\n\
-        formData.append(\"ackTimeout\", ackT.value);\n\
-        formData.append(\"webTimeout\", webT.value);\n\
-\n\
-        xhr.send(formData);\n\
+        } else {\n\
+          btn.classList.add(\"menuItemButtonRed\");\n\
+          btn.classList.replace(\"menuItemButton\", \"menuItemButtonInactive\");\n\
+          ackT.value = ackTSave.value;\n\
+          webT.value = webTSave.value;\n\
+          errHandler(\"ERROR: The backend failed to save your settings, please try again.\");\n\
+        }\n\
       }\n\
 \n\
-      function postPwdSets() {\n\
-        event.preventDefault();\n\
-        var xhr = new XMLHttpRequest();\n\
+      function postPwdFormat(resText) {\n\
         var btn = document.getElementById(\"resetPW\");\n\
         var oldPwd = document.getElementById(\"oldPwd\");\n\
         var newPwd = document.getElementById(\"newPwd\");\n\
         var conPwd = document.getElementById(\"conPwd\");\n\
 \n\
+        if (resText == \"OK\") {\n\
+          btn.classList.add(\"menuItemButtonGreen\");\n\
+          btn.classList.replace(\"menuItemButton\", \"menuItemButtonInactive\");\n\
+          oldPwd.value = \"\";\n\
+          newPwd.value = \"\";\n\
+          conPwd.value = \"\";\n\
+        } else {\n\
+          btn.classList.add(\"menuItemButtonRed\");\n\
+          btn.classList.replace(\"menuItemButton\", \"menuItemButtonInactive\");\n\
+          errHandler(\"ERROR: The backend failed to save your password, please try again.\");\n\
+        }\n\
+      }\n\
+\n\
+      function postJSON(jsonObj, longTimeout) {\n\
+        event.preventDefault();\n\
+        var xhr = new XMLHttpRequest();\n\
+        var jObj = JSON.parse(jsonObj);\n\
+\n\
         xhr.onreadystatechange = function() {\n\
           if (xhr.readyState === 4) {\n\
-            if (xhr.status === 200) {\n\
-              if (errHandler(xhr.responseText) == 0) {\n\
-                if (xhr.responseText == \"OK\") {\n\
-                  btn.classList.add(\"menuItemButtonGreen\");\n\
-                  btn.classList.replace(\"menuItemButton\", \"menuItemButtonInactive\");\n\
-                  oldPwd.value = \"\";\n\
-                  newPwd.value = \"\";\n\
-                  conPwd.value = \"\";\n\
-                } else {\n\
-                  btn.classList.add(\"menuItemButtonRed\");\n\
-                  btn.classList.replace(\"menuItemButton\", \"menuItemButtonInactive\");\n\
-                  errHandler(\"ERROR: The backend failed to save your password, please try again.\");\n\
-                }\n\
+            if (xhr.status == 200) {\n\
+              if (errHandler(xhr.responseText) != 0) {\n\
+                return false;\n\
               }\n\
 \n\
-            } else if (xhr.status == 401) {\n\
-              showLogin();\n\
+              if (jObj.postFunc == \"login\" || jObj.postFunc == \"register\") {\n\
+                if (xhr.responseText == \"LA\") {\n\
+                  unlockWeb();\n\
+                  return true;\n\
+\n\
+                } else if (xhr.responseText == \"LC\") {\n\
+                  errHandler(\"WARN: Account created but requires activation. Please wait for your system admin to enable your account\");\n\
+                  return false;\n\
+\n\
+                } else if (xhr.responseText == \"LF\") {\n\
+                  errHandler(\"WARN: Account creation failed, please try again\");\n\
+                  return false;\n\
+\n\
+                } else {\n\
+                  errHandler(\"ERROR: Login failed, please try again\");\n\
+                  return false;\n\
+                }\n\
+\n\
+              } else if (jObj.postFunc == \"changeSends\") {\n\
+                postSendsFormat(xhr.responseText);\n\
+\n\
+              } else if (jObj.postFunc == \"changeLists\") {\n\
+                postListsFormat(xhr.responseText);\n\
+\n\
+              } else if (jObj.postFunc == \"changeAcks\") {\n\
+                postAcksFormat(xhr.responseText);\n\
+\n\
+              } else if (jObj.postFunc == \"changePwd\") {\n\
+                postPwdFormat(xhr.responseText);\n\
+\n\
+              }\n\
 \n\
             } else {\n\
-              errHandler(\"ERROR: The hhl7 backend is not running.\");\n\
+              stopHL7Listener();\n\
+\n\
+              if (xhr.status === 400) {\n\
+                if (xhr.responseText == \"DP\") {\n\
+                  errHandler(\"ERROR: The backend received bad data from the client, please try again\");\n\
+                  return false;\n\
+\n\
+                } else if (jObj.postFunc == \"login\") {\n\
+                  errHandler(\"ERROR: Login failed, please try again\");\n\
+                  return false;\n\
+                }\n\
+\n\
+              } else if (xhr.status == 401) {\n\
+                if (xhr.responseText == \"LD\") {\n\
+                  errHandler(\"WARN: Account already exists but is locked or requires activation. Please contact your system admin to enable your account\");\n\
+                  return false;\n\
+\n\
+                } else if (jObj.postFunc == \"login\") {\n\
+                  errHandler(\"ERROR: Login failed, please try again\");\n\
+                  return false;\n\
+                }\n\
+\n\
+              } else if (xhr.status == 409) {\n\
+                if (xhr.responseText == \"RX\") {\n\
+                  errHandler(\"ERROR: Failed to start responder, port already in use?\");\n\
+                }\n\
+\n\
+              } else if (xhr.status == 500) {\n\
+                errHandler(\"ERROR: An unexpected back end error occurred.\");\n\
+\n\
+              } else {\n\
+                errHandler(\"ERROR: The hhl7 backend is not running.\");\n\
+\n\
+              }\n\
             }\n\
           }\n\
         };\n\
 \n\
-        xhr.open(\"POST\", \"/postPwdSets\");\n\
-        xhr.timeout = webTimeout;\n\
-\n\
+        xhr.open(\"POST\", \"/postJSON\");\n\
+        xhr.timeout = (ackTimeout * 1000) + webTimeout;\n\
+        if (!longTimeout) xhr.timeout = webTimeout;\n\
         var formData = new FormData();\n\
-\n\
-        formData.append(\"pcaction\", 3);\n\
-        formData.append(\"pword\", oldPwd.value);\n\
-        formData.append(\"npword\", newPwd.value);\n\
-\n\
+        formData.append(\"jsonPOST\", jsonObj);\n\
         xhr.send(formData);\n\
+      }\n\
+\n\
+      function postCreds() {\n\
+        var pJSON = { \"postFunc\":\"login\",\"uname\":\"\",\"pword\":\"\" };\n\
+        var pFunc = document.getElementById(\"register\").innerText;\n\
+\n\
+        if (pFunc == \"Login\") pJSON.postFunc = \"register\";\n\
+        pJSON.uname = document.getElementById(\"uname\").value;\n\
+        pJSON.pword = document.getElementById(\"pword\").value;\n\
+        postJSON(JSON.stringify(pJSON), false);\n\
+\n\
+      }\n\
+\n\
+      function postSendSets() {\n\
+        var pJSON = { \"postFunc\":\"changeSends\",\"sIP\":\"\",\"sPort\":\"\" };\n\
+        pJSON.sIP = document.getElementById(\"tHost\").value;\n\
+        pJSON.sPort = document.getElementById(\"tPort\").value;\n\
+        postJSON(JSON.stringify(pJSON), false);\n\
+      }\n\
+\n\
+      function postListSets() {\n\
+        var pJSON = { \"postFunc\":\"changeLists\",\"lPort\":\"\" };\n\
+        pJSON.lPort = document.getElementById(\"lPort\").value;\n\
+        postJSON(JSON.stringify(pJSON), false);\n\
+      }\n\
+\n\
+      function postACKSets() {\n\
+        var pJSON = { \"postFunc\":\"changeAcks\",\"aTimeout\":\"\",\"wTimeout\":\"\" };\n\
+        pJSON.aTimeout = document.getElementById(\"ackTimeout\").value;\n\
+        pJSON.wTimeout = document.getElementById(\"webTimeout\").value;\n\
+        postJSON(JSON.stringify(pJSON), false);\n\
+      }\n\
+\n\
+      function postPwdSets() {\n\
+        var pJSON = { \"postFunc\":\"changePwd\",\"oldPass\":\"\",\"newPass\":\"\" };\n\
+        pJSON.oldPass = document.getElementById(\"oldPwd\").value;\n\
+        pJSON.newPass = document.getElementById(\"newPwd\").value;\n\
+        postJSON(JSON.stringify(pJSON), false);\n\
       }\n\
 \n\
       async function checkAuth() {\n\
@@ -1882,7 +1829,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
           if (xhr.readyState === 4) {\n\
             if (xhr.status === 200) {\n\
               if (errHandler(xhr.responseText) == 0) {\n\
-                popResps(xhr.responseText);\n\
+                popResps(xhr.responseText, false);\n\
               }\n\
 \n\
             } else if (xhr.status == 401) {\n\
@@ -1892,6 +1839,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
               errHandler(\"ERROR: Message contains no data to send.\");\n\
 \n\
             } else if (xhr.status === 409) {\n\
+                popResps(xhr.responseText, true);\n\
                 if (xhr.responseText == \"CX\") {\n\
                   errHandler(\"ERROR: Backend server failed to connect to target server.\");\n\
 \n\
@@ -2368,8 +2316,8 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
           <div id=\"errTxt\" class=\"popTxt\"></div>\n\
         </div>\n\
         <div id=\"errFooter\" class=\"popFooter\">\n\
-          <a href=\"\" onclick=\"closeErrWin(); return false;\">\n\
-            <div id=\"ok\" class=\"button\">OK</div>\n\
+          <a id=\"errOkLink\" href=\"\" onclick=\"closeErrWin(); return false;\">\n\
+            <div id=\"errOk\" class=\"button\">OK</div>\n\
           </a>\n\
         </div>\n\
       </div>\n\

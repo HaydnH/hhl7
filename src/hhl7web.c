@@ -1212,6 +1212,287 @@ static int startResponder(struct Session *session, struct MHD_Connection *connec
 }
 
 
+// Handle a login attempt POST
+static int handlePOST_login(struct connection_info_struct *con_info,
+                            struct json_object *rootObj, struct json_object *postObj) {
+
+  struct json_object *usrObj = NULL, *pwdObj = NULL;
+  char errStr[90] = "";
+  int aStatus = -1, nStatus = -1;
+
+  json_object_object_get_ex(rootObj, "uname", &usrObj);
+  json_object_object_get_ex(rootObj, "pword", &pwdObj);
+
+  if (json_object_get_type(usrObj) != json_type_string ||
+      json_object_get_type(pwdObj) != json_type_string) {
+
+    snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "DP");
+    writeLog(LOG_ERR, "Login POST received without a username or password", 0);
+    return(1);
+
+  } else if (validStr((char *) json_object_get_string(usrObj), 4, 26, 1) > 0) {
+    snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "DP");
+    writeLog(LOG_ERR, "Login POST received with invalid username", 0);
+    return(1);
+
+  } else {
+    sprintf(con_info->session->userid, "%s", json_object_get_string(usrObj));
+    aStatus = checkAuth(con_info->session->userid, json_object_get_string(pwdObj));
+    con_info->session->aStatus = aStatus;
+
+    if (aStatus == 3 && strcmp(json_object_get_string(postObj), "register") == 0) {
+      nStatus = regNewUser(con_info->session->userid, (char *) json_object_get_string(pwdObj));
+
+      if (nStatus == 0) {
+        snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "LC");  // Account created
+        sprintf(errStr, "[S: %03d] New user account created, uid: %s",
+                        con_info->session->shortID, con_info->session->userid);
+        writeLog(LOG_INFO, errStr, 0);
+
+      } else {
+        snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "LF");  // New account creation failure
+        sprintf(errStr, "[S: %03d] New user account creation failed, uid: %s",
+                        con_info->session->shortID, con_info->session->userid);
+        writeLog(LOG_INFO, errStr, 0);
+
+      }
+
+    } else if (aStatus == 3 && strcmp(json_object_get_string(postObj), "login") == 0) {
+      snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "LR");  // Reject login, no account
+      sprintf(errStr, "[S: %03d] Login rejected (no account), uid: %s",
+                      con_info->session->shortID, con_info->session->userid);
+      writeLog(LOG_INFO, errStr, 0);
+
+    } else if (aStatus == 2) {
+      snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "LR");  // Reject login, wrong password
+      sprintf(errStr, "[S: %03d] Login rejected (wrong password), uid: %s",
+                      con_info->session->shortID, con_info->session->userid);
+      writeLog(LOG_INFO, errStr, 0);
+
+    } else if (aStatus == 1) {
+      snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "LD");  // Account disabled, but login OK
+      sprintf(errStr, "[S: %03d] Login rejected (account disabled), uid: %s",
+                      con_info->session->shortID, con_info->session->userid);
+      writeLog(LOG_INFO, errStr, 0);
+
+    } else if (aStatus == 0) {
+      con_info->session->aStatus = 1;
+      updatePasswdFile(con_info->session->userid, "attempts", NULL, 0);
+      snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "LA");  // Accept login
+      sprintf(errStr, "[S: %03d] Login accepted, uid: %s",
+                      con_info->session->shortID, con_info->session->userid);
+      writeLog(LOG_INFO, errStr, 0);
+
+    } else {
+      snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "DP");
+    }
+  }
+
+  return(0);
+}
+
+
+// Handle a change send settings attempt POST
+static int handlePOST_Sends(struct connection_info_struct *con_info,
+                            struct json_object *rootObj) {
+
+  struct json_object *sIPObj = NULL, *sPortObj = NULL;
+  char *sIP = NULL, *sPort = NULL;
+  char errStr[90] = "";
+
+  json_object_object_get_ex(rootObj, "sIP", &sIPObj);
+  json_object_object_get_ex(rootObj, "sPort", &sPortObj);
+
+  if (json_object_get_type(sIPObj) != json_type_string ||
+      json_object_get_type(sPortObj) != json_type_string) {
+
+    snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "DP");
+    writeLog(LOG_ERR, "Change send settings POST received without target details", 0);
+    return(1);
+
+  } else if (validStr((char *) json_object_get_string(sIPObj), 3, 255, 1) > 0 ||
+             validPort((char *) json_object_get_string(sPortObj)) > 0) {
+    snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "DP");
+    writeLog(LOG_ERR, "Change send settings POST received with invalid ip/port", 0);
+    return(1);
+
+  } else {
+    sIP = (char *) json_object_get_string(sIPObj);
+    sPort = (char *) json_object_get_string(sPortObj);
+    if (updatePasswdFile(con_info->session->userid, "sIP", sIP, -1) == 0 &&
+        updatePasswdFile(con_info->session->userid, "sPort", sPort, -1) == 0) {
+
+      sprintf(con_info->session->sIP, "%s", sIP);
+      sprintf(con_info->session->sPort, "%s", sPort);
+      snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "OK");  // Save OK
+      sprintf(errStr, "[S: %03d] Send settings saved OK, uid: %s",
+                      con_info->session->shortID, con_info->session->userid);
+      writeLog(LOG_INFO, errStr, 0);
+
+    } else {
+      snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "SX");  // Save failed
+      sprintf(errStr, "[S: %03d] Failed to save send settings, uid: %s",
+                      con_info->session->shortID, con_info->session->userid);
+      writeLog(LOG_WARNING, errStr, 0);
+
+    }
+  }
+  return(0);
+}
+
+
+// Handle a change listen settings attempt POST
+static int handlePOST_Lists(struct connection_info_struct *con_info,
+                            struct json_object *rootObj) {
+
+  struct json_object *lPortObj = NULL;
+  char *lPort = NULL;
+  char errStr[90] = "";
+
+  json_object_object_get_ex(rootObj, "lPort", &lPortObj);
+
+  if (json_object_get_type(lPortObj) != json_type_string) {
+    snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "DP");
+    writeLog(LOG_ERR, "Change listen settings POST received without target details", 0);
+    return(1);
+
+  } else if (validPort((char *) json_object_get_string(lPortObj)) > 0) {
+    snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "DP");
+    writeLog(LOG_ERR, "Change listen settings POST received with invalid port", 0);
+    return(1);
+
+  } else {
+    lPort = (char *) json_object_get_string(lPortObj);
+    if (lPortUsed(con_info->session->userid, lPort) == 1) {
+      snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "SR");  // Save Rejected (port in use)
+      sprintf(errStr, "[S: %03d] Rejected listen port change, port in use, uid: %s",
+                      con_info->session->shortID, con_info->session->userid);
+      writeLog(LOG_INFO, errStr, 0);
+
+    } else if (updatePasswdFile(con_info->session->userid, "lPort", lPort, -1) == 0) {    
+      sprintf(con_info->session->lPort, "%s", lPort);
+      if (con_info->session->isListening == 1) {
+        stopListenWeb(con_info->session, con_info->connection, "/postListSets");
+        startListenWeb(con_info->session, con_info->connection, "/postListSets", -1, NULL);
+      }
+
+      snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "OK");  // Save OK
+      sprintf(errStr, "[S: %03d] Listen port settings saved OK, uid: %s",
+                      con_info->session->shortID, con_info->session->userid);
+      writeLog(LOG_INFO, errStr, 0);
+
+    } else {
+      snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "SX");  // Save failed
+      sprintf(errStr, "[S: %03d] Failed to save send port settings, uid: %s",
+                      con_info->session->shortID, con_info->session->userid);
+      writeLog(LOG_WARNING, errStr, 0);
+
+    }
+  }
+  return(0);
+}
+
+
+// Handle a e send settings attempt POST
+static int handlePOST_Acks(struct connection_info_struct *con_info,
+                           struct json_object *rootObj) {
+
+  struct json_object *ackObj = NULL, *webObj = NULL;
+  int ackI = 4, webI = 750;
+  char errStr[90] = "";
+
+  json_object_object_get_ex(rootObj, "aTimeout", &ackObj);
+  json_object_object_get_ex(rootObj, "wTimeout", &webObj);
+
+  if (json_object_get_type(ackObj) != json_type_string ||
+      json_object_get_type(webObj) != json_type_string) {
+
+    snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "DP");
+    writeLog(LOG_ERR, "Change ACK settings POST received without values", 0);
+    return(1);
+
+  } else {
+    ackI = atoi(json_object_get_string(ackObj));
+    webI = atoi(json_object_get_string(webObj));
+
+  }
+
+  if (ackI > 0 && ackI < 100 && webI >=50 && webI <=5000) {
+    if (updatePasswdFile(con_info->session->userid, "ackTimeout", NULL, ackI) == 0 &&
+        updatePasswdFile(con_info->session->userid, "webTimeout", NULL, webI) == 0) {    
+
+      con_info->session->ackTimeout = ackI;
+      con_info->session->webTimeout = webI;
+      snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "OK");  // Save OK
+      sprintf(errStr, "[S: %03d] Listen port settings saved OK, uid: %s",
+                      con_info->session->shortID, con_info->session->userid);
+      writeLog(LOG_INFO, errStr, 0);
+
+    } else {
+      snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "SX");  // Save failed
+      sprintf(errStr, "[S: %03d] Failed to save send port settings, uid: %s",
+                      con_info->session->shortID, con_info->session->userid);
+      writeLog(LOG_WARNING, errStr, 0);
+
+    }
+
+  } else {
+    snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "DP");
+    writeLog(LOG_ERR, "Change send settings POST received with invalid ip/port", 0);
+    return(1);
+
+  }
+  return(0);
+}
+
+
+// Handle a password change attempt POST
+static int handlePOST_changePwd(struct connection_info_struct *con_info,
+                                struct json_object *rootObj) {
+
+  struct json_object *oldObj = NULL, *newObj = NULL;
+  char errStr[90] = "";
+  int aStatus = -1, rv = 1;
+
+  json_object_object_get_ex(rootObj, "oldPass", &oldObj);
+  json_object_object_get_ex(rootObj, "newPass", &newObj);
+
+  if (json_object_get_type(oldObj) != json_type_string ||
+      json_object_get_type(newObj) != json_type_string) {
+
+    snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "DP");
+    writeLog(LOG_ERR, "Change PWD POST received without passwords", 0);
+    return(1);
+
+  } else if (validStr((char *) json_object_get_string(newObj), 4, 26, 1) > 0) {
+    snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "DP");
+    writeLog(LOG_ERR, "Change PWD POST received with invalid password", 0);
+    return(1);
+
+  } else {
+    // Double check auth before changing password
+    aStatus = checkAuth(con_info->session->userid, json_object_get_string(oldObj));
+    snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "SX");
+    if (aStatus == 0) {
+      if (updatePasswd(con_info->session->userid, json_object_get_string(newObj)) == 0) {
+        snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "OK");  // Password updated succesfully
+        sprintf(errStr, "[S: %03d] Password changed, uid: %s",
+                        con_info->session->shortID, con_info->session->userid);
+        writeLog(LOG_INFO, errStr, 0);
+        rv = 0;
+
+      }
+    } else {
+      sprintf(errStr, "[S: %03d] Password change failed with bad password, uid: %s",
+                      con_info->session->shortID, con_info->session->userid);
+      writeLog(LOG_WARNING, errStr, 0);
+
+    }
+  }
+  return(rv);
+}
+
+
 // TODO - move legacy style iterations to newer json object POSTs
 static enum MHD_Result iteratePost(void *coninfo_cls, enum MHD_ValueKind kind,
               const char *key, const char *filename, const char *content_type,
@@ -1227,7 +1508,7 @@ static enum MHD_Result iteratePost(void *coninfo_cls, enum MHD_ValueKind kind,
 
   struct json_object *rootObj= NULL, *postObj = NULL;
   char errStr[90] = "";
-  int aStatus = -1, nStatus = -1, rc = -1;
+  int rc = -1;
 
   // A new connection should have already found it's sesssion, but check to be safe
   if (con_info->session == NULL) {
@@ -1240,17 +1521,6 @@ static enum MHD_Result iteratePost(void *coninfo_cls, enum MHD_ValueKind kind,
   con_info->answerstring[0] = '\0';
 
   if (size > 0) {
-    // Security check, only these post items are allowed without already being authed
-    if (con_info->session->aStatus < 1) {
-      if (strcmp(key, "pcaction") == 0 || strcmp(key, "uname") == 0 ||
-          strcmp(key, "pword") == 0) {
-
-      } else {
-        snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "L0");  // Require login
-        return(MHD_YES);
-      }
-    }
-
     // Handle a JSON string sent in a POST
     if (strcmp(key, "jsonPOST") == 0 ) {
       rootObj = json_tokener_parse(data);
@@ -1259,8 +1529,21 @@ static enum MHD_Result iteratePost(void *coninfo_cls, enum MHD_ValueKind kind,
       if (json_object_get_type(postObj) != json_type_string) {
         writeLog(LOG_ERR, "POST received a non-string value for postFunc", 0);
         return(MHD_NO);
+      }
+
+      // Only logins and new account registrations allowed without authentication
+      if (strcmp(json_object_get_string(postObj), "login") == 0 ||
+          strcmp(json_object_get_string(postObj), "register") == 0) {
+
+        if (handlePOST_login(con_info, rootObj, postObj) > 0) return(MHD_YES);
 
       } else {
+        // All other POSTs must be authenticated
+        if (con_info->session->aStatus < 1) { 
+          snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "L0");  // Require login
+          return(MHD_YES);
+        }
+
         if (strcmp(json_object_get_string(postObj), "procRespond") == 0) {
           if (con_info->session->isListening == 0) {
             rc = startResponder(con_info->session, con_info->connection, rootObj);
@@ -1269,9 +1552,28 @@ static enum MHD_Result iteratePost(void *coninfo_cls, enum MHD_ValueKind kind,
             sendRespList(con_info->session, rootObj);
 
           }
+
+        } else if (strcmp(json_object_get_string(postObj), "changeSends") == 0) {
+          if (handlePOST_Sends(con_info, rootObj) > 0) return(MHD_YES);
+
+        } else if (strcmp(json_object_get_string(postObj), "changeLists") == 0) {      
+          if (handlePOST_Lists(con_info, rootObj) > 0) return(MHD_YES);
+
+        } else if (strcmp(json_object_get_string(postObj), "changeAcks") == 0) {
+          if (handlePOST_Acks(con_info, rootObj) > 0) return(MHD_YES);
+
+        } else if (strcmp(json_object_get_string(postObj), "changePwd") == 0) {
+          if (handlePOST_changePwd(con_info, rootObj) > 0) return(MHD_YES);
+
         }
       }
       json_object_put(rootObj);
+    }
+
+    // Security check, ALL non-JSON posts require being authed
+    if (con_info->session->aStatus != 1) {
+      snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "L0");  // Require login
+      return(MHD_YES);
     }
 
     if (strcmp (key, "hl7MessageText") == 0 ) {
@@ -1300,190 +1602,6 @@ static enum MHD_Result iteratePost(void *coninfo_cls, enum MHD_ValueKind kind,
       snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "DP"); // Partial data
       return(MHD_YES);
 
-
-    } else if (strcmp(key, "pcaction") == 0 ) {
-      con_info->session->pcaction = atoi(data);
-      // Temporarily list the answer code as DP (partial data) until we receive passwd
-      snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "DP");
-
-    } else if (strcmp(key, "uname") == 0 ) {
-      if (validStr((char *) data, 4, 26, 1) == 0)
-        sprintf(con_info->session->userid, "%s", data);
-
-      // Temporarily list the answer code as DP (partial data) until we receive passwd
-      snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "DP");
-
-    } else if (strcmp(key, "pword") == 0 ) {
-      // Return partial data code if invalid request
-      if (strlen(con_info->session->userid) == 0 || con_info->session->pcaction < 1 ||
-          validStr((char *) data, 8, 200, 1) > 0) {
-        snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "DP");
-
-      } else {
-        aStatus = checkAuth(con_info->session->userid, data);
-
-        if (aStatus == 3 && con_info->session->pcaction == 2) {
-          nStatus = regNewUser(con_info->session->userid, (char *) data);
-
-          if (nStatus == 0) {
-            snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "LC");  // Account created
-            sprintf(errStr, "[S: %03d] New user account created, uid: %s",
-                            con_info->session->shortID, con_info->session->userid);
-            writeLog(LOG_INFO, errStr, 0);
-
-          } else {
-            snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "LF");  // New account creation failure
-            sprintf(errStr, "[S: %03d] New user account creation failed, uid: %s",
-                            con_info->session->shortID, con_info->session->userid);
-            writeLog(LOG_INFO, errStr, 0);
-
-          }
-
-        } else if (aStatus == 3 && con_info->session->pcaction == 1) {
-          snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "LR");  // Reject login, no account
-          sprintf(errStr, "[S: %03d] Login rejected (no account), uid: %s",
-                          con_info->session->shortID, con_info->session->userid);
-          writeLog(LOG_INFO, errStr, 0);
-
-        } else if (aStatus == 2) {
-          snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "LR");  // Reject login, wrong password
-          sprintf(errStr, "[S: %03d] Login rejected (wrong password), uid: %s",
-                          con_info->session->shortID, con_info->session->userid);
-          writeLog(LOG_INFO, errStr, 0);
-
-        } else if (aStatus == 1) {
-          snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "LD");  // Account disabled, but login OK
-          sprintf(errStr, "[S: %03d] Login rejected (account disabled), uid: %s",
-                          con_info->session->shortID, con_info->session->userid);
-          writeLog(LOG_INFO, errStr, 0);
-
-        } else if (aStatus == 0 && con_info->session->pcaction == 3) {
-          con_info->session->aStatus = 2;
-          snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "DP");
-
-        } else if (aStatus == 0) {
-          con_info->session->aStatus = 1;
-          updatePasswdFile(con_info->session->userid, "attempts", NULL, 0);
-          snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "LA");  // Accept login
-          sprintf(errStr, "[S: %03d] Login accepted, uid: %s",
-                          con_info->session->shortID, con_info->session->userid);
-          writeLog(LOG_INFO, errStr, 0);
-
-        } else {
-          snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "DP");
- 
-        }
-      }
-
-    } else if (strcmp(key, "npword") == 0 ) {
-      // NOTE: con_info->session->aStatus = 2 can only be true after a succesful
-      // username/passwd check from a username/passwd/newPasswd post.
-      snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "SX");
-      if (con_info->session->aStatus == 2) {
-        if (validStr((char *) data, 8, 200, 1) > 0) {
-          snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "DP");
-
-        } else {
-          con_info->session->aStatus = 1;
-          if (updatePasswd(con_info->session->userid, data) == 0) {
-            snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "OK");  // Password updated succesfully
-            sprintf(errStr, "[S: %03d] Password changed, uid: %s",
-                            con_info->session->shortID, con_info->session->userid);
-            writeLog(LOG_INFO, errStr, 0);
-
-          }
-        } 
-      }
-
-    } else if (strcmp(key, "sIP") == 0 ) {
-      if (updatePasswdFile(con_info->session->userid, key, data, -1) == 0) {
-        sprintf(con_info->session->sIP, "%s", data);
-        snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "OK");  // Save OK
-        sprintf(errStr, "[S: %03d] Send IP settings saved OK, uid: %s",
-                        con_info->session->shortID, con_info->session->userid);
-        writeLog(LOG_INFO, errStr, 0);
-
-      } else {
-        snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "SX");  // Save failed
-        sprintf(errStr, "[S: %03d] Failed to save send IP settings, uid: %s",
-                        con_info->session->shortID, con_info->session->userid);
-        writeLog(LOG_WARNING, errStr, 0);
-
-      }
-
-    } else if (strcmp(key, "sPort") == 0 ) {
-      if (updatePasswdFile(con_info->session->userid, key, data, -1) == 0) {
-        sprintf(con_info->session->sPort, "%s", data);
-        snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "OK");  // Save OK
-        sprintf(errStr, "[S: %03d] Send port settings saved OK, uid: %s",
-                        con_info->session->shortID, con_info->session->userid);
-        writeLog(LOG_INFO, errStr, 0);
-
-      } else {
-        snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "SX");  // Save failed
-        sprintf(errStr, "[S: %03d] Failed to save send port settings, uid: %s",
-                        con_info->session->shortID, con_info->session->userid);
-        writeLog(LOG_WARNING, errStr, 0);
-
-      }
-
-    } else if (strcmp(key, "lPort") == 0 ) {
-      if (lPortUsed(con_info->session->userid, data) == 1) {
-        snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "SR");  // Save Rejected (port in use)
-        sprintf(errStr, "[S: %03d] Rejected listen port change, port in use, uid: %s",
-                        con_info->session->shortID, con_info->session->userid);
-        writeLog(LOG_INFO, errStr, 0);
-
-      } else if (updatePasswdFile(con_info->session->userid, key, data, -1) == 0) {
-        sprintf(con_info->session->lPort, "%s", data);
-        if (con_info->session->isListening == 1) {
-          stopListenWeb(con_info->session, con_info->connection, "/postListSets");
-          startListenWeb(con_info->session, con_info->connection, "/postListSets", -1, NULL);
-        }
-        snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "OK");  // Save OK
-        sprintf(errStr, "[S: %03d] Listen port settings saved OK, uid: %s",
-                        con_info->session->shortID, con_info->session->userid);
-        writeLog(LOG_INFO, errStr, 0);
-
-      } else {
-        snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "SX");  // Save failed
-        sprintf(errStr, "[S: %03d] Failed to save send port settings, uid: %s",
-                        con_info->session->shortID, con_info->session->userid);
-        writeLog(LOG_WARNING, errStr, 0);
-
-      }
-
-    } else if (strcmp(key, "ackTimeout") == 0 ) {
-      if (updatePasswdFile(con_info->session->userid, key, NULL, atoi(data)) == 0) {    
-        con_info->session->ackTimeout = atoi(data);
-        snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "OK");  // Save OK
-        sprintf(errStr, "[S: %03d] Listen port settings saved OK, uid: %s",
-                        con_info->session->shortID, con_info->session->userid);
-        writeLog(LOG_INFO, errStr, 0);
-
-      } else {
-        snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "SX");  // Save failed
-        sprintf(errStr, "[S: %03d] Failed to save send port settings, uid: %s",
-                        con_info->session->shortID, con_info->session->userid);
-        writeLog(LOG_WARNING, errStr, 0);
-
-      }      
-
-    } else if (strcmp(key, "webTimeout") == 0 ) {
-      if (updatePasswdFile(con_info->session->userid, key, NULL, atoi(data)) == 0) {    
-        con_info->session->webTimeout = atoi(data);
-        snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "OK");  // Save OK
-        sprintf(errStr, "[S: %03d] Listen port settings saved OK, uid: %s",
-                        con_info->session->shortID, con_info->session->userid);
-        writeLog(LOG_INFO, errStr, 0);
-
-      } else {
-        snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "SX");  // Save failed
-        sprintf(errStr, "[S: %03d] Failed to save send port settings, uid: %s",
-                        con_info->session->shortID, con_info->session->userid);
-        writeLog(LOG_WARNING, errStr, 0);
-
-      }
     }
 
   } else {
@@ -1496,6 +1614,7 @@ static enum MHD_Result iteratePost(void *coninfo_cls, enum MHD_ValueKind kind,
     return(MHD_NO);
 
   }
+
   return(MHD_YES);
 }
 
@@ -1809,6 +1928,7 @@ static enum MHD_Result answerToConnection(void *cls, struct MHD_Connection *conn
     }
   }
 
+  // TODO - does get resp queue hit this?!?
   // We should never get here, but left as a catch all
   return(sendPage(session, connection, method, errorPage, NULL, url));
 }

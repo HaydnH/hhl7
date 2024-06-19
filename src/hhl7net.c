@@ -392,6 +392,10 @@ int sendPacket(char *sIP, char *sPort, char *hl7Msg, char *resStr, int msgCount,
     sprintf(errStr, "Sending HL7 message %d to server", msgCount);
     writeLog(LOG_INFO, errStr, 1);
 
+    // Set the default response code to EE
+    if (resStr != NULL) sprintf(resStr, "%s", "EE");
+
+    // Connect to the target server
     sockfd = connectSvr(sIP, sPort);
     if (sockfd >= 0) { 
       // Add MLLP wrapper to this message
@@ -399,7 +403,6 @@ int sendPacket(char *sIP, char *sPort, char *hl7Msg, char *resStr, int msgCount,
 
       // Send the message to the server
       if (send(sockfd, hl7Msg, strlen(hl7Msg), 0) == -1) {
-        if (resStr != NULL) sprintf(resStr, "%s", "EE");
         handleError(LOG_ERR, "Could not send data packet to server", -1, 0, 1);
         return(-1);
 
