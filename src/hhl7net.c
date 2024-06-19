@@ -293,7 +293,6 @@ int listenACK(int sockfd, char *res, int aTimeout) {
   char ackBuf[512] = "", app[12] = "", code[7] = "", aCode[3] = "", errStr[46] = "";
   int recvL = 0, ackT = 3;
 
-  // TODO - allo timeout setting from command line
   // Get the timeout from global config if it exists
   if (aTimeout > 0 && aTimeout <= 60) {
     ackT = aTimeout;

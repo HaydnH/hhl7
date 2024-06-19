@@ -1493,7 +1493,7 @@ static int handlePOST_changePwd(struct connection_info_struct *con_info,
 }
 
 
-// TODO - move legacy style iterations to newer json object POSTs
+// iteratePost - called by libmicrohttpd daemon when it receives a POST
 static enum MHD_Result iteratePost(void *coninfo_cls, enum MHD_ValueKind kind,
               const char *key, const char *filename, const char *content_type,
               const char *transfer_encoding, const char *data, uint64_t off, size_t size) {
