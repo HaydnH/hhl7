@@ -1256,6 +1256,14 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
             preCaretRange.setEnd(range.endContainer, range.endOffset);\n\
             caretPos = preCaretRange.toString().length;\n\
           }\n\
+        } else if (document.caretRangeFromPoint) {\n\
+          const range = document.caretRangeFromPoint(event.clientX, event.clientY);\n\
+          if (range) {\n\
+            const preCaretRange = range.cloneRange();\n\
+            preCaretRange.selectNodeContents(eDiv);\n\
+            preCaretRange.setEnd(range.endContainer, range.endOffset);\n\
+            caretPos = preCaretRange.toString().length;\n\
+          }\n\
         }\n\
         return caretPos;\n\
       }\n\
