@@ -365,9 +365,28 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         line-height: 38px;\n\
         background-color: #142248;\n\
         color: #fff;\n\
-        text-align: right;\n\
-        padding: 0px 20px;\n\
         font-size: 14px;\n\
+      }\n\
+      #clickLoc {\n\
+        float: left;\n\
+        width: 3%;\n\
+        padding: 0px 20px;\n\
+        white-space: nowrap;\n\
+      }\n\
+      #moveLoc {\n\
+        float: left;\n\
+        width: 3%;\n\
+        padding: 0px 20px;\n\
+        white-space: nowrap;\n\
+      }\n\
+      #copyright {\n\
+        position: fixed;\n\
+        bottom: 0;\n\
+        right: 0;\n\
+        height: 36px;\n\
+        line-height: 38px;\n\
+        padding: 0px 20px;\n\
+        text-align: right;\n\
       }\n\
       .popDim {\n\
         display: none;\n\
@@ -1221,6 +1240,51 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
           tForm.style.display = \"none\";\n\
         } else {\n\
           tForm.style.display = \"flex\";\n\
+        }\n\
+      }\n\
+\n\
+      function getCaretPos(eDiv, event) {\n\
+        let caretPos = 0;\n\
+        if (document.caretPositionFromPoint) {\n\
+          const pos = document.caretPositionFromPoint(event.clientX, event.clientY);\n\
+          if (pos) {\n\
+            const range = document.createRange();\n\
+            range.setStart(pos.offsetNode, pos.offset);\n\
+            range.setEnd(pos.offsetNode, pos.offset);\n\
+            const preCaretRange = range.cloneRange();\n\
+            preCaretRange.selectNodeContents(eDiv);\n\
+            preCaretRange.setEnd(range.endContainer, range.endOffset);\n\
+            caretPos = preCaretRange.toString().length;\n\
+          }\n\
+        }\n\
+        return caretPos;\n\
+      }\n\
+\n\
+      function updateLoc(event) {\n\
+        var locDiv = document.getElementById(\"moveLoc\");\n\
+        if (event.type == \"click\") locDiv = document.getElementById(\"clickLoc\");\n\
+        const eDiv = event.target;\n\
+        const caretPos = getCaretPos(eDiv, event);\n\
+        const textContent = eDiv.innerText;\n\
+        const rows = textContent.split(\"\\n\");\n\
+        let charCount = 0;\n\
+        let row = 0, col = 0;\n\
+\n\
+        for (row = 0; row <= rows.length; row++) {\n\
+          if (charCount + rows[row].length < caretPos) {\n\
+            charCount += rows[row].length;\n\
+          } else {\n\
+            break;\n\
+          }\n\
+        }\n\
+\n\
+        const rText = rows[row].slice(0, caretPos - charCount);\n\
+        if (rText[3] == \"|\") {\n\
+          const seg = rText.slice(0, 3);\n\
+          col = rText.split(\"|\").length;\n\
+          if (seg != \"MSH\") col--;\n\
+          if (event.type == \"click\") locDiv.innerText = seg + \"-\" + col;\n\
+          if (event.type == \"mousemove\") locDiv.innerText = \"(\" + seg + \"-\" + col + \")\";\n\
         }\n\
       }\n\
 \n\
@@ -2153,7 +2217,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         <div id=\"contContainer\">\n\
           <div id=\"respContainer\"></div>\n\
           <div id=\"hl7Container\">\n\
-            <div id=\"hl7Message\" class=\"hl7Message\" contenteditable=\"true\" onFocus=\"clrHl7Help();\" onInput=\"clrRes();\" onkeyup=\"updateResps(event);\" onpaste=\"updateResps();\">Paste/type HL7 message here or use a template above.</div>\n\
+            <div id=\"hl7Message\" class=\"hl7Message\" contenteditable=\"true\" onFocus=\"clrHl7Help();\" onInput=\"clrRes();\" onkeyup=\"updateResps(event);\" onpaste=\"updateResps();\" onClick=\"updateLoc(event);\" onMouseMove=\"updateLoc(event);\">Paste/type HL7 message here or use a template above.</div>\n\
           </div>\n\
         </div>\n\
         <div id=\"tempDesc\"></div>\n\
@@ -2191,7 +2255,11 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
       </div>\n\
     </div>\n\
 \n\
-    <div id=\"footer\">&copy; Haydn Haines</div>\n\
+    <div id=\"footer\">\n\
+      <div id=\"clickLoc\">-----</div>\n\
+      <div id=\"moveLoc\">(-----)</div>\n\
+      <div id=\"copyright\">&copy; Haydn Haines</div>\n\
+    </div>\n\
 \n\
     <!-- login window -->\n\
     <div id=\"loginDim\" class=\"popDim\">\n\
