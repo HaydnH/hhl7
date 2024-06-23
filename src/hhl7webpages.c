@@ -1315,7 +1315,8 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
 \n\
         var hl7Spans = document.getElementsByClassName(id + \"_HL7\");\n\
         for (var i = 0; i < hl7Spans.length; ++i) {\n\
-          hl7Spans[i].innerHTML = val.replace(/\\|/g, \"\\\\F\\\\\").replace(/\\~/g, \"\\\\R\\\\\").replace(/\\^/g, \"\\\\S\\\\\").replace(/\\&/g, \"\\\\T\\\\\");\n\
+          // hl7Spans[i].innerHTML = val.replace(/\\|/g, \"\\\\F\\\\\").replace(/\\~/g, \"\\\\R\\\\\").replace(/\\^/g, \"\\\\S\\\\\").replace(/\\&/g, \"\\\\T\\\\\");\n\
+          hl7Spans[i].innerHTML = val.replace(/\\|/g, \"\\\\F\\\\\").replace(/\\^/g, \"\\\\S\\\\\").replace(/\\&/g, \"\\\\T\\\\\");\n\
         }\n\
       }\n\
 \n\

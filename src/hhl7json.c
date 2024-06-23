@@ -228,6 +228,7 @@ static void addVar2WebForm(char **webForm, int *webFormS, struct json_object *fi
   } else {
     if (txtBoxObj && newLineObj) {
       if (textBox == 1 && strlen(nlStr) > 0) {
+
         if (escObj) {
           sprintf(*webForm + strlen(*webForm), "%s%s%s%s%s%s%s%s%s%s%s%s",
                                               wStr11, nStr, wStr14, nlStr, wStr15, escStr,
