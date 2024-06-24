@@ -1699,9 +1699,9 @@ static enum MHD_Result logout(struct Session *session, struct MHD_Connection *co
   enum MHD_Result ret;
   struct MHD_Response *response;
   char errStr[300] = "";
-  session->sessID[0] = '\0';
 
-  cleanSession(session);
+  session->aStatus = -1;
+  session->sessID[0] = '\0';
 
   response = MHD_create_response_from_buffer(2, "LO", MHD_RESPMEM_PERSISTENT);
 
