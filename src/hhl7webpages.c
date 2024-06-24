@@ -234,6 +234,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
       }\n\
       #tempFormBox {\n\
         box-sizing: border-box;\n\
+        font-family: \"Courier New\", Courier, monospace;\n\
         display: none;\n\
         width: 100%;\n\
         height: 119px;\n\
@@ -295,20 +296,20 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         height: 26px;\n\
       }\n\
       #contContainer {\n\
-        display: flex;\n\
-        flex-direction: row;\n\
         height: 100%;\n\
         width: 100%;\n\
         overflow-y: scroll;\n\
       }\n\
       #respContainer {\n\
+        float: left;\n\
         position: relative;\n\
         width: 54px;\n\
+        height: 100%;\n\
         background-color: #eaeffe;\n\
+        margin-right: 14px;\n\
       }\n\
       #hl7Container {\n\
         height: 100%;\n\
-        width: 100%;\n\
       }\n\
       .hl7Message {\n\
         height: 95%;\n\
