@@ -746,10 +746,12 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         login.style.display = \"block\";\n\
         if (uname.value.length > 4) {\n\
           pword.focus();\n\
+          pword.selectionStart = pword.selectionEnd = pword.value.length;\n\
         } else {\n\
           uname.focus();\n\
+          uname.selectionStart = uname.selectionEnd = uname.value.length;\n\
         }\n\
-        uname.selectionStart = uname.selectionEnd = uname.value.length;\n\
+        validLogin();\n\
       }\n\
 \n\
       function switchLogin() {\n\
