@@ -317,6 +317,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         font-weight: 500;\n\
         padding: 14px 14px;\n\
         outline: none;\n\
+        white-space: nowrap;\n\
       }\n\
       .hl7MsgResp {\n\
         position: absolute;\n\

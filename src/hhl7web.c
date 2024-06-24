@@ -587,7 +587,7 @@ int descAlphasort(const struct dirent **a, const struct dirent **b) {
 }
 
 
-// TODO - getTemplateList crashes if \s are not escaped, e.g: "escape":"\R\"
+// TODO - Templates for textbox type need escapes e.g: "\R\" --> "\\\\R\\\\" - improve?
 // Get a list of template files and return them as a set of <select> <option>s
 static enum MHD_Result getTemplateList(struct Session *session,
                                        struct MHD_Connection *connection,
