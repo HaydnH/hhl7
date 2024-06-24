@@ -1701,6 +1701,8 @@ static enum MHD_Result logout(struct Session *session, struct MHD_Connection *co
   char errStr[300] = "";
   session->sessID[0] = '\0';
 
+  cleanSession(session);
+
   response = MHD_create_response_from_buffer(2, "LO", MHD_RESPMEM_PERSISTENT);
 
   if (!response) return(MHD_NO);
