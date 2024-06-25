@@ -1543,7 +1543,6 @@ static enum MHD_Result iteratePost(void *coninfo_cls, enum MHD_ValueKind kind,
       if (strcmp(json_object_get_string(postObj), "login") == 0 ||
           strcmp(json_object_get_string(postObj), "register") == 0) {
 
-printf("login?\n");
         if (handlePOST_login(con_info, rootObj, postObj) > 0) return(MHD_YES);
 
       } else {
