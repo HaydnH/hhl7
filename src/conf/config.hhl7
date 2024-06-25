@@ -3,8 +3,8 @@
     "logLevel"    : 6,           "desc":"Log level, 0-7, see syslog.h for levels",
 
   "SECTION": "Web security settings",     
-    "wKey" : "/home/haydn/hhl7/src/certs/server.key", "desc":"HTTPS key file",
-    "wCrt" : "/home/haydn/hhl7/src/certs/server.pem", "desc":"HTTPS pem file",
+    "wKey" : "/usr/local/hhl7/certs/server.key", "desc":"HTTPS key file",
+    "wCrt" : "/usr/local/hhl7/certs/server.pem", "desc":"HTTPS pem file",
 
   "SECTION": "Web settings",
     "Note":"The port for the web daemon is configured by the systemd socket config",

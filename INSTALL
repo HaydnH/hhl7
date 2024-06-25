@@ -1,4 +1,4 @@
-These instructions are based on a fresh Ubuntu 24.04 or 22.04 build. For older OSs (e.g: Ubuntu 20.04), you will need to compile a newer version of libmicrohttpd, more information provided below.
+These instructions are based on a fresh Ubuntu 24.04 or 22.04 build. For older OSs (e.g: Ubuntu 20.04), you will need to compile a newer version of libmicrohttpd with a --prefix and add a "-wl rpath" to the gcc line inside the makefile, however that is out of scope of thisinstall document.
 
 1) Download git and clone the repository:
 -----------------------------------------
@@ -8,8 +8,8 @@ These instructions are based on a fresh Ubuntu 24.04 or 22.04 build. For older O
   # git clone https://github.com/HaydnH/hhl7
 
 
-2) Install make and gcc:
-------------------------
+2) Install make and gcc (if required):
+--------------------------------------
 
   # sudo apt install make gcc
 
@@ -41,7 +41,7 @@ NOTE: At this point the binary ./hhl7 exist and can be used for CLI usage and te
   # sudo make install
 
 
-7) If you wish to run the web service on a port other than 5376, edit systemd config. NOTE: This is currently require after every "make install":
+7) If you wish to run the web service on a port other than 5376, edit systemd config. NOTE: This is currently required after every "make install":
 
   # sudo vi /lib/systemd/system/hhl7.socket
 
@@ -75,7 +75,7 @@ NOTE: At this point the binary ./hhl7 exist and can be used for CLI usage and te
   # sudo systemctl restart rsyslog
   # sudo systemctl restart logrotate
 
-  NOTE: If your system uses apparmour, this will likely block rsyslog from writing to the log file. This can be fixed interactively with (ignore all errors until hhl7.log and the allow/save):
+  NOTE: If your system uses apparmour, this will likely block rsyslog from writing to the log file. This can be fixed interactively (ignore all errors until hhl7.log and the allow/save):
 
   # sudo apt install apparmor-utils
   # sudo aa-logprof -f /var/log/syslog
