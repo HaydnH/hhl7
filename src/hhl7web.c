@@ -782,6 +782,14 @@ static enum MHD_Result getTempForm(struct Session *session,
   sprintf(fileName, "%s%s", tPath, url);
 
   fp = openFile(fileName, "r");
+  if (fp == NULL) {
+      free(webForm);
+      free(webHL7);
+      free(jsonReply);
+      json_object_put(rootObj);
+      return(MHD_NO);
+  }
+
   int fSize = getFileSize(fileName); 
   char *jsonMsg = malloc(fSize + 1);
 
@@ -1535,6 +1543,7 @@ static enum MHD_Result iteratePost(void *coninfo_cls, enum MHD_ValueKind kind,
       if (strcmp(json_object_get_string(postObj), "login") == 0 ||
           strcmp(json_object_get_string(postObj), "register") == 0) {
 
+printf("login?\n");
         if (handlePOST_login(con_info, rootObj, postObj) > 0) return(MHD_YES);
 
       } else {
@@ -1789,6 +1798,7 @@ static enum MHD_Result answerToConnection(void *cls, struct MHD_Connection *conn
       return(getImage(session, connection, url));
 
     } else if (strstr(url, "/templates/")) {
+      if (session->aStatus != 1) return(requestLogin(session, connection, url));
       return(getTempForm(session, connection, url));
 
     } else if (strstr(url, "/getTemplateList")) {
