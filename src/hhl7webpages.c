@@ -751,7 +751,6 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
           uname.focus();\n\
           uname.selectionStart = uname.selectionEnd = uname.value.length;\n\
         }\n\
-        validLogin();\n\
       }\n\
 \n\
       function switchLogin() {\n\
@@ -772,19 +771,9 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
         validLogin();\n\
       }\n\
 \n\
-      var logPostFunc = function(event) { postCreds(event); };\n\
+      var logPostFunc = function(event) { postCreds(); };\n\
       var logSubmitFunc = function(event) {\n\
-        var usr = document.getElementById(\"uname\");\n\
-        var pwd = document.getElementById(\"pword\");\n\
-        var cpw = document.getElementById(\"confPword\");\n\
-        var sub = document.getElementById(\"submit\");\n\
-\n\
-        sub.removeEventListener(\"click\", logPostFunc);\n\
-        usr.removeEventListener(\"keyup\", logSubmitFunc);\n\
-        pwd.removeEventListener(\"keyup\", logSubmitFunc);\n\
-        cpw.removeEventListener(\"keyup\", logSubmitFunc);\n\
-\n\
-        if (event.key === \"Enter\") postCreds(event);\n\
+        if (event.key === \"Enter\") postCreds();\n\
       }\n\
 \n\
       function validLogin(evt) {\n\
@@ -1438,6 +1427,7 @@ const char *mainPage = "<!DOCTYPE HTML>\n\
             if (logInput.matches(':autofill')) {\n\
               var sub = document.getElementById(\"submit\");\n\
               sub.classList.replace(\"buttonInactive\", \"button\");\n\
+              validLogin();\n\
             }\n\
           }, 250);\n\
         }\n\
