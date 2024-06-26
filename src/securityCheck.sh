@@ -1,6 +1,5 @@
 #!/bin/bash
 
-# Change me!!
 BASEURL='https://localhost:5376'
 CURLCMD='curl -k --silent --output /dev/null --write-out %{http_code}'
 
