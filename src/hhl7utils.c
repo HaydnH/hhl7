@@ -147,8 +147,9 @@ void getRand(int lower, int upper, int dp, char *res, int *resInt, float *resF) 
   // Return the final result to the correct DPs
   if (dp == 0) {
     *resInt = (int) tmpF;
-
-  } else {
+    if (res) sprintf(res, "%d", *resInt);
+    if (resF) *resF = tmpF;
+  }  else {
     sprintf(res, "%.*f", dp, tmpF);
     *resF = tmpF;
   }

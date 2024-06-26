@@ -356,7 +356,7 @@ static int parseVals(char ***hl7Msg, int *hl7MsgS, char *vStr, char *nStr, char 
     if (str != NULL) {
       const int st = atoi(json_object_get_string(str)) - 1;
       if (st < 0 || st > 9) {
-        handleError(LOG_ERR, "Template store number < 0 or > 10", 1, 0, 1);
+        handleError(LOG_ERR, "Template store number < 0 or > 9", 1, 0, 1);
         return(1);
 
       } else {
@@ -472,7 +472,7 @@ static int parseVals(char ***hl7Msg, int *hl7MsgS, char *vStr, char *nStr, char 
 
   // Retrieve a value from the random number store
   } else if (strncmp(vStr, "$STR", 4) == 0) {
-    if (varLen == 4) {
+    if (varLen != 5) {
       handleError(LOG_ERR, "No numeric value found after $STR in JSON template", 1, 0, 1);
       return(1);
     }
