@@ -11,6 +11,7 @@ You should have received a copy of the GNU General Public License along with hhl
 */
 
 // Function prototypes
+void printChars(char *buf);
 void openLog();
 void closeLog();
 void writeLog(int logLvl, char *logStr, int stdErr);

@@ -1875,6 +1875,7 @@ static enum MHD_Result answerToConnection(void *cls, struct MHD_Connection *conn
           snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "TP"); // Teapot
 
         } else {
+          unix2hl7(con_info->poststring);
           rc = splitPacket(con_info->session->sIP, con_info->session->sPort,
                            con_info->poststring, resStr, &resList, 0, 0,
                            con_info->session->ackTimeout);

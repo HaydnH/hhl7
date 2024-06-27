@@ -27,12 +27,14 @@ You should have received a copy of the GNU General Public License along with hhl
 // DEBUG function to show ascii character codes in a buffer, useful for seeing hidden chars
 /*
 void printChars(char *buf) {
-  for (long unsigned int c =0; c < strlen(buf); c++) {
-    printf("%d\n", (int) buf[c]);
+  char ch = 32;
+  for (long unsigned int c = 0; c < strlen(buf); c++) {
+    ch = 32;
+    if (buf[c] > 32 && buf[c] < 127) ch = buf[c];
+    printf("%d (%c)\n", (int) buf[c], ch);
   }
 }
 */
-
 
 // Open log file for reading, wrapper for syslog openlog()
 void openLog() {

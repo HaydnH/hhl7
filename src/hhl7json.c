@@ -441,6 +441,7 @@ static int parseVals(char ***hl7Msg, int *hl7MsgS, char *vStr, char *nStr, char 
       sprintf(dataFName, "/usr/local/hhl7/datafiles/%s", json_object_get_string(dataFile));
       fp = openFile(dataFName, "r"); 
 
+      // TODO - check this - doesn't catch the error?
       if (fp == NULL) { 
         handleError(LOG_WARNING, "Could not open datafile from JSON template", 1, 0, 1);
         return(1);
@@ -685,7 +686,9 @@ static void endJSONSeg(char **hl7Msg, int *hl7MsgS, int isWeb, int eType) {
   if (reqS > *hl7MsgS) *hl7Msg = dblBuf(*hl7Msg, hl7MsgS, reqS);
 
   if (isWeb == 1) {
-    if (eType == 2) {
+    if (eType == 3) {
+      sprintf(*hl7Msg + strlen(*hl7Msg), "%c", '|');
+    } else if (eType == 2) {
       sprintf(*hl7Msg + strlen(*hl7Msg), "%s", "</div><div><br /></div>");
     } else if (eType == 1) {
       sprintf(*hl7Msg + strlen(*hl7Msg), "%s", "</div><div><br /></div><div>");
