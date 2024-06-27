@@ -36,6 +36,7 @@ void printChars(char *buf) {
 }
 */
 
+
 // Open log file for reading, wrapper for syslog openlog()
 void openLog() {
   int logLevel = 6; // Default log level is LOG_INFO (6, see syslog.h)
