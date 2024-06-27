@@ -816,7 +816,7 @@ static enum MHD_Result getTempForm(struct Session *session,
     escapeSlash(tmpBuf, webHL7);
 
     // Construct the JSON reply
-    jsonReply = realloc(jsonReply, strlen(webForm) + strlen(webHL7) + strlen(descStr) + 65);
+    jsonReply = realloc(jsonReply, strlen(webForm) + strlen(webHL7) + strlen(descStr) + 165);
     if (jsonReply == NULL) {
       handleError(LOG_ERR, "Failed to allocate memory when creating temp form", 1, 0, 1);
       fclose(fp);
@@ -1536,6 +1536,7 @@ static enum MHD_Result iteratePost(void *coninfo_cls, enum MHD_ValueKind kind,
 
       if (json_object_get_type(postObj) != json_type_string) {
         writeLog(LOG_ERR, "POST received a non-string value for postFunc", 0);
+        json_object_put(rootObj);
         return(MHD_NO);
       }
 
@@ -1543,13 +1544,12 @@ static enum MHD_Result iteratePost(void *coninfo_cls, enum MHD_ValueKind kind,
       if (strcmp(json_object_get_string(postObj), "login") == 0 ||
           strcmp(json_object_get_string(postObj), "register") == 0) {
 
-        if (handlePOST_login(con_info, rootObj, postObj) > 0) return(MHD_YES);
+        handlePOST_login(con_info, rootObj, postObj);
 
       } else {
         // All other POSTs must be authenticated
         if (con_info->session->aStatus < 1) { 
           snprintf(con_info->answerstring, MAXANSWERSIZE, "%s", "L0");  // Require login
-          return(MHD_YES);
         }
 
         if (strcmp(json_object_get_string(postObj), "procRespond") == 0) {
@@ -1562,20 +1562,21 @@ static enum MHD_Result iteratePost(void *coninfo_cls, enum MHD_ValueKind kind,
           }
 
         } else if (strcmp(json_object_get_string(postObj), "changeSends") == 0) {
-          if (handlePOST_Sends(con_info, rootObj) > 0) return(MHD_YES);
+          handlePOST_Sends(con_info, rootObj);
 
         } else if (strcmp(json_object_get_string(postObj), "changeLists") == 0) {      
-          if (handlePOST_Lists(con_info, rootObj) > 0) return(MHD_YES);
+          handlePOST_Lists(con_info, rootObj);
 
         } else if (strcmp(json_object_get_string(postObj), "changeAcks") == 0) {
-          if (handlePOST_Acks(con_info, rootObj) > 0) return(MHD_YES);
+          handlePOST_Acks(con_info, rootObj);
 
         } else if (strcmp(json_object_get_string(postObj), "changePwd") == 0) {
-          if (handlePOST_changePwd(con_info, rootObj) > 0) return(MHD_YES);
+          handlePOST_changePwd(con_info, rootObj);
 
         }
       }
       json_object_put(rootObj);
+      return(MHD_YES);
     }
 
     // Security check, ALL non-JSON posts require being authed
