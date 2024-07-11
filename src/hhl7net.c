@@ -625,6 +625,7 @@ int sendACK(int sessfd, char *hl7msg, int resType, char *ackList) {
     writeLog(LOG_INFO, errStr, 1);
   }
 
+  close(sessfd);
   return(writeL);
 }
 
