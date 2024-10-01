@@ -3,6 +3,7 @@ CFLAGS   = -O3 -Wall   # Live
 #CFLAGS   = -Wall -Wextra -Wno-overlength-strings -Wpedantic -g3  # Debug
 #CFLAGS   = -O3 -Wall -Wextra -Wno-overlength-strings -Wpedantic -g3  # Devel & Debug
 #CFLAGS   = -O3 -Wall -Wextra -fsanitize=undefined,address -g3        # UBSan/Asan
+#CFLAGS   = -O3 -Wall -Wextra -fsanitize=thread -g3        # TSAN
 INCDIR   = -I/usr/include/json-c -I/usr/include/microhttpd -I/usr/include/openssl -I/usr/include/systemd/sd-daemon
 
 HHL7USER = hhl7
@@ -12,6 +13,7 @@ MANDIR   = /usr/share/man/man1
 LIBDIR   = 
 LIBS     = -lm -ljson-c -lmicrohttpd -lssl -lcrypto -lsystemd
 #LIBS     = -lasan -lm -ljson-c -lmicrohttpd -lssl -lcrypto -lsystemd -lubsan   # UBSan
+#LIBS     = -ltsan -lm -ljson-c -lmicrohttpd -lssl -lcrypto -lsystemd  # TSan
 OBJS     = hhl7webpages.o hhl7web.o hhl7auth.o hhl7net.o hhl7utils.o hhl7json.o hhl7.o
 BIN      = hhl7
 MAN      = man/hhl7.1

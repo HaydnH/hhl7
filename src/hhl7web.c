@@ -1878,7 +1878,7 @@ static enum MHD_Result answerToConnection(void *cls, struct MHD_Connection *conn
           unix2hl7(con_info->poststring);
           rc = splitPacket(con_info->session->sIP, con_info->session->sPort,
                            con_info->poststring, resStr, &resList, 0, 0,
-                           con_info->session->ackTimeout);
+                           con_info->session->ackTimeout, 0);
 
           if (rc >= 0) {
             sprintf(errStr, "[S: %03d][%s] Sent %ld byte packet to: %s:%s",

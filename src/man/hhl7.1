@@ -131,6 +131,11 @@ Listen for incoming HL7 messages and compare them against the \(aqmatches\(aq se
 Timout to wait when listening for an ACK response to a sent message. Valid range 1 - 60 seconds. (Default: 4).
 .RE
 .sp
+\fB\-K\fP
+.RS 4
+When hhl7 receives an ACK message, print it to STDOUT. The normal behaviour is to print out the ACK code (AA, AE etc) only. This currently does not apply to the autoresponder.
+.RE
+.sp 
 \fB\-n\fP <integer>
 .RS 4
 Repeat sending the same template and arguments multiple times. This is intended for stress testing purposes and offers no options for altering arguments with each iteration. For real world usage requiring different template argument\(aqs, multiple messages may be combined in a single template. Alternatively a shell script can be used to generate a list of commands/arguments.

@@ -13,14 +13,14 @@ You should have received a copy of the GNU General Public License along with hhl
 // Function Prototypes
 int validPort(char *port);
 int connectSvr(char *ip, char *port);
-int listenACK(int sockfd, char *res, int aTimeout);
-void sendFile(char *sIP, char *sPort, FILE *fp, long int fileSize, int aTimeout);
+int listenACK(int sockfd, char *res, int aTimeout, int pACK);
+void sendFile(char *sIP, char *sPort, FILE *fp, long int fileSize, int aTimeout, int pACK);
 int sendPacket(char *sIP, char *sPort, char *hl7msg, char *resStr, int msgCount,
-               int noSend, int fShowTemplate, int aTimeout);
+               int noSend, int fShowTemplate, int aTimeout, int pACK);
 int splitPacket(char *sIP, char *sPort, char *hl7Msg, char *resStr, char **resList,
-                int noSend, int fShowTemplate, int aTimeout);
+                int noSend, int fShowTemplate, int aTimeout, int pACK);
 void sendTemp(char *sIP, char *sPort, char *tName, int noSend, int fShowTemplate,
-              int optind, int argc, char *argv[], char *resStr, int aTimeout);
+              int optind, int argc, char *argv[], char *resStr, int aTimeout, int pACK);
 int sendACK(int sessfd, char *hl7msg, int resType, char *ackList);
 int listenServer(char *port, int isWeb);
 int startMsgListener(char *lIP, const char *lPort, char *sIP, char *sPort, int argc,

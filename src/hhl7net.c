@@ -171,7 +171,7 @@ static int processResponses(int fd, int aTimeout) {
       // Send the response to the server
       writeLog(LOG_DEBUG, "Response queue processing, response sent", 0);
       sendTemp(resp->sIP, resp->sPort, resp->tName, 0, 0, 0, resp->argc,
-               resp->sendArgs, resStr, aTimeout);
+               resp->sendArgs, resStr, aTimeout, 0);
 
       resp->sent = 1;
       sprintf(resp->resCode, "%s", resStr);
@@ -289,7 +289,7 @@ int connectSvr(char *ip, char *port) {
 
 
 // Listen for ACK from server
-int listenACK(int sockfd, char *res, int aTimeout) {
+int listenACK(int sockfd, char *res, int aTimeout, int pACK) {
   char ackBuf[512] = "", app[12] = "", code[7] = "", aCode[3] = "", errStr[46] = "";
   int recvL = 0, ackT = 3;
 
@@ -344,6 +344,8 @@ int listenACK(int sockfd, char *res, int aTimeout) {
     sprintf(errStr, "Server ACK response: %s %s (%s)", app, code, aCode);
     writeLog(LOG_INFO, errStr, 1);
 
+    if (pACK == 1) hl72unix(ackBuf, 1);
+
     if (res) {
       aCode[2] = '\0';
       strcpy(res, aCode);
@@ -354,7 +356,8 @@ int listenACK(int sockfd, char *res, int aTimeout) {
 
 
 // Send a file over socket
-void sendFile(char *sIP, char *sPort, FILE *fp, long int fileSize, int aTimeout) {
+void sendFile(char *sIP, char *sPort, FILE *fp, long int fileSize,
+              int aTimeout, int pACK) {
   char fileData[fileSize + 4];
   char resStr[3] = "";
 
@@ -371,12 +374,12 @@ void sendFile(char *sIP, char *sPort, FILE *fp, long int fileSize, int aTimeout)
 
   // Send the data file to the server
   unix2hl7(fileData);
-  sendPacket(sIP, sPort, fileData, resStr, 0, 0, 0, aTimeout);
+  sendPacket(sIP, sPort, fileData, resStr, 0, 0, 0, aTimeout, pACK);
 }
 
 // Send a single HL7 message over a socket
 int sendPacket(char *sIP, char *sPort, char *hl7Msg, char *resStr, int msgCount,
-                  int noSend, int fShowTemplate, int aTimeout) {
+                  int noSend, int fShowTemplate, int aTimeout, int pACK) {
 
   int sockfd = -1, retVal = 0;
   char errStr[43] = "";
@@ -406,7 +409,7 @@ int sendPacket(char *sIP, char *sPort, char *hl7Msg, char *resStr, int msgCount,
         return(-1);
 
       } else {
-        retVal = listenACK(sockfd, resStr, aTimeout);
+        retVal = listenACK(sockfd, resStr, aTimeout, pACK);
 
       }
 
@@ -423,7 +426,7 @@ int sendPacket(char *sIP, char *sPort, char *hl7Msg, char *resStr, int msgCount,
 
 // Split a packet in to individual messages
 int splitPacket(char *sIP, char *sPort, char *hl7Msg, char *resStr, char **resList,
-                int noSend, int fShowTemplate, int aTimeout) {
+                int noSend, int fShowTemplate, int aTimeout, int pACK) {
 
   char *curMsg = hl7Msg, *nextMsg = NULL;
   char newMsgStr[6] = "MSH|^";
@@ -435,7 +438,7 @@ int splitPacket(char *sIP, char *sPort, char *hl7Msg, char *resStr, char **resLi
   if (nextMsg == NULL) {
     msgCount++;
     rv = sendPacket(sIP, sPort, hl7Msg, resStr, msgCount, noSend,
-                       fShowTemplate, aTimeout);
+                       fShowTemplate, aTimeout, pACK);
 
     if (resList != NULL) strcat(*resList, resStr);
 
@@ -453,7 +456,7 @@ int splitPacket(char *sIP, char *sPort, char *hl7Msg, char *resStr, char **resLi
 
       // TODO - take the worst return code!
       rv = sendPacket(sIP, sPort, singleMsg, resStr, msgCount, noSend,
-                         fShowTemplate, 0);
+                         fShowTemplate, 0, pACK);
 
       if (fShowTemplate == 1) printf("\n");
 
@@ -488,7 +491,7 @@ int splitPacket(char *sIP, char *sPort, char *hl7Msg, char *resStr, char **resLi
 
 // Send a json template
 void sendTemp(char *sIP, char *sPort, char *tName, int noSend, int fShowTemplate,
-              int optind, int argc, char *argv[], char *resStr, int aTimeout) {
+              int optind, int argc, char *argv[], char *resStr, int aTimeout, int pACK) {
 
   FILE *fp;
   int retVal = 0;
@@ -524,7 +527,7 @@ void sendTemp(char *sIP, char *sPort, char *tName, int noSend, int fShowTemplate
 
   } else {
     writeLog(LOG_DEBUG, "JSON Template parsed OK", 0);
-    splitPacket(sIP, sPort, hl7Msg, resStr, NULL, noSend, fShowTemplate, aTimeout);
+    splitPacket(sIP, sPort, hl7Msg, resStr, NULL, noSend, fShowTemplate, aTimeout, pACK);
 
   }
 
@@ -612,7 +615,7 @@ int sendACK(int sessfd, char *hl7msg, int resType, char *ackList) {
   if (resType > 0) getResCode(resType, ackList, resCodeP);
 
   sprintf(ackBuf, "%c%s%s%s%s%s%s%s%s%s%c%c", 0x0B, "MSH|^~\\&|||||", dt, "||ACK|", cid,
-                                              "|P|2.4|\rMSA|", resCodeP, "|", cid, "|OK|",
+                                              "|P|2.4\rMSA|", resCodeP, "|", cid, "|OK\r",
                                               0x1C, 0x0D);
 
   if ((writeL = write(sessfd, ackBuf, strlen(ackBuf))) == -1) {
@@ -754,7 +757,7 @@ static struct Response *checkResponse(char *msg, char *sIP, char *sPort,
   // If min and max times are 0, send immediately
   if (minT == 0 && maxT == 0) {
     sendTemp(sIP, sPort, (char *) json_object_get_string(sendT), 0, 0, 0,
-             mCount, resp->sendArgs, resStr, aTimeout);
+             mCount, resp->sendArgs, resStr, aTimeout, 0);
     resp->sent = 1;
     sprintf(resp->resCode, "%s", resStr);
 
