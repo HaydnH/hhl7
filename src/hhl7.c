@@ -193,11 +193,7 @@ static void cleanShutdown() {
     writeLog(LOG_INFO, "Received signal, politely shutting down", 1);
   }
   if (webRunning == 1) cleanAllSessions();
-  if (globalConfig != NULL) {
-    free(globalConfig);
-    globalConfig = NULL;
-  }
-  exit(0);
+  _exit(0);
 }
 
 
