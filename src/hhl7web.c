@@ -1120,7 +1120,7 @@ static int startListenWeb(struct Session *session, struct MHD_Connection *connec
       exit(0);
     }
 
-    rc = startMsgListener("127.0.0.1", session->lPort, session->sIP, session->sPort,
+    rc = startMsgListener(globalConfig->lIP, session->lPort, session->sIP, session->sPort,
                           argc, 0, argv, 0, NULL, session->ackTimeout);
     if (rc < 0) {
       stopListenWeb(session, connection, url);
